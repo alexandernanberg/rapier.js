@@ -11,24 +11,24 @@
         "test": "cargo test && wasm-pack test --headless"
     },
     "dependencies": {
-        "@dimforge/rapier2d": "^0.9.0",
-        "lil-gui": "^0.17.0",
-        "md5": "^2.3.0",
-        "pixi-viewport": "^4.37.0",
-        "pixi.js": "^6.3.2",
-        "seedrandom": "^3.0.5",
-        "stats.js": "^0.17.0"
+        "@dimforge/rapier2d": "0.10.0",
+        "lil-gui": "0.17.0",
+        "md5": "2.3.0",
+        "pixi-viewport": "4.38.0",
+        "pixi.js": "6.5.8",
+        "seedrandom": "3.0.5",
+        "stats.js": "0.17.0"
     },
     "devDependencies": {
-        "@types/md5": "^2.3.2",
-        "@types/seedrandom": "^3.0.2",
-        "@types/stats.js": "^0.17.0",
-        "copy-webpack-plugin": "^11.0.0",
-        "rimraf": "^3.0.2",
-        "ts-loader": "^9.4.1",
-        "typescript": "^4.8.4",
-        "webpack": "^5.74.0",
-        "webpack-cli": "^4.10.0",
-        "webpack-dev-server": "^4.11.1"
+        "@types/md5": "2.3.2",
+        "@types/seedrandom": "3.0.3",
+        "@types/stats.js": "0.17.0",
+        "copy-webpack-plugin": "11.0.0",
+        "rimraf": "3.0.2",
+        "ts-loader": "9.4.2",
+        "typescript": "4.9.4",
+        "webpack": "5.75.0",
+        "webpack-cli": "5.0.1",
+        "webpack-dev-server": "4.11.1"
     }
 }
