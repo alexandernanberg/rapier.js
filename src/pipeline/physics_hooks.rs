@@ -30,12 +30,13 @@ impl<R, C> PhysicsHooks<R, C> for RawPhysicsHooks {
 
         let result = self
             .filter_contact_pair
-            .bind2(
+            .call4(
                 &self.this,
                 &JsValue::from(ctxt.collider1.into_raw_parts().0),
                 &JsValue::from(ctxt.collider2.into_raw_parts().0),
+                &rb1,
+                &rb2,
             )
-            .call2(&self.this, &rb1, &rb2)
             .ok()?;
         let flags = result.as_f64()?;
         // TODO: not sure exactly why we have to do `flags as u32` instead
@@ -54,12 +55,13 @@ impl<R, C> PhysicsHooks<R, C> for RawPhysicsHooks {
             .unwrap_or(JsValue::NULL);
 
         self.filter_intersection_pair
-            .bind2(
+            .call4(
                 &self.this,
                 &JsValue::from(ctxt.collider1.into_raw_parts().0),
                 &JsValue::from(ctxt.collider2.into_raw_parts().0),
+                &rb1,
+                &rb2,
             )
-            .call2(&self.this, &rb1, &rb2)
             .ok()
             .and_then(|res| res.as_bool())
             .unwrap_or(false)

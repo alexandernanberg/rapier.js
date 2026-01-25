@@ -97,9 +97,12 @@ impl RawEventQueue {
             let h2 = event.collider2.into_raw_parts().0 as u32;
             let intersecting = event.intersecting;
 
-            let _ = f
-                .bind2(&this, &JsValue::from(h1), &JsValue::from(h2))
-                .call1(&this, &JsValue::from(intersecting));
+            let _ = f.call3(
+                &this,
+                &JsValue::from(h1),
+                &JsValue::from(h2),
+                &JsValue::from(intersecting),
+            );
         }
     }
 
