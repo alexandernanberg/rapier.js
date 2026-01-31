@@ -27,7 +27,7 @@
     },
     "devDependencies": {
         "prettier": "2.7.1",
-        "typedoc": "0.23.19",
+        "typedoc": "0.28.16",
         "typescript": "5.7.3",
         "wasm-pack": "0.14.0"
     }

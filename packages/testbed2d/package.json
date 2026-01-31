@@ -21,10 +21,10 @@
         "stats.js": "^0.17.0"
     },
     "devDependencies": {
-        "@types/seedrandom": "^3.0.2",
-        "@types/stats.js": "^0.17.0",
+        "@types/seedrandom": "^3.0.8",
+        "@types/stats.js": "^0.17.4",
         "typescript": "^5.9.3",
-        "vite": "^7.0.0",
-        "vite-plugin-wasm": "^3.4.1"
+        "vite": "^7.3.1",
+        "vite-plugin-wasm": "^3.5.0"
     }
 }
