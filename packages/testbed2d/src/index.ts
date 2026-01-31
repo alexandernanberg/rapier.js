@@ -26,6 +26,6 @@ import("@alexandernanberg/rapier-2d/compat").then(async (RAPIER) => {
         ["polyline", Polyline.initWorld],
         ["voxels", Voxels.initWorld],
     ]);
-    let testbed = new Testbed(RAPIER, builders);
+    let testbed = await Testbed.create(RAPIER, builders);
     testbed.run();
 });

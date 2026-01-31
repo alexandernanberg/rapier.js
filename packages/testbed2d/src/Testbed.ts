@@ -59,18 +59,27 @@ export class Testbed {
     snap: Uint8Array;
     snapStepId: number;
 
-    constructor(RAPIER: RAPIER_API, builders: Builders) {
+    static async create(RAPIER: RAPIER_API, builders: Builders): Promise<Testbed> {
+        const testbed = new Testbed(RAPIER, builders);
+        await testbed.initGraphics();
+        testbed.switchToDemo(builders.keys().next().value);
+        return testbed;
+    }
+
+    private async initGraphics() {
+        this.graphics = await Graphics.create();
+    }
+
+    private constructor(RAPIER: RAPIER_API, builders: Builders) {
         let backends = ["rapier"];
         this.RAPIER = RAPIER;
         let parameters = new SimulationParameters(backends, builders);
         this.gui = new Gui(this, parameters);
-        this.graphics = new Graphics();
         this.inhibitLookAt = false;
         this.parameters = parameters;
         this.demoToken = 0;
         this.mouse = {x: 0, y: 0};
         this.events = new RAPIER.EventQueue(true);
-        this.switchToDemo(builders.keys().next().value);
 
         window.addEventListener("mousemove", (event) => {
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
