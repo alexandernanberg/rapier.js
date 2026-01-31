@@ -94,7 +94,6 @@ export class RigidBody {
         return this.rawSet.rbLockRotations(this.handle, locked, wakeUp);
     }
 
-    // #if DIM2
     /**
      * Locks or unlocks the ability of this rigid-body to translation along individual coordinate axes.
      *
@@ -117,8 +116,6 @@ export class RigidBody {
     public restrictTranslations(enableX: boolean, enableY: boolean, wakeUp: boolean) {
         this.setEnabledTranslations(enableX, enableX, wakeUp);
     }
-
-    // #endif
 
     /**
      * The dominance group, in [-127, +127] this rigid-body is part of.
@@ -241,9 +238,7 @@ export class RigidBody {
      *                 wasn't moving before modifying its position.
      */
     public setTranslation(tra: Vector, wakeUp: boolean) {
-        // #if DIM2
         this.rawSet.rbSetTranslation(this.handle, tra.x, tra.y, wakeUp);
-        // #endif
     }
 
     /**
@@ -278,7 +273,6 @@ export class RigidBody {
         this.rawSet.rbSetGravityScale(this.handle, factor, wakeUp);
     }
 
-    // #if DIM2
     /**
      * Sets the rotation angle of this rigid-body.
      *
@@ -300,8 +294,6 @@ export class RigidBody {
         this.rawSet.rbSetAngvel(this.handle, vel, wakeUp);
     }
 
-    // #endif
-
     /**
      * If this rigid body is kinematic, sets its future translation after the next timestep integration.
      *
@@ -314,12 +306,9 @@ export class RigidBody {
      * @param t - The kinematic translation to set.
      */
     public setNextKinematicTranslation(t: Vector) {
-        // #if DIM2
         this.rawSet.rbSetNextKinematicTranslation(this.handle, t.x, t.y);
-        // #endif
     }
 
-    // #if DIM2
     /**
      * If this rigid body is kinematic, sets its future rotation after the next timestep integration.
      *
@@ -334,8 +323,6 @@ export class RigidBody {
     public setNextKinematicRotation(angle: number) {
         this.rawSet.rbSetNextKinematicRotation(this.handle, angle);
     }
-
-    // #endif
 
     /**
      * The linear velocity of this rigid-body.
@@ -357,15 +344,12 @@ export class RigidBody {
         return result;
     }
 
-    // #if DIM2
     /**
      * The angular velocity of this rigid-body.
      */
     public angvel(): number {
         return this.rawSet.rbAngvel(this.handle);
     }
-
-    // #endif
 
     /**
      * The mass of this rigid-body.
@@ -410,7 +394,6 @@ export class RigidBody {
         return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
-    // #if DIM2
     /**
      * The inverse of the principal angular inertia of the rigid-body.
      *
@@ -420,9 +403,6 @@ export class RigidBody {
         return this.rawSet.rbInvPrincipalInertia(this.handle);
     }
 
-    // #endif
-
-    // #if DIM2
     /**
      * The angular inertia along the principal inertia axes of the rigid-body.
      */
@@ -430,9 +410,6 @@ export class RigidBody {
         return this.rawSet.rbPrincipalInertia(this.handle);
     }
 
-    // #endif
-
-    // #if DIM2
     /**
      * The world-space inverse angular inertia tensor of the rigid-body,
      * taking into account rotation locking.
@@ -441,9 +418,6 @@ export class RigidBody {
         return this.rawSet.rbEffectiveWorldInvInertia(this.handle);
     }
 
-    // #endif
-
-    // #if DIM2
     /**
      * The effective world-space angular inertia (that takes the potential rotation locking into account) of
      * this rigid-body.
@@ -451,8 +425,6 @@ export class RigidBody {
     public effectiveAngularInertia(): number {
         return this.rawSet.rbEffectiveAngularInertia(this.handle);
     }
-
-    // #endif
 
     /**
      * Put this rigid body to sleep.
@@ -620,7 +592,6 @@ export class RigidBody {
         this.rawSet.rbSetAdditionalMass(this.handle, mass, wakeUp);
     }
 
-    // #if DIM2
     /**
      * Sets the rigid-body's additional mass-properties.
      *
@@ -653,8 +624,6 @@ export class RigidBody {
         );
         rawCom.free();
     }
-
-    // #endif
 
     /**
      * Sets the linear damping factor applied to this rigid-body.
@@ -707,7 +676,6 @@ export class RigidBody {
         rawImpulse.free();
     }
 
-    // #if DIM2
     /**
      * Adds a torque at the center-of-mass of this rigid-body.
      *
@@ -718,9 +686,6 @@ export class RigidBody {
         this.rawSet.rbAddTorque(this.handle, torque, wakeUp);
     }
 
-    // #endif
-
-    // #if DIM2
     /**
      * Applies an impulsive torque at the center-of-mass of this rigid-body.
      *
@@ -730,8 +695,6 @@ export class RigidBody {
     public applyTorqueImpulse(torqueImpulse: number, wakeUp: boolean) {
         this.rawSet.rbApplyTorqueImpulse(this.handle, torqueImpulse, wakeUp);
     }
-
-    // #endif
 
     /**
      * Adds a force at the given world-space point of this rigid-body.
@@ -771,7 +734,6 @@ export class RigidBody {
         return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle));
     }
 
-    // #if DIM2
     /**
      * Retrieves the constant torque(s) the user added to this rigid-body
      * Returns zero if the rigid-body is not dynamic.
@@ -779,7 +741,6 @@ export class RigidBody {
     public userTorque(): number {
         return this.rawSet.rbUserTorque(this.handle);
     }
-    // #endif
 }
 
 export class RigidBodyDesc {
@@ -793,11 +754,9 @@ export class RigidBodyDesc {
     translationsEnabledX: boolean;
     translationsEnabledY: boolean;
     linvel: Vector;
-    // #if DIM2
     angvel: number;
     principalAngularInertia: number;
     rotationsEnabled: boolean;
-    // #endif
     linearDamping: number;
     angularDamping: number;
     status: RigidBodyType;
@@ -821,11 +780,9 @@ export class RigidBodyDesc {
         this.centerOfMass = VectorOps.zeros();
         this.translationsEnabledX = true;
         this.translationsEnabledY = true;
-        // #if DIM2
         this.angvel = 0.0;
         this.principalAngularInertia = 0.0;
         this.rotationsEnabled = true;
-        // #endif
         this.linearDamping = 0.0;
         this.angularDamping = 0.0;
         this.canSleep = true;
@@ -930,7 +887,6 @@ export class RigidBodyDesc {
         return this;
     }
 
-    // #if DIM2
     /**
      * Sets the initial translation of the rigid-body to create.
      */
@@ -942,17 +898,13 @@ export class RigidBodyDesc {
         return this;
     }
 
-    // #endif
-
     /**
      * Sets the initial rotation of the rigid-body to create.
      *
      * @param rot - The rotation to set.
      */
     public setRotation(rot: Rotation): RigidBodyDesc {
-        // #if DIM2
         this.rotation = rot;
-        // #endif
         return this;
     }
 
@@ -979,7 +931,6 @@ export class RigidBodyDesc {
         return this;
     }
 
-    // #if DIM2
     /**
      * Sets the initial linear velocity of the rigid-body to create.
      *
@@ -1075,8 +1026,6 @@ export class RigidBodyDesc {
         this.rotationsEnabled = false;
         return this;
     }
-
-    // #endif
 
     /**
      * Sets the linear damping of the rigid-body to create.

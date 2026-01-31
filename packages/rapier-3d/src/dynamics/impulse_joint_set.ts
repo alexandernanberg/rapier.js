@@ -9,9 +9,7 @@ import {
     JointData,
     JointType,
     PrismaticImpulseJoint,
-    // #if DIM3
     SphericalImpulseJoint,
-    // #endif
 } from "./impulse_joint";
 import {IslandManager} from "./island_manager";
 import {RigidBodyHandle} from "./rigid_body";

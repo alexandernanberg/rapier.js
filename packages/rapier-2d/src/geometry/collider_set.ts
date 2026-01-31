@@ -91,9 +91,7 @@ export class ColliderSet {
             desc.massPropsMode,
             desc.mass,
             rawCom,
-            // #if DIM2
             desc.principalAngularInertia,
-            // #endif
             desc.density,
             desc.friction,
             desc.restitution,

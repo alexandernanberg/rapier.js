@@ -23,10 +23,8 @@ import {
     RoundCuboid,
     HalfSpace,
     TriMeshFlags,
-    // #if DIM2
     ConvexPolygon,
     RoundConvexPolygon,
-    // #endif
 } from "./shape";
 import {ColliderShapeCastHit, ShapeCastHit} from "./toi";
 
@@ -438,7 +436,6 @@ export class Collider {
         this.colliderSet.raw.coSetMass(this.handle, mass);
     }
 
-    // #if DIM2
     /**
      * Sets the mass of this collider.
      *
@@ -457,17 +454,13 @@ export class Collider {
         rawCom.free();
     }
 
-    // #endif
-
     /**
      * Sets the translation of this collider.
      *
      * @param tra - The world-space position of the collider.
      */
     public setTranslation(tra: Vector) {
-        // #if DIM2
         this.colliderSet.raw.coSetTranslation(this.handle, tra.x, tra.y);
-        // #endif
     }
 
     /**
@@ -478,12 +471,9 @@ export class Collider {
      * @param tra - The new translation of the collider relative to its parent.
      */
     public setTranslationWrtParent(tra: Vector) {
-        // #if DIM2
         this.colliderSet.raw.coSetTranslationWrtParent(this.handle, tra.x, tra.y);
-        // #endif
     }
 
-    // #if DIM2
     /**
      * Sets the rotation angle of this collider.
      *
@@ -503,8 +493,6 @@ export class Collider {
     public setRotationWrtParent(angle: number) {
         this.colliderSet.raw.coSetRotationWrtParent(this.handle, angle);
     }
-
-    // #endif
 
     /**
      * The type of the shape of this collider.
@@ -1036,10 +1024,8 @@ export class ColliderDesc {
     massPropsMode: MassPropsMode;
     mass: number;
     centerOfMass: Vector;
-    // #if DIM2
     principalAngularInertia: number;
     rotationsEnabled: boolean;
-    // #endif
     density: number;
     friction: number;
     restitution: number;
@@ -1083,10 +1069,8 @@ export class ColliderDesc {
         this.contactForceEventThreshold = 0.0;
         this.contactSkin = 0.0;
 
-        // #if DIM2
         this.principalAngularInertia = 0.0;
         this.rotationsEnabled = true;
-        // #endif
     }
 
     /**
@@ -1196,7 +1180,6 @@ export class ColliderDesc {
         return new ColliderDesc(shape);
     }
 
-    // #if DIM2
     /**
      * Creates a new collider descriptor with a rectangular shape.
      *
@@ -1291,9 +1274,6 @@ export class ColliderDesc {
         return new ColliderDesc(shape);
     }
 
-    // #endif
-
-    // #if DIM2
     /**
      * Sets the position of the collider to be created relative to the rigid-body it is attached to.
      */
@@ -1305,17 +1285,13 @@ export class ColliderDesc {
         return this;
     }
 
-    // #endif
-
     /**
      * Sets the rotation of the collider to be created relative to the rigid-body it is attached to.
      *
      * @param rot - The rotation of the collider to be created relative to the rigid-body it is attached to.
      */
     public setRotation(rot: Rotation): ColliderDesc {
-        // #if DIM2
         this.rotation = rot;
-        // #endif
         return this;
     }
 
@@ -1384,7 +1360,6 @@ export class ColliderDesc {
         return this;
     }
 
-    // #if DIM2
     /**
      * Sets the mass properties of the collider being built.
      *
@@ -1406,8 +1381,6 @@ export class ColliderDesc {
         this.principalAngularInertia = principalAngularInertia;
         return this;
     }
-
-    // #endif
 
     /**
      * Sets the restitution coefficient of the collider to be created.

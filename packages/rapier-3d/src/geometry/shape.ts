@@ -34,17 +34,13 @@ export abstract class Shape {
             case RawShapeType.Cuboid:
                 extents = rawSet.coHalfExtents(handle);
 
-                // #if DIM3
                 return new Cuboid(extents.x, extents.y, extents.z);
-            // #endif
 
             case RawShapeType.RoundCuboid:
                 extents = rawSet.coHalfExtents(handle);
                 borderRadius = rawSet.coRoundRadius(handle);
 
-                // #if DIM3
                 return new RoundCuboid(extents.x, extents.y, extents.z, borderRadius);
-            // #endif
 
             case RawShapeType.Capsule:
                 halfHeight = rawSet.coHalfHeight(handle);
@@ -53,12 +49,10 @@ export abstract class Shape {
             case RawShapeType.Segment:
                 vs = rawSet.coVertices(handle);
 
-                // #if DIM3
                 return new Segment(
                     VectorOps.new(vs[0], vs[1], vs[2]),
                     VectorOps.new(vs[3], vs[4], vs[5]),
                 );
-            // #endif
 
             case RawShapeType.Polyline:
                 vs = rawSet.coVertices(handle);
@@ -67,26 +61,22 @@ export abstract class Shape {
             case RawShapeType.Triangle:
                 vs = rawSet.coVertices(handle);
 
-                // #if DIM3
                 return new Triangle(
                     VectorOps.new(vs[0], vs[1], vs[2]),
                     VectorOps.new(vs[3], vs[4], vs[5]),
                     VectorOps.new(vs[6], vs[7], vs[8]),
                 );
-            // #endif
 
             case RawShapeType.RoundTriangle:
                 vs = rawSet.coVertices(handle);
                 borderRadius = rawSet.coRoundRadius(handle);
 
-                // #if DIM3
                 return new RoundTriangle(
                     VectorOps.new(vs[0], vs[1], vs[2]),
                     VectorOps.new(vs[3], vs[4], vs[5]),
                     VectorOps.new(vs[6], vs[7], vs[8]),
                     borderRadius,
                 );
-            // #endif
 
             case RawShapeType.HalfSpace:
                 normal = VectorOps.fromRaw(rawSet.coHalfspaceNormal(handle));
@@ -107,14 +97,11 @@ export abstract class Shape {
                 const scale = rawSet.coHeightfieldScale(handle);
                 const heights = rawSet.coHeightfieldHeights(handle);
 
-                // #if DIM3
                 const nrows = rawSet.coHeightfieldNRows(handle);
                 const ncols = rawSet.coHeightfieldNCols(handle);
                 const hf_flags = rawSet.coHeightFieldFlags(handle);
                 return new Heightfield(nrows, ncols, heights, scale, hf_flags);
-            // #endif
 
-            // #if DIM3
             case RawShapeType.ConvexPolyhedron:
                 vs = rawSet.coVertices(handle);
                 indices = rawSet.coIndices(handle);
@@ -142,7 +129,6 @@ export abstract class Shape {
                 radius = rawSet.coRadius(handle);
                 borderRadius = rawSet.coRoundRadius(handle);
                 return new RoundCone(halfHeight, radius, borderRadius);
-            // #endif
 
             default:
                 throw new Error("unknown shape type: " + rawType);
@@ -407,8 +393,6 @@ export abstract class Shape {
     }
 }
 
-// #if DIM3
-
 /**
  * An enumeration representing the type of a shape.
  */
@@ -449,8 +433,6 @@ export enum HeightFieldFlags {
      */
     FIX_INTERNAL_EDGES = 0b0000_0001,
 }
-
-// #endif
 
 // NOTE: this **must** match the TriMeshFlags on the rust side.
 /**
@@ -580,7 +562,6 @@ export class Cuboid extends Shape {
      */
     halfExtents: Vector;
 
-    // #if DIM3
     /**
      * Creates a new 3D cuboid.
      * @param hx - The half width of the cuboid.
@@ -592,12 +573,8 @@ export class Cuboid extends Shape {
         this.halfExtents = VectorOps.new(hx, hy, hz);
     }
 
-    // #endif
-
     public intoRaw(): RawShape {
-        // #if DIM3
         return RawShape.cuboid(this.halfExtents.x, this.halfExtents.y, this.halfExtents.z);
-        // #endif
     }
 }
 
@@ -617,7 +594,6 @@ export class RoundCuboid extends Shape {
      */
     borderRadius: number;
 
-    // #if DIM3
     /**
      * Creates a new 3D cuboid.
      * @param hx - The half width of the cuboid.
@@ -632,17 +608,13 @@ export class RoundCuboid extends Shape {
         this.borderRadius = borderRadius;
     }
 
-    // #endif
-
     public intoRaw(): RawShape {
-        // #if DIM3
         return RawShape.roundCuboid(
             this.halfExtents.x,
             this.halfExtents.y,
             this.halfExtents.z,
             this.borderRadius,
         );
-        // #endif
     }
 }
 
@@ -940,7 +912,6 @@ export class TriMesh extends Shape {
     }
 }
 
-// #if DIM3
 /**
  * A shape that is a convex polygon.
  */
@@ -1243,5 +1214,3 @@ export class RoundCone extends Shape {
         return RawShape.roundCone(this.halfHeight, this.radius, this.borderRadius);
     }
 }
-
-// #endif

@@ -1,4 +1,3 @@
-// #if DIM3
 import {Quaternion} from "../math";
 import {RawImpulseJointSet, RawJointAxis, RawJointType, RawMultibodyJointSet} from "../raw";
 import {
@@ -10,7 +9,6 @@ import {
     RevoluteImpulseJoint,
 } from "./impulse_joint";
 import {SphericalImpulseJoint} from "./impulse_joint";
-// #endif
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -37,10 +35,8 @@ export class MultibodyJoint {
                 return new PrismaticMultibodyJoint(rawSet, handle);
             case RawJointType.Fixed:
                 return new FixedMultibodyJoint(rawSet, handle);
-            // #if DIM3
             case RawJointType.Spherical:
                 return new SphericalMultibodyJoint(rawSet, handle);
-            // #endif
             default:
                 return new MultibodyJoint(rawSet, handle);
         }
@@ -75,7 +71,6 @@ export class MultibodyJoint {
     //     return this.rawSet.jointType(this.handle);
     // }
     //
-    // // #if DIM3
     // /**
     //  * The rotation quaternion that aligns this joint's first local axis to the `x` axis.
     //  */
@@ -83,9 +78,7 @@ export class MultibodyJoint {
     //     return RotationOps.fromRaw(this.rawSet.jointFrameX1(this.handle));
     // }
     //
-    // // #endif
     //
-    // // #if DIM3
     // /**
     //  * The rotation matrix that aligns this joint's second local axis to the `x` axis.
     //  */
@@ -93,7 +86,6 @@ export class MultibodyJoint {
     //     return RotationOps.fromRaw(this.rawSet.jointFrameX2(this.handle));
     // }
     //
-    // // #endif
     //
     // /**
     //  * The position of the first anchor of this joint.
@@ -190,7 +182,6 @@ export class RevoluteMultibodyJoint extends UnitMultibodyJoint {
     }
 }
 
-// #if DIM3
 export class SphericalMultibodyJoint extends MultibodyJoint {
     /* Unsupported by this alpha release.
     public configureMotorModel(model: MotorModel) {
@@ -213,4 +204,3 @@ export class SphericalMultibodyJoint extends MultibodyJoint {
     }
      */
 }
-// #endif

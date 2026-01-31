@@ -37,9 +37,7 @@ export class Ray {
         return {
             x: this.origin.x + this.dir.x * t,
             y: this.origin.y + this.dir.y * t,
-            // #if DIM3
             z: this.origin.z + this.dir.z * t,
-            // #endif
         };
     }
 }

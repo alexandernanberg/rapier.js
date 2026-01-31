@@ -9,9 +9,7 @@ import {
     RevoluteMultibodyJoint,
     FixedMultibodyJoint,
     PrismaticMultibodyJoint,
-    // #if DIM3
     SphericalMultibodyJoint,
-    // #endif
 } from "./multibody_joint";
 import {RigidBodyHandle} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";

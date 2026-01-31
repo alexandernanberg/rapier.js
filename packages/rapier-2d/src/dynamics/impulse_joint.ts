@@ -354,8 +354,6 @@ export class JointData {
         return res;
     }
 
-    // #if DIM2
-
     /**
      * Create a new joint descriptor that builds revolute joints.
      *
@@ -397,8 +395,6 @@ export class JointData {
         return res;
     }
 
-    // #endif
-
     public intoRaw(): RawGenericJoint {
         let rawA1 = VectorOps.intoRaw(this.anchor1);
         let rawA2 = VectorOps.intoRaw(this.anchor2);
@@ -437,7 +433,6 @@ export class JointData {
                     limitsMax = this.limits[1];
                 }
 
-                // #if DIM2
                 result = RawGenericJoint.prismatic(
                     rawA1,
                     rawA2,
@@ -446,15 +441,12 @@ export class JointData {
                     limitsMin,
                     limitsMax,
                 );
-                // #endif
 
                 rawAx.free();
                 break;
-            // #if DIM2
             case JointType.Revolute:
                 result = RawGenericJoint.revolute(rawA1, rawA2);
                 break;
-            // #endif
         }
 
         rawA1.free();
