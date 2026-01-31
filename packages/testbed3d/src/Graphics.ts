@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import {OrbitControls} from "three/examples/jsm/controls/OrbitControls";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import RAPIER from "@alexandernanberg/rapier-3d";
 
 const BOX_INSTANCE_INDEX = 0;
@@ -160,7 +160,9 @@ export class Graphics {
 
         let ambientLight = new THREE.AmbientLight(0x606060);
         this.scene.add(ambientLight);
-        this.light = new THREE.PointLight(0xffffff, 1, 1000);
+        // In Three.js r155+, decay defaults to 2 for physically correct lighting.
+        // Set decay to 0 to restore the old non-physically-correct behavior.
+        this.light = new THREE.PointLight(0xffffff, 1, 0, 0);
         this.scene.add(this.light);
 
         // For the debug-renderer.
@@ -285,7 +287,7 @@ export class Graphics {
     }
 
     rayAtMousePosition(pos: {x: number; y: number}) {
-        this.raycaster.setFromCamera(pos, this.camera);
+        this.raycaster.setFromCamera(new THREE.Vector2(pos.x, pos.y), this.camera);
         return this.raycaster.ray;
     }
 
