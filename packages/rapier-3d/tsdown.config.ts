@@ -1,6 +1,6 @@
-import { defineConfig } from "tsdown";
-import { copyFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {copyFileSync} from "node:fs";
+import {resolve} from "node:path";
+import {defineConfig} from "tsdown";
 
 const common = {
     format: ["esm"] as ["esm"],
@@ -14,22 +14,19 @@ const common = {
 export default defineConfig([
     {
         ...common,
-        entry: { rapier: "./src/rapier.ts" },
+        entry: {rapier: "./src/rapier.ts"},
         clean: true,
         onSuccess: () => {
-            copyFileSync(
-                "./wasm/release/rapier_wasm_3d_bg.wasm",
-                "./dist/rapier_wasm_3d_bg.wasm",
-            );
+            copyFileSync("./wasm/release/rapier_wasm_3d_bg.wasm", "./dist/rapier_wasm_3d_bg.wasm");
         },
     },
     {
         ...common,
-        entry: { compat: "./src/rapier-compat.ts" },
+        entry: {compat: "./src/rapier-compat.ts"},
     },
     {
         ...common,
-        entry: { simd: "./src/rapier-simd.ts" },
+        entry: {simd: "./src/rapier-simd.ts"},
         alias: {
             [resolve("./src/raw")]: resolve("./src/raw-simd"),
         },
@@ -42,7 +39,7 @@ export default defineConfig([
     },
     {
         ...common,
-        entry: { "compat-simd": "./src/rapier-compat-simd.ts" },
+        entry: {"compat-simd": "./src/rapier-compat-simd.ts"},
         alias: {
             [resolve("./src/raw")]: resolve("./src/raw-simd"),
         },

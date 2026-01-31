@@ -1,15 +1,15 @@
-import {RawBroadPhase, RawRayColliderIntersection} from "../raw";
 import {RigidBodyHandle, RigidBodySet} from "../dynamics";
-import {ColliderSet} from "./collider_set";
-import {Ray, RayColliderHit, RayColliderIntersection} from "./ray";
-import {InteractionGroups} from "./interaction_groups";
-import {ColliderHandle} from "./collider";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {Shape} from "./shape";
-import {PointColliderProjection} from "./point";
-import {ColliderShapeCastHit} from "./toi";
 import {QueryFilterFlags} from "../pipeline";
+import {RawBroadPhase, RawRayColliderIntersection} from "../raw";
+import {ColliderHandle} from "./collider";
+import {ColliderSet} from "./collider_set";
+import {InteractionGroups} from "./interaction_groups";
 import {NarrowPhase} from "./narrow_phase";
+import {PointColliderProjection} from "./point";
+import {Ray, RayColliderHit, RayColliderIntersection} from "./ray";
+import {Shape} from "./shape";
+import {ColliderShapeCastHit} from "./toi";
 
 /**
  * The broad-phase used for coarse collision-detection.
@@ -169,9 +169,7 @@ export class BroadPhase {
         let rawOrig = VectorOps.intoRaw(ray.origin);
         let rawDir = VectorOps.intoRaw(ray.dir);
         let rawCallback = (rawInter: RawRayColliderIntersection) => {
-            return callback(
-                RayColliderIntersection.fromRaw(colliders, rawInter),
-            );
+            return callback(RayColliderIntersection.fromRaw(colliders, rawInter));
         };
 
         this.raw.intersectionsWithRay(

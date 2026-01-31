@@ -28,12 +28,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let bodyDesc = RAPIER.RigidBodyDesc.fixed();
     let body = world.createRigidBody(bodyDesc);
     let heights = generateHeightfield(nsubdivs);
-    let colliderDesc = RAPIER.ColliderDesc.heightfield(
-        nsubdivs,
-        nsubdivs,
-        heights,
-        scale,
-    );
+    let colliderDesc = RAPIER.ColliderDesc.heightfield(nsubdivs, nsubdivs, heights, scale);
     world.createCollider(colliderDesc, body);
 
     // Dynamic cubes.
@@ -55,41 +50,25 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 let z = k * shift + offset;
 
                 // Create dynamic cube.
-                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(
-                    x,
-                    y,
-                    z,
-                );
+                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
                 let body = world.createRigidBody(bodyDesc);
                 let colliderDesc;
 
                 switch (j % 5) {
                     case 0:
-                        colliderDesc = RAPIER.ColliderDesc.cuboid(
-                            rad,
-                            rad,
-                            rad,
-                        );
+                        colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad, rad);
                         break;
                     case 1:
                         colliderDesc = RAPIER.ColliderDesc.ball(rad);
                         break;
                     case 2:
-                        colliderDesc = RAPIER.ColliderDesc.roundCylinder(
-                            rad,
-                            rad,
-                            rad / 10.0,
-                        );
+                        colliderDesc = RAPIER.ColliderDesc.roundCylinder(rad, rad, rad / 10.0);
                         break;
                     case 3:
                         colliderDesc = RAPIER.ColliderDesc.cone(rad, rad);
                         break;
                     case 4:
-                        colliderDesc = RAPIER.ColliderDesc.cuboid(
-                            rad / 2.0,
-                            rad / 2.0,
-                            rad / 2.0,
-                        );
+                        colliderDesc = RAPIER.ColliderDesc.cuboid(rad / 2.0, rad / 2.0, rad / 2.0);
                         world.createCollider(colliderDesc, body);
                         colliderDesc = RAPIER.ColliderDesc.cuboid(
                             rad / 2.0,

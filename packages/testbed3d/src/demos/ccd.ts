@@ -19,15 +19,10 @@ function createWall(
         for (j = i; j < stackHeight; ++j) {
             let x = offset.x;
             let y = i * shiftY + offset.y;
-            let z =
-                (i * shiftZ) / 2.0 + (j - i) * shiftZ + offset.z - stackHeight;
+            let z = (i * shiftZ) / 2.0 + (j - i) * shiftZ + offset.z - stackHeight;
 
             // Create dynamic cube.
-            let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(
-                x,
-                y,
-                z,
-            );
+            let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
             let body = world.createRigidBody(bodyDesc);
             let colliderDesc = RAPIER.ColliderDesc.cuboid(0.5, 0.5, 1.0);
             world.createCollider(colliderDesc, body);

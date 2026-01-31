@@ -1,6 +1,8 @@
-import {RawMultibodyJointSet} from "../raw";
 import {Coarena} from "../coarena";
-import {RigidBodySet} from "./rigid_body_set";
+import {ColliderHandle} from "../geometry";
+import {RawMultibodyJointSet} from "../raw";
+import {ImpulseJointHandle, JointData, JointType} from "./impulse_joint";
+import {IslandManager} from "./island_manager";
 import {
     MultibodyJoint,
     MultibodyJointHandle,
@@ -8,10 +10,8 @@ import {
     FixedMultibodyJoint,
     PrismaticMultibodyJoint,
 } from "./multibody_joint";
-import {ImpulseJointHandle, JointData, JointType} from "./impulse_joint";
-import {IslandManager} from "./island_manager";
-import {ColliderHandle} from "../geometry";
 import {RigidBodyHandle} from "./rigid_body";
+import {RigidBodySet} from "./rigid_body_set";
 
 /**
  * A set of joints.
@@ -64,12 +64,7 @@ export class MultibodyJointSet {
         wakeUp: boolean,
     ): MultibodyJoint {
         const rawParams = desc.intoRaw();
-        const handle = this.raw.createJoint(
-            rawParams,
-            parent1,
-            parent2,
-            wakeUp,
-        );
+        const handle = this.raw.createJoint(rawParams, parent1, parent2, wakeUp);
         rawParams.free();
         let joint = MultibodyJoint.newTyped(this.raw, handle);
         this.map.set(handle, joint);

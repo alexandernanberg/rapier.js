@@ -28,35 +28,23 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 let z = (i * shift) / 2.0 + (j - i) * shift - center;
 
                 // Create dynamic cube.
-                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(
-                    x,
-                    y,
-                    z,
-                );
+                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
                 let body = world.createRigidBody(bodyDesc);
-                let colliderDesc = RAPIER.ColliderDesc.cuboid(
-                    rad,
-                    rad / 2.0,
-                    rad,
-                );
+                let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad / 2.0, rad);
                 world.createCollider(colliderDesc, body);
             }
         }
     }
 
     // Character.
-    let characterDesc =
-        RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(
-            -10.0,
-            4.0,
-            -10.0,
-        );
+    let characterDesc = RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(
+        -10.0,
+        4.0,
+        -10.0,
+    );
     let character = world.createRigidBody(characterDesc);
     let characterColliderDesc = RAPIER.ColliderDesc.cylinder(1.2, 0.6);
-    let characterCollider = world.createCollider(
-        characterColliderDesc,
-        character,
-    );
+    let characterCollider = world.createCollider(characterColliderDesc, character);
 
     let characterController = world.createCharacterController(0.1);
     characterController.enableAutostep(0.7, 0.3, true);
@@ -66,10 +54,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let movementDirection = {x: 0.0, y: -speed, z: 0.0};
 
     let updateCharacter = () => {
-        characterController.computeColliderMovement(
-            characterCollider,
-            movementDirection,
-        );
+        characterController.computeColliderMovement(characterCollider, movementDirection);
 
         let movement = characterController.computedMovement();
         let newPos = character.translation();

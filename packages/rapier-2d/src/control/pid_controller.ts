@@ -1,8 +1,8 @@
-import {RawPidController} from "../raw";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {Collider, ColliderSet, InteractionGroups, Shape} from "../geometry";
-import {QueryFilterFlags, World} from "../pipeline";
 import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
+import {Collider, ColliderSet, InteractionGroups, Shape} from "../geometry";
+import {Rotation, RotationOps, Vector, VectorOps} from "../math";
+import {QueryFilterFlags, World} from "../pipeline";
+import {RawPidController} from "../raw";
 
 // TODO: unify with the JointAxesMask
 /**
@@ -85,11 +85,7 @@ export class PidController {
         this.raw.reset_integrals();
     }
 
-    public applyLinearCorrection(
-        body: RigidBody,
-        targetPosition: Vector,
-        targetLinvel: Vector,
-    ) {
+    public applyLinearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector) {
         let rawPos = VectorOps.intoRaw(targetPosition);
         let rawVel = VectorOps.intoRaw(targetLinvel);
         this.raw.apply_linear_correction(
@@ -104,11 +100,7 @@ export class PidController {
     }
 
     // #if DIM2
-    public applyAngularCorrection(
-        body: RigidBody,
-        targetRotation: number,
-        targetAngVel: number,
-    ) {
+    public applyAngularCorrection(body: RigidBody, targetRotation: number, targetAngVel: number) {
         this.raw.apply_angular_correction(
             this.params.dt,
             this.bodies.raw,
@@ -119,12 +111,7 @@ export class PidController {
     }
     // #endif
 
-
-    public linearCorrection(
-        body: RigidBody,
-        targetPosition: Vector,
-        targetLinvel: Vector,
-    ): Vector {
+    public linearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector): Vector {
         let rawPos = VectorOps.intoRaw(targetPosition);
         let rawVel = VectorOps.intoRaw(targetLinvel);
         let correction = this.raw.linear_correction(
@@ -155,5 +142,4 @@ export class PidController {
         );
     }
     // #endif
-
 }

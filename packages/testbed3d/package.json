@@ -1,11 +1,11 @@
 {
-    "author": "sebcrozet <developer@crozet.re>",
     "name": "rapier-testbed3d",
     "version": "0.1.0",
-    "type": "module",
     "private": true,
     "description": "JavaScript testbed for rapier.",
     "license": "Apache-2.0",
+    "author": "sebcrozet <developer@crozet.re>",
+    "type": "module",
     "scripts": {
         "dev": "vite",
         "build": "vite build",

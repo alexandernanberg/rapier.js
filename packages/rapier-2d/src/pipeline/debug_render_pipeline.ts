@@ -1,5 +1,3 @@
-import {RawDebugRenderPipeline} from "../raw";
-import {Vector, VectorOps} from "../math";
 import {
     IntegrationParameters,
     IslandManager,
@@ -8,6 +6,8 @@ import {
     RigidBodySet,
 } from "../dynamics";
 import {BroadPhase, Collider, ColliderSet, NarrowPhase} from "../geometry";
+import {Vector, VectorOps} from "../math";
+import {RawDebugRenderPipeline} from "../raw";
 import {QueryFilterFlags} from "./query_pipeline";
 
 /**

@@ -28,17 +28,9 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 let z = (i * shift) / 2.0 + (j - i) * shift - center;
 
                 // Create dynamic cube.
-                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(
-                    x,
-                    y,
-                    z,
-                );
+                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
                 let body = world.createRigidBody(bodyDesc);
-                let colliderDesc = RAPIER.ColliderDesc.cuboid(
-                    rad,
-                    rad / 2.0,
-                    rad,
-                );
+                let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad / 2.0, rad);
                 world.createCollider(colliderDesc, body);
             }
         }
@@ -53,12 +45,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let characterColliderDesc = RAPIER.ColliderDesc.cylinder(1.2, 0.6);
     world.createCollider(characterColliderDesc, character);
 
-    let pidController = world.createPidController(
-        60.0,
-        0.0,
-        1.0,
-        RAPIER.PidAxesMask.AllAng,
-    );
+    let pidController = world.createPidController(60.0, 0.0, 1.0, RAPIER.PidAxesMask.AllAng);
     let speed = 0.2;
     let movementDirection = {x: 0.0, y: 0.0, z: 0.0};
     let targetVelocity = {x: 0.0, y: 0.0, z: 0.0};
@@ -75,9 +62,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         } else if (movementDirection.y == 0.0) {
             // Don’t control the linear Y axis so the player can fall down due to gravity.
             pidController.setAxes(
-                RAPIER.PidAxesMask.AllAng |
-                    RAPIER.PidAxesMask.LinX |
-                    RAPIER.PidAxesMask.LinZ,
+                RAPIER.PidAxesMask.AllAng | RAPIER.PidAxesMask.LinX | RAPIER.PidAxesMask.LinZ,
             );
         } else {
             pidController.setAxes(RAPIER.PidAxesMask.All);
@@ -88,16 +73,8 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         targetPoint.y += movementDirection.y;
         targetPoint.z += movementDirection.z;
 
-        pidController.applyLinearCorrection(
-            character,
-            targetPoint,
-            targetVelocity,
-        );
-        pidController.applyAngularCorrection(
-            character,
-            targetRotation,
-            targetVelocity,
-        );
+        pidController.applyLinearCorrection(character, targetPoint, targetVelocity);
+        pidController.applyAngularCorrection(character, targetRotation, targetVelocity);
     };
 
     testbed.setWorld(world);

@@ -1,5 +1,5 @@
-import type {Testbed} from "../Testbed";
 import seedrandom from "seedrandom";
+import type {Testbed} from "../Testbed";
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");
 
@@ -47,10 +47,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let bodyDesc = RAPIER.RigidBodyDesc.fixed();
     let body = world.createRigidBody(bodyDesc);
     let trimesh = generateTriMesh(20, 40.0, 4.0, 40.0);
-    let colliderDesc = RAPIER.ColliderDesc.trimesh(
-        trimesh.vertices,
-        trimesh.indices,
-    );
+    let colliderDesc = RAPIER.ColliderDesc.trimesh(trimesh.vertices, trimesh.indices);
     world.createCollider(colliderDesc, body);
 
     /*
@@ -82,16 +79,9 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 let v = new Float32Array(vertices);
 
                 // Build the rigid body.
-                bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(
-                    x,
-                    y,
-                    z,
-                );
+                bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
                 body = world.createRigidBody(bodyDesc);
-                colliderDesc = RAPIER.ColliderDesc.roundConvexHull(
-                    v,
-                    border_rad,
-                );
+                colliderDesc = RAPIER.ColliderDesc.roundConvexHull(v, border_rad);
                 world.createCollider(colliderDesc, body);
             }
         }

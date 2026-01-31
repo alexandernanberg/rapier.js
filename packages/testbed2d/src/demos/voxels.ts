@@ -24,10 +24,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let bodyDesc = RAPIER.RigidBodyDesc.fixed();
     let body = world.createRigidBody(bodyDesc);
     let voxels = generateVoxels(100);
-    let colliderDesc = RAPIER.ColliderDesc.voxels(
-        voxels.points,
-        voxels.voxelSize,
-    );
+    let colliderDesc = RAPIER.ColliderDesc.voxels(voxels.points, voxels.voxelSize);
     world.createCollider(colliderDesc, body);
 
     // Dynamic cubes.
@@ -59,20 +56,17 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                     colliderDesc = RAPIER.ColliderDesc.ball(rad);
                     break;
                 case 2:
-                    colliderDesc = RAPIER.ColliderDesc.cuboid(
-                        rad / 2.0,
-                        rad / 2.0,
+                    colliderDesc = RAPIER.ColliderDesc.cuboid(rad / 2.0, rad / 2.0);
+                    world.createCollider(colliderDesc, body);
+                    colliderDesc = RAPIER.ColliderDesc.cuboid(rad / 2.0, rad).setTranslation(
+                        rad,
+                        0.0,
                     );
                     world.createCollider(colliderDesc, body);
-                    colliderDesc = RAPIER.ColliderDesc.cuboid(
-                        rad / 2.0,
-                        rad,
-                    ).setTranslation(rad, 0.0);
-                    world.createCollider(colliderDesc, body);
-                    colliderDesc = RAPIER.ColliderDesc.cuboid(
-                        rad / 2.0,
-                        rad,
-                    ).setTranslation(-rad, 0.0);
+                    colliderDesc = RAPIER.ColliderDesc.cuboid(rad / 2.0, rad).setTranslation(
+                        -rad,
+                        0.0,
+                    );
                     break;
             }
 

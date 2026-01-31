@@ -1,8 +1,8 @@
+import type * as RAPIER from "@alexandernanberg/rapier-2d";
+import {xxhash128} from "hash-wasm";
+import type {DebugInfos} from "./Gui";
 import {Graphics} from "./Graphics";
 import {Gui} from "./Gui";
-import type {DebugInfos} from "./Gui";
-import {xxhash128} from "hash-wasm";
-import type * as RAPIER from "@alexandernanberg/rapier-2d";
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier-2d");
 

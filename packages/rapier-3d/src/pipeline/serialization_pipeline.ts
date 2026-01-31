@@ -1,5 +1,3 @@
-import {RawSerializationPipeline} from "../raw";
-import {Vector, VectorOps} from "../math";
 import {
     IntegrationParameters,
     IslandManager,
@@ -8,6 +6,8 @@ import {
     RigidBodySet,
 } from "../dynamics";
 import {BroadPhase, ColliderSet, NarrowPhase} from "../geometry";
+import {Vector, VectorOps} from "../math";
+import {RawSerializationPipeline} from "../raw";
 import {World} from "./world";
 
 /**

@@ -1,13 +1,12 @@
-import {RawColliderSet} from "../raw";
+import {CoefficientCombineRule, RigidBody, RigidBodyHandle, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {
-    CoefficientCombineRule,
-    RigidBody,
-    RigidBodyHandle,
-    RigidBodySet,
-} from "../dynamics";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
+import {RawColliderSet} from "../raw";
+import {ColliderSet} from "./collider_set";
+import {ShapeContact} from "./contact";
 import {InteractionGroups} from "./interaction_groups";
+import {PointProjection} from "./point";
+import {Ray, RayIntersection} from "./ray";
 import {
     Shape,
     Cuboid,
@@ -34,11 +33,7 @@ import {
     HeightFieldFlags,
     // #endif
 } from "./shape";
-import {Ray, RayIntersection} from "./ray";
-import {PointProjection} from "./point";
 import {ColliderShapeCastHit, ShapeCastHit} from "./toi";
-import {ShapeContact} from "./contact";
-import {ColliderSet} from "./collider_set";
 
 /**
  * Flags affecting whether collision-detection happens between two colliders
@@ -126,15 +121,12 @@ export class Collider {
     /** @internal */
     public finalizeDeserialization(bodies: RigidBodySet) {
         if (this.handle != null) {
-            this._parent = bodies.get(
-                this.colliderSet.raw.coParent(this.handle),
-            );
+            this._parent = bodies.get(this.colliderSet.raw.coParent(this.handle));
         }
     }
 
     private ensureShapeIsCached() {
-        if (!this._shape)
-            this._shape = Shape.fromRaw(this.colliderSet.raw, this.handle);
+        if (!this._shape) this._shape = Shape.fromRaw(this.colliderSet.raw, this.handle);
     }
 
     /**
@@ -209,10 +201,7 @@ export class Collider {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public rotationWrtParent(target?: Rotation): Rotation | null {
-        const hasParent = this.colliderSet.raw.coRotationWrtParent(
-            this.handle,
-            this.scratchBuffer,
-        );
+        const hasParent = this.colliderSet.raw.coRotationWrtParent(this.handle, this.scratchBuffer);
         if (!hasParent) return null;
         return RotationOps.fromBuffer(this.scratchBuffer, target);
     }
@@ -411,10 +400,7 @@ export class Collider {
      * @param threshold - The new force threshold.
      */
     public setContactForceEventThreshold(threshold: number) {
-        return this.colliderSet.raw.coSetContactForceEventThreshold(
-            this.handle,
-            threshold,
-        );
+        return this.colliderSet.raw.coSetContactForceEventThreshold(this.handle, threshold);
     }
 
     /**
@@ -430,10 +416,7 @@ export class Collider {
      * @param activeCollisionTypes - The hooks active for contact/intersection pairs involving this collider.
      */
     public setActiveCollisionTypes(activeCollisionTypes: ActiveCollisionTypes) {
-        this.colliderSet.raw.coSetActiveCollisionTypes(
-            this.handle,
-            activeCollisionTypes,
-        );
+        this.colliderSet.raw.coSetActiveCollisionTypes(this.handle, activeCollisionTypes);
     }
 
     /**
@@ -497,7 +480,6 @@ export class Collider {
 
     // #endif
 
-
     /**
      * Sets the translation of this collider.
      *
@@ -518,12 +500,7 @@ export class Collider {
      */
     public setTranslationWrtParent(tra: Vector) {
         // #if DIM3
-        this.colliderSet.raw.coSetTranslationWrtParent(
-            this.handle,
-            tra.x,
-            tra.y,
-            tra.z,
-        );
+        this.colliderSet.raw.coSetTranslationWrtParent(this.handle, tra.x, tra.y, tra.z);
         // #endif
     }
 
@@ -536,13 +513,7 @@ export class Collider {
      * @param rotation - The rotation to set.
      */
     public setRotation(rot: Rotation) {
-        this.colliderSet.raw.coSetRotation(
-            this.handle,
-            rot.x,
-            rot.y,
-            rot.z,
-            rot.w,
-        );
+        this.colliderSet.raw.coSetRotation(this.handle, rot.x, rot.y, rot.z, rot.w);
     }
 
     /**
@@ -554,13 +525,7 @@ export class Collider {
      * @param rotation - The rotation to set.
      */
     public setRotationWrtParent(rot: Rotation) {
-        this.colliderSet.raw.coSetRotationWrtParent(
-            this.handle,
-            rot.x,
-            rot.y,
-            rot.z,
-            rot.w,
-        );
+        this.colliderSet.raw.coSetRotationWrtParent(this.handle, rot.x, rot.y, rot.z, rot.w);
     }
 
     // #endif
@@ -569,18 +534,14 @@ export class Collider {
      * The type of the shape of this collider.
      */
     public shapeType(): ShapeType {
-        return this.colliderSet.raw.coShapeType(
-            this.handle,
-        ) as number as ShapeType;
+        return this.colliderSet.raw.coShapeType(this.handle) as number as ShapeType;
     }
 
     /**
      * The half-extents of this collider if it is a cuboid shape.
      */
     public halfExtents(): Vector {
-        return VectorOps.fromRaw(
-            this.colliderSet.raw.coHalfExtents(this.handle),
-        );
+        return VectorOps.fromRaw(this.colliderSet.raw.coHalfExtents(this.handle));
     }
 
     /**
@@ -884,10 +845,7 @@ export class Collider {
      */
     public containsPoint(point: Vector): boolean {
         let rawPoint = VectorOps.intoRaw(point);
-        let result = this.colliderSet.raw.coContainsPoint(
-            this.handle,
-            rawPoint,
-        );
+        let result = this.colliderSet.raw.coContainsPoint(this.handle, rawPoint);
 
         rawPoint.free();
 
@@ -925,12 +883,7 @@ export class Collider {
     public intersectsRay(ray: Ray, maxToi: number): boolean {
         let rawOrig = VectorOps.intoRaw(ray.origin);
         let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = this.colliderSet.raw.coIntersectsRay(
-            this.handle,
-            rawOrig,
-            rawDir,
-            maxToi,
-        );
+        let result = this.colliderSet.raw.coIntersectsRay(this.handle, rawOrig, rawDir, maxToi);
 
         rawOrig.free();
         rawDir.free();
@@ -1038,11 +991,7 @@ export class Collider {
         return result;
     }
 
-    public intersectsShape(
-        shape2: Shape,
-        shapePos2: Vector,
-        shapeRot2: Rotation,
-    ): boolean {
+    public intersectsShape(shape2: Shape, shapePos2: Vector, shapeRot2: Rotation): boolean {
         let rawPos2 = VectorOps.intoRaw(shapePos2);
         let rawRot2 = RotationOps.intoRaw(shapeRot2);
         let rawShape2 = shape2.intoRaw();
@@ -1104,16 +1053,9 @@ export class Collider {
      * @param prediction - The prediction value, if the shapes are separated by a distance greater than this value, test will fail.
      * @returns `null` if the shapes are separated by a distance greater than prediction, otherwise contact details. The result is given in world-space.
      */
-    contactCollider(
-        collider2: Collider,
-        prediction: number,
-    ): ShapeContact | null {
+    contactCollider(collider2: Collider, prediction: number): ShapeContact | null {
         let result = ShapeContact.fromRaw(
-            this.colliderSet.raw.coContactCollider(
-                this.handle,
-                collider2.handle,
-                prediction,
-            ),
+            this.colliderSet.raw.coContactCollider(this.handle, collider2.handle, prediction),
         );
 
         return result;
@@ -1134,13 +1076,7 @@ export class Collider {
     public castRay(ray: Ray, maxToi: number, solid: boolean): number {
         let rawOrig = VectorOps.intoRaw(ray.origin);
         let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = this.colliderSet.raw.coCastRay(
-            this.handle,
-            rawOrig,
-            rawDir,
-            maxToi,
-            solid,
-        );
+        let result = this.colliderSet.raw.coCastRay(this.handle, rawOrig, rawDir, maxToi, solid);
 
         rawOrig.free();
         rawDir.free();
@@ -1159,21 +1095,11 @@ export class Collider {
      *   origin already lies inside of a shape. In other terms, `true` implies that all shapes are plain,
      *   whereas `false` implies that all shapes are hollow for this ray-cast.
      */
-    public castRayAndGetNormal(
-        ray: Ray,
-        maxToi: number,
-        solid: boolean,
-    ): RayIntersection | null {
+    public castRayAndGetNormal(ray: Ray, maxToi: number, solid: boolean): RayIntersection | null {
         let rawOrig = VectorOps.intoRaw(ray.origin);
         let rawDir = VectorOps.intoRaw(ray.dir);
         let result = RayIntersection.fromRaw(
-            this.colliderSet.raw.coCastRayAndGetNormal(
-                this.handle,
-                rawOrig,
-                rawDir,
-                maxToi,
-                solid,
-            ),
+            this.colliderSet.raw.coCastRayAndGetNormal(this.handle, rawOrig, rawDir, maxToi, solid),
         );
 
         rawOrig.free();
@@ -1318,10 +1244,7 @@ export class ColliderDesc {
      * @param indices - The indices of the polyline's segments. If this is `undefined` or `null`,
      *    the vertices are assumed to describe a line strip.
      */
-    public static polyline(
-        vertices: Float32Array,
-        indices?: Uint32Array | null,
-    ): ColliderDesc {
+    public static polyline(vertices: Float32Array, indices?: Uint32Array | null): ColliderDesc {
         const shape = new Polyline(vertices, indices);
         return new ColliderDesc(shape);
     }
@@ -1338,10 +1261,7 @@ export class ColliderDesc {
      *               in 3D (resp 2D).
      * @param voxelSize - The size of each voxel.
      */
-    public static voxels(
-        voxels: Float32Array | Int32Array,
-        voxelSize: Vector,
-    ): ColliderDesc {
+    public static voxels(voxels: Float32Array | Int32Array, voxelSize: Vector): ColliderDesc {
         const shape = new Voxels(voxels, voxelSize);
         return new ColliderDesc(shape);
     }
@@ -1360,7 +1280,6 @@ export class ColliderDesc {
         const shape = new TriMesh(vertices, indices, flags);
         return new ColliderDesc(shape);
     }
-
 
     // #if DIM3
     /**
@@ -1500,10 +1419,7 @@ export class ColliderDesc {
      * @param points - The point that will be used to compute the convex-hull.
      * @param borderRadius - The radius of the round border added to the convex polyhedron.
      */
-    public static roundConvexHull(
-        points: Float32Array,
-        borderRadius: number,
-    ): ColliderDesc | null {
+    public static roundConvexHull(points: Float32Array, borderRadius: number): ColliderDesc | null {
         const shape = new RoundConvexPolyhedron(points, null, borderRadius);
         return new ColliderDesc(shape);
     }
@@ -1520,27 +1436,18 @@ export class ColliderDesc {
         indices: Uint32Array | null,
         borderRadius: number,
     ): ColliderDesc | null {
-        const shape = new RoundConvexPolyhedron(
-            vertices,
-            indices,
-            borderRadius,
-        );
+        const shape = new RoundConvexPolyhedron(vertices, indices, borderRadius);
         return new ColliderDesc(shape);
     }
 
     // #endif
-
 
     // #if DIM3
     /**
      * Sets the position of the collider to be created relative to the rigid-body it is attached to.
      */
     public setTranslation(x: number, y: number, z: number): ColliderDesc {
-        if (
-            typeof x != "number" ||
-            typeof y != "number" ||
-            typeof z != "number"
-        )
+        if (typeof x != "number" || typeof y != "number" || typeof z != "number")
             throw TypeError("The translation components must be numbers.");
 
         this.translation = {x: x, y: y, z: z};
@@ -1626,7 +1533,6 @@ export class ColliderDesc {
         return this;
     }
 
-
     // #if DIM3
     /**
      * Sets the mass properties of the collider being built.
@@ -1651,10 +1557,7 @@ export class ColliderDesc {
         this.mass = mass;
         VectorOps.copy(this.centerOfMass, centerOfMass);
         VectorOps.copy(this.principalAngularInertia, principalAngularInertia);
-        RotationOps.copy(
-            this.angularInertiaLocalFrame,
-            angularInertiaLocalFrame,
-        );
+        RotationOps.copy(this.angularInertiaLocalFrame, angularInertiaLocalFrame);
         return this;
     }
 
@@ -1701,9 +1604,7 @@ export class ColliderDesc {
      *
      * @param rule − The combine rule to apply.
      */
-    public setRestitutionCombineRule(
-        rule: CoefficientCombineRule,
-    ): ColliderDesc {
+    public setRestitutionCombineRule(rule: CoefficientCombineRule): ColliderDesc {
         this.restitutionCombineRule = rule;
         return this;
     }
@@ -1764,9 +1665,7 @@ export class ColliderDesc {
      *
      * @param activeCollisionTypes - The hooks active for contact/intersection pairs involving this collider.
      */
-    public setActiveCollisionTypes(
-        activeCollisionTypes: ActiveCollisionTypes,
-    ): ColliderDesc {
+    public setActiveCollisionTypes(activeCollisionTypes: ActiveCollisionTypes): ColliderDesc {
         this.activeCollisionTypes = activeCollisionTypes;
         return this;
     }

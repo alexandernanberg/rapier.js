@@ -68,11 +68,7 @@ export class ImpulseJoint {
     protected bodySet: RigidBodySet; // The ImpulseJoint won’t need to free this.
     handle: ImpulseJointHandle;
 
-    constructor(
-        rawSet: RawImpulseJointSet,
-        bodySet: RigidBodySet,
-        handle: ImpulseJointHandle,
-    ) {
+    constructor(rawSet: RawImpulseJointSet, bodySet: RigidBodySet, handle: ImpulseJointHandle) {
         this.rawSet = rawSet;
         this.bodySet = bodySet;
         this.handle = handle;
@@ -132,8 +128,6 @@ export class ImpulseJoint {
     public type(): JointType {
         return this.rawSet.jointType(this.handle) as number as JointType;
     }
-
-
 
     /**
      * The position of the first anchor of this joint.
@@ -242,19 +236,10 @@ export class UnitImpulseJoint extends ImpulseJoint {
     }
 
     public configureMotorVelocity(targetVel: number, factor: number) {
-        this.rawSet.jointConfigureMotorVelocity(
-            this.handle,
-            this.rawAxis(),
-            targetVel,
-            factor,
-        );
+        this.rawSet.jointConfigureMotorVelocity(this.handle, this.rawAxis(), targetVel, factor);
     }
 
-    public configureMotorPosition(
-        targetPos: number,
-        stiffness: number,
-        damping: number,
-    ) {
+    public configureMotorPosition(targetPos: number, stiffness: number, damping: number) {
         this.rawSet.jointConfigureMotorPosition(
             this.handle,
             this.rawAxis(),
@@ -298,7 +283,6 @@ export class RevoluteImpulseJoint extends UnitImpulseJoint {
         return RawJointAxis.AngX;
     }
 }
-
 
 export class JointData {
     anchor1: Vector;
@@ -361,11 +345,7 @@ export class JointData {
         return res;
     }
 
-    public static rope(
-        length: number,
-        anchor1: Vector,
-        anchor2: Vector,
-    ): JointData {
+    public static rope(length: number, anchor1: Vector, anchor2: Vector): JointData {
         let res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
@@ -408,11 +388,7 @@ export class JointData {
      *                  local-space of the rigid-body.
      * @param axis - Axis of the joint, expressed in the local-space of the rigid-bodies it is attached to.
      */
-    public static prismatic(
-        anchor1: Vector,
-        anchor2: Vector,
-        axis: Vector,
-    ): JointData {
+    public static prismatic(anchor1: Vector, anchor2: Vector, axis: Vector): JointData {
         let res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
@@ -422,7 +398,6 @@ export class JointData {
     }
 
     // #endif
-
 
     public intoRaw(): RawGenericJoint {
         let rawA1 = VectorOps.intoRaw(this.anchor1);
@@ -472,7 +447,6 @@ export class JointData {
                     limitsMax,
                 );
                 // #endif
-
 
                 rawAx.free();
                 break;

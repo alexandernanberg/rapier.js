@@ -1,21 +1,21 @@
-import {Testbed} from "./Testbed";
+import * as CCD from "./demos/ccd";
+import * as CharacterController from "./demos/characterController";
+import * as CollisionGroups from "./demos/collisionGroups";
+import * as ConvexPolyhedron from "./demos/convexPolyhedron";
+import * as Damping from "./demos/damping";
+import * as Fountain from "./demos/fountain";
+import * as glbToConvexHull from "./demos/glbtoConvexHull";
+import * as glbToTrimesh from "./demos/glbToTrimesh";
+import * as Heightfield from "./demos/heightfield";
+import * as Joints from "./demos/joints";
+import * as Keva from "./demos/keva";
+import * as LockedRotations from "./demos/lockedRotations";
+import * as PidController from "./demos/pidController";
+import * as Platform from "./demos/platform";
+import * as Pyramid from "./demos/pyramid";
 import * as Trimesh from "./demos/trimesh";
 import * as Voxels from "./demos/voxels";
-import * as CollisionGroups from "./demos/collisionGroups";
-import * as Pyramid from "./demos/pyramid";
-import * as Keva from "./demos/keva";
-import * as Joints from "./demos/joints";
-import * as Fountain from "./demos/fountain";
-import * as Damping from "./demos/damping";
-import * as Heightfield from "./demos/heightfield";
-import * as LockedRotations from "./demos/lockedRotations";
-import * as ConvexPolyhedron from "./demos/convexPolyhedron";
-import * as CCD from "./demos/ccd";
-import * as Platform from "./demos/platform";
-import * as CharacterController from "./demos/characterController";
-import * as PidController from "./demos/pidController";
-import * as glbToTrimesh from "./demos/glbToTrimesh";
-import * as glbToConvexHull from "./demos/glbtoConvexHull";
+import {Testbed} from "./Testbed";
 
 import("@alexandernanberg/rapier-3d/compat-simd").then(async (RAPIER) => {
     await RAPIER.init();

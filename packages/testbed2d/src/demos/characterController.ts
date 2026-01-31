@@ -34,17 +34,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     }
 
     // Character.
-    let characterDesc =
-        RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(
-            -10.0,
-            4.0,
-        );
+    let characterDesc = RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(-10.0, 4.0);
     let character = world.createRigidBody(characterDesc);
     let characterColliderDesc = RAPIER.ColliderDesc.cuboid(0.6, 1.2);
-    let characterCollider = world.createCollider(
-        characterColliderDesc,
-        character,
-    );
+    let characterCollider = world.createCollider(characterColliderDesc, character);
 
     let characterController = world.createCharacterController(0.1);
     characterController.enableAutostep(0.7, 0.3, true);
@@ -54,10 +47,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let movementDirection = {x: 0.0, y: -speed};
 
     let updateCharacter = () => {
-        characterController.computeColliderMovement(
-            characterCollider,
-            movementDirection,
-        );
+        characterController.computeColliderMovement(characterCollider, movementDirection);
 
         let movement = characterController.computedMovement();
         let newPos = character.translation();

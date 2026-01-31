@@ -1,35 +1,7 @@
-import {
-    RawBroadPhase,
-    RawCCDSolver,
-    RawColliderSet,
-    RawDeserializedWorld,
-    RawIntegrationParameters,
-    RawIslandManager,
-    RawImpulseJointSet,
-    RawMultibodyJointSet,
-    RawNarrowPhase,
-    RawPhysicsPipeline,
-    RawRigidBodySet,
-    RawSerializationPipeline,
-    RawDebugRenderPipeline,
-} from "../raw";
-
-import {
-    BroadPhase,
-    Collider,
-    ColliderDesc,
-    ColliderHandle,
-    ColliderSet,
-    InteractionGroups,
-    NarrowPhase,
-    PointColliderProjection,
-    Ray,
-    RayColliderIntersection,
-    RayColliderHit,
-    Shape,
-    ColliderShapeCastHit,
-    TempContactManifold,
-} from "../geometry";
+import {Coarena} from "../coarena";
+import {KinematicCharacterController, PidAxesMask, PidController} from "../control";
+// #if DIM3
+import {DynamicRayCastVehicleController} from "../control";
 import {
     CCDSolver,
     IntegrationParameters,
@@ -46,22 +18,44 @@ import {
     RigidBodyHandle,
     RigidBodySet,
 } from "../dynamics";
+import {
+    BroadPhase,
+    Collider,
+    ColliderDesc,
+    ColliderHandle,
+    ColliderSet,
+    InteractionGroups,
+    NarrowPhase,
+    PointColliderProjection,
+    Ray,
+    RayColliderIntersection,
+    RayColliderHit,
+    Shape,
+    ColliderShapeCastHit,
+    TempContactManifold,
+} from "../geometry";
 import {Rotation, Vector, VectorOps} from "../math";
+import {
+    RawBroadPhase,
+    RawCCDSolver,
+    RawColliderSet,
+    RawDeserializedWorld,
+    RawIntegrationParameters,
+    RawIslandManager,
+    RawImpulseJointSet,
+    RawMultibodyJointSet,
+    RawNarrowPhase,
+    RawPhysicsPipeline,
+    RawRigidBodySet,
+    RawSerializationPipeline,
+    RawDebugRenderPipeline,
+} from "../raw";
+import {DebugRenderBuffers, DebugRenderPipeline} from "./debug_render_pipeline";
+import {EventQueue} from "./event_queue";
+import {PhysicsHooks} from "./physics_hooks";
 import {PhysicsPipeline} from "./physics_pipeline";
 import {QueryFilterFlags} from "./query_pipeline";
 import {SerializationPipeline} from "./serialization_pipeline";
-import {EventQueue} from "./event_queue";
-import {PhysicsHooks} from "./physics_hooks";
-import {DebugRenderBuffers, DebugRenderPipeline} from "./debug_render_pipeline";
-import {
-    KinematicCharacterController,
-    PidAxesMask,
-    PidController,
-} from "../control";
-import {Coarena} from "../coarena";
-
-// #if DIM3
-import {DynamicRayCastVehicleController} from "../control";
 
 // #endif
 
@@ -155,9 +149,7 @@ export class World {
         rawDebugRenderPipeline?: RawDebugRenderPipeline,
     ) {
         this.gravity = gravity;
-        this.integrationParameters = new IntegrationParameters(
-            rawIntegrationParameters,
-        );
+        this.integrationParameters = new IntegrationParameters(rawIntegrationParameters);
         this.islands = new IslandManager(rawIslands);
         this.broadPhase = new BroadPhase(rawBroadPhase);
         this.narrowPhase = new NarrowPhase(rawNarrowPhase);
@@ -167,12 +159,8 @@ export class World {
         this.multibodyJoints = new MultibodyJointSet(rawMultibodyJoints);
         this.ccdSolver = new CCDSolver(rawCCDSolver);
         this.physicsPipeline = new PhysicsPipeline(rawPhysicsPipeline);
-        this.serializationPipeline = new SerializationPipeline(
-            rawSerializationPipeline,
-        );
-        this.debugRenderPipeline = new DebugRenderPipeline(
-            rawDebugRenderPipeline,
-        );
+        this.serializationPipeline = new SerializationPipeline(rawSerializationPipeline);
+        this.debugRenderPipeline = new DebugRenderPipeline(rawDebugRenderPipeline);
         this.characterControllers = new Set<KinematicCharacterController>();
         this.pidControllers = new Set<PidController>();
 
@@ -290,9 +278,7 @@ export class World {
      * If the positions need to be updated without running a simulation step this method can be called manually.
      */
     public propagateModifiedBodyPositionsToColliders() {
-        this.bodies.raw.propagateModifiedBodyPositionsToColliders(
-            this.colliders.raw,
-        );
+        this.bodies.raw.propagateModifiedBodyPositionsToColliders(this.colliders.raw);
     }
 
     // TODO: This needs to trigger a broad-phase update but without emitting collision events?
@@ -430,9 +416,7 @@ export class World {
      *
      * @param offset - The artificial gap added between the character’s chape and its environment.
      */
-    public createCharacterController(
-        offset: number,
-    ): KinematicCharacterController {
+    public createCharacterController(offset: number): KinematicCharacterController {
         let controller = new KinematicCharacterController(
             offset,
             this.integrationParameters,
@@ -506,9 +490,7 @@ export class World {
      *                  controller is updated, it will change directly the rigid-body’s velocity. This
      *                  rigid-body must be a dynamic or kinematic-velocity-based rigid-body.
      */
-    public createVehicleController(
-        chassis: RigidBody,
-    ): DynamicRayCastVehicleController {
+    public createVehicleController(chassis: RigidBody): DynamicRayCastVehicleController {
         let controller = new DynamicRayCastVehicleController(
             chassis,
             this.broadPhase,
@@ -525,9 +507,7 @@ export class World {
      *
      * @param controller - The vehicle controller to remove.
      */
-    public removeVehicleController(
-        controller: DynamicRayCastVehicleController,
-    ) {
+    public removeVehicleController(controller: DynamicRayCastVehicleController) {
         this.vehicleControllers.delete(controller);
         controller.free();
     }
@@ -582,12 +562,7 @@ export class World {
         parent2: RigidBody,
         wakeUp: boolean,
     ): MultibodyJoint {
-        return this.multibodyJoints.createJoint(
-            params,
-            parent1.handle,
-            parent2.handle,
-            wakeUp,
-        );
+        return this.multibodyJoints.createJoint(params, parent1.handle, parent2.handle, wakeUp);
     }
 
     /**
@@ -654,12 +629,7 @@ export class World {
      */
     public removeCollider(collider: Collider, wakeUp: boolean) {
         if (this.colliders) {
-            this.colliders.remove(
-                collider.handle,
-                this.islands,
-                this.bodies,
-                wakeUp,
-            );
+            this.colliders.remove(collider.handle, this.islands, this.bodies, wakeUp);
         }
     }
 
@@ -1080,28 +1050,16 @@ export class World {
      * @param collider1 - The second collider involved in the contact.
      * @param f - Closure that will be called on each collider that is in contact with `collider1`.
      */
-    public contactPairsWith(
-        collider1: Collider,
-        f: (collider2: Collider) => void,
-    ) {
-        this.narrowPhase.contactPairsWith(
-            collider1.handle,
-            this.colliders.castClosure(f),
-        );
+    public contactPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
+        this.narrowPhase.contactPairsWith(collider1.handle, this.colliders.castClosure(f));
     }
 
     /**
      * Enumerates all the colliders intersecting the given colliders, assuming one of them
      * is a sensor.
      */
-    public intersectionPairsWith(
-        collider1: Collider,
-        f: (collider2: Collider) => void,
-    ) {
-        this.narrowPhase.intersectionPairsWith(
-            collider1.handle,
-            this.colliders.castClosure(f),
-        );
+    public intersectionPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
+        this.narrowPhase.intersectionPairsWith(collider1.handle, this.colliders.castClosure(f));
     }
 
     /**
@@ -1127,10 +1085,7 @@ export class World {
      * @param collider2 − The second collider involved in the intersection.
      */
     public intersectionPair(collider1: Collider, collider2: Collider): boolean {
-        return this.narrowPhase.intersectionPair(
-            collider1.handle,
-            collider2.handle,
-        );
+        return this.narrowPhase.intersectionPair(collider1.handle, collider2.handle);
     }
 
     /**

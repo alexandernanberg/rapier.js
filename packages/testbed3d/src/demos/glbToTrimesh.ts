@@ -1,6 +1,6 @@
-import type {Testbed} from "../Testbed";
 import {Vector3, Object3D, Mesh, BufferGeometry, BufferAttribute} from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import type {Testbed} from "../Testbed";
 type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
@@ -31,9 +31,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
                 const vertices: number[] = [];
                 const indices = new Uint32Array(geometry.index!.array); // assume index is non-null
-                const positionAttribute = geometry.getAttribute(
-                    "position",
-                ) as BufferAttribute;
+                const positionAttribute = geometry.getAttribute("position") as BufferAttribute;
 
                 mesh.updateWorldMatrix(true, true);
 
@@ -50,10 +48,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed();
                 const rigidBody = world.createRigidBody(rigidBodyDesc);
 
-                const colliderDesc = RAPIER.ColliderDesc.trimesh(
-                    verticesArray,
-                    indices,
-                );
+                const colliderDesc = RAPIER.ColliderDesc.trimesh(verticesArray, indices);
                 world.createCollider(colliderDesc, rigidBody);
             }
         });

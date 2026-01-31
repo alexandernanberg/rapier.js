@@ -1,6 +1,6 @@
-import {RawRigidBodySet, RawRigidBodyType} from "../raw";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {Collider, ColliderSet} from "../geometry";
+import {Rotation, RotationOps, Vector, VectorOps} from "../math";
+import {RawRigidBodySet, RawRigidBodyType} from "../raw";
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -54,11 +54,7 @@ export class RigidBody {
      */
     public userData?: unknown;
 
-    constructor(
-        rawSet: RawRigidBodySet,
-        colliderSet: ColliderSet,
-        handle: RigidBodyHandle,
-    ) {
+    constructor(rawSet: RawRigidBodySet, colliderSet: ColliderSet, handle: RigidBodyHandle) {
         this.rawSet = rawSet;
         this.colliderSet = colliderSet;
         this.handle = handle;
@@ -106,17 +102,8 @@ export class RigidBody {
      * @param enableY - If `false`, this rigid-body will no longer rotate due to torques and impulses, along the Y coordinate axis.
      * @param wakeUp - If `true`, this rigid-body will be automatically awaken if it is currently asleep.
      */
-    public setEnabledTranslations(
-        enableX: boolean,
-        enableY: boolean,
-        wakeUp: boolean,
-    ) {
-        return this.rawSet.rbSetEnabledTranslations(
-            this.handle,
-            enableX,
-            enableY,
-            wakeUp,
-        );
+    public setEnabledTranslations(enableX: boolean, enableY: boolean, wakeUp: boolean) {
+        return this.rawSet.rbSetEnabledTranslations(this.handle, enableX, enableY, wakeUp);
     }
 
     /**
@@ -127,11 +114,7 @@ export class RigidBody {
      * @param wakeUp - If `true`, this rigid-body will be automatically awaken if it is currently asleep.
      * @deprecated use `this.setEnabledTranslations` with the same arguments instead.
      */
-    public restrictTranslations(
-        enableX: boolean,
-        enableY: boolean,
-        wakeUp: boolean,
-    ) {
+    public restrictTranslations(enableX: boolean, enableY: boolean, wakeUp: boolean) {
         this.setEnabledTranslations(enableX, enableX, wakeUp);
     }
 
@@ -295,7 +278,6 @@ export class RigidBody {
         this.rawSet.rbSetGravityScale(this.handle, factor, wakeUp);
     }
 
-
     // #if DIM2
     /**
      * Sets the rotation angle of this rigid-body.
@@ -337,7 +319,6 @@ export class RigidBody {
         // #endif
     }
 
-
     // #if DIM2
     /**
      * If this rigid body is kinematic, sets its future rotation after the next timestep integration.
@@ -371,13 +352,10 @@ export class RigidBody {
      */
     public velocityAtPoint(point: Vector): Vector {
         const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(
-            this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
-        );
+        let result = VectorOps.fromRaw(this.rawSet.rbVelocityAtPoint(this.handle, rawPoint));
         rawPoint.free();
         return result;
     }
-
 
     // #if DIM2
     /**
@@ -444,7 +422,6 @@ export class RigidBody {
 
     // #endif
 
-
     // #if DIM2
     /**
      * The angular inertia along the principal inertia axes of the rigid-body.
@@ -454,8 +431,6 @@ export class RigidBody {
     }
 
     // #endif
-
-
 
     // #if DIM2
     /**
@@ -468,7 +443,6 @@ export class RigidBody {
 
     // #endif
 
-
     // #if DIM2
     /**
      * The effective world-space angular inertia (that takes the potential rotation locking into account) of
@@ -479,7 +453,6 @@ export class RigidBody {
     }
 
     // #endif
-
 
     /**
      * Put this rigid body to sleep.
@@ -556,11 +529,7 @@ export class RigidBody {
      * Set a new status for this rigid-body: static, dynamic, or kinematic.
      */
     public setBodyType(type: RigidBodyType, wakeUp: boolean) {
-        return this.rawSet.rbSetBodyType(
-            this.handle,
-            type as number as RawRigidBodyType,
-            wakeUp,
-        );
+        return this.rawSet.rbSetBodyType(this.handle, type as number as RawRigidBodyType, wakeUp);
     }
 
     /**
@@ -625,10 +594,7 @@ export class RigidBody {
      * Recompute the mass-properties of this rigid-bodies based on its currently attached colliders.
      */
     public recomputeMassPropertiesFromColliders() {
-        this.rawSet.rbRecomputeMassPropertiesFromColliders(
-            this.handle,
-            this.colliderSet.raw,
-        );
+        this.rawSet.rbRecomputeMassPropertiesFromColliders(this.handle, this.colliderSet.raw);
     }
 
     /**
@@ -653,7 +619,6 @@ export class RigidBody {
     public setAdditionalMass(mass: number, wakeUp: boolean) {
         this.rawSet.rbSetAdditionalMass(this.handle, mass, wakeUp);
     }
-
 
     // #if DIM2
     /**
@@ -755,7 +720,6 @@ export class RigidBody {
 
     // #endif
 
-
     // #if DIM2
     /**
      * Applies an impulsive torque at the center-of-mass of this rigid-body.
@@ -768,7 +732,6 @@ export class RigidBody {
     }
 
     // #endif
-
 
     /**
      * Adds a force at the given world-space point of this rigid-body.
@@ -792,19 +755,10 @@ export class RigidBody {
      * @param point - the world-space point where the impulse is to be applied on the rigid-body.
      * @param wakeUp - should the rigid-body be automatically woken-up?
      */
-    public applyImpulseAtPoint(
-        impulse: Vector,
-        point: Vector,
-        wakeUp: boolean,
-    ) {
+    public applyImpulseAtPoint(impulse: Vector, point: Vector, wakeUp: boolean) {
         const rawImpulse = VectorOps.intoRaw(impulse);
         const rawPoint = VectorOps.intoRaw(point);
-        this.rawSet.rbApplyImpulseAtPoint(
-            this.handle,
-            rawImpulse,
-            rawPoint,
-            wakeUp,
-        );
+        this.rawSet.rbApplyImpulseAtPoint(this.handle, rawImpulse, rawPoint, wakeUp);
         rawImpulse.free();
         rawPoint.free();
     }
@@ -826,7 +780,6 @@ export class RigidBody {
         return this.rawSet.rbUserTorque(this.handle);
     }
     // #endif
-
 }
 
 export class RigidBodyDesc {
@@ -991,7 +944,6 @@ export class RigidBodyDesc {
 
     // #endif
 
-
     /**
      * Sets the initial rotation of the rigid-body to create.
      *
@@ -1104,10 +1056,7 @@ export class RigidBodyDesc {
         translationsEnabledX: boolean,
         translationsEnabledY: boolean,
     ): RigidBodyDesc {
-        return this.enabledTranslations(
-            translationsEnabledX,
-            translationsEnabledY,
-        );
+        return this.enabledTranslations(translationsEnabledX, translationsEnabledY);
     }
 
     /**
@@ -1128,7 +1077,6 @@ export class RigidBodyDesc {
     }
 
     // #endif
-
 
     /**
      * Sets the linear damping of the rigid-body to create.

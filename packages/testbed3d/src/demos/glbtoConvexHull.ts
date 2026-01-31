@@ -1,4 +1,3 @@
-import type {Testbed} from "../Testbed";
 import {
     Vector3,
     Object3D,
@@ -8,6 +7,7 @@ import {
     TriangleStripDrawMode,
 } from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import type {Testbed} from "../Testbed";
 type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
@@ -38,9 +38,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             if ((child as Mesh).isMesh && (child as Mesh).geometry) {
                 const mesh = child as Mesh;
                 const geometry = mesh.geometry as BufferGeometry;
-                const positionAttribute = geometry.getAttribute(
-                    "position",
-                ) as BufferAttribute;
+                const positionAttribute = geometry.getAttribute("position") as BufferAttribute;
 
                 for (let i = 0, l = positionAttribute.count; i < l; i++) {
                     v.fromBufferAttribute(positionAttribute, i);
@@ -53,9 +51,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed();
         const rigidBody = world.createRigidBody(rigidBodyDesc);
 
-        const colliderDesc = RAPIER.ColliderDesc.convexHull(
-            new Float32Array(positions),
-        );
+        const colliderDesc = RAPIER.ColliderDesc.convexHull(new Float32Array(positions));
         world.createCollider(colliderDesc, rigidBody);
     });
 
