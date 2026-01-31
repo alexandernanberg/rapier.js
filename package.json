@@ -1,11 +1,27 @@
 {
     "scripts": {
-        "fmt": "prettier ."
+        "fmt": "prettier .",
+        "build": "pnpm build:wasm && pnpm build:ts",
+        "build:ts": "pnpm -r --filter './packages/rapier-*' build",
+        "build:ts:2d": "pnpm --filter @alexandernanberg/rapier-2d build",
+        "build:ts:3d": "pnpm --filter @alexandernanberg/rapier-3d build",
+        "build:2d": "pnpm build:wasm:2d && pnpm build:wasm:2d:simd && pnpm build:ts:2d",
+        "build:3d": "pnpm build:wasm:3d && pnpm build:wasm:3d:simd && pnpm build:ts:3d",
+        "build:wasm": "pnpm build:wasm:2d && pnpm build:wasm:2d:simd && pnpm build:wasm:3d && pnpm build:wasm:3d:simd",
+        "build:wasm:2d": "wasm-pack build crates/rapier-wasm-2d --target web --out-dir ../../packages/rapier-2d/wasm/release",
+        "build:wasm:2d:simd": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build crates/rapier-wasm-2d --target web --out-dir ../../packages/rapier-2d/wasm/release-simd",
+        "build:wasm:2d:debug": "wasm-pack build crates/rapier-wasm-2d --dev --target web --out-dir ../../packages/rapier-2d/wasm/debug",
+        "build:wasm:3d": "wasm-pack build crates/rapier-wasm-3d --target web --out-dir ../../packages/rapier-3d/wasm/release",
+        "build:wasm:3d:simd": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build crates/rapier-wasm-3d --target web --out-dir ../../packages/rapier-3d/wasm/release-simd",
+        "build:wasm:3d:debug": "wasm-pack build crates/rapier-wasm-3d --dev --target web --out-dir ../../packages/rapier-3d/wasm/debug",
+        "typecheck": "pnpm -r --filter './packages/rapier-*' typecheck",
+        "dev:testbed2d": "pnpm --filter rapier-testbed2d dev",
+        "dev:testbed3d": "pnpm --filter rapier-testbed3d dev"
     },
     "devDependencies": {
         "prettier": "2.7.1",
         "typedoc": "0.23.19",
-        "typescript": "4.8.4",
+        "typescript": "5.7.3",
         "wasm-opt": "1.4.0",
         "wasm-pack": "0.12.1"
     }
