@@ -5,7 +5,7 @@ resolver = "2"
 [profile.release]
 debug = false
 codegen-units = 1
-#lto = true
+lto = true
 strip = true # Workaround for https://github.com/bevyengine/bevy/issues/16030 (the bug only happens in 2D)
 
 [patch.crates-io]
