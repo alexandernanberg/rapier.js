@@ -36,14 +36,12 @@ impl PhysicsHooks for RawPhysicsHooks {
             .map(|rb| JsValue::from(utils::flat_handle(rb.0)))
             .unwrap_or(JsValue::NULL);
 
+        let collider1 = JsValue::from(utils::flat_handle(ctxt.collider1.0));
+        let collider2 = JsValue::from(utils::flat_handle(ctxt.collider2.0));
+
         let result = self
             .filter_contact_pair
-            .bind2(
-                &self.this,
-                &JsValue::from(utils::flat_handle(ctxt.collider1.0)),
-                &JsValue::from(utils::flat_handle(ctxt.collider2.0)),
-            )
-            .call2(&self.this, &rb1, &rb2)
+            .call4(&self.this, &collider1, &collider2, &rb1, &rb2)
             .ok()?;
         let flags = result.as_f64()?;
         // TODO: not sure exactly why we have to do `flags as u32` instead
@@ -61,13 +59,11 @@ impl PhysicsHooks for RawPhysicsHooks {
             .map(|rb| JsValue::from(utils::flat_handle(rb.0)))
             .unwrap_or(JsValue::NULL);
 
+        let collider1 = JsValue::from(utils::flat_handle(ctxt.collider1.0));
+        let collider2 = JsValue::from(utils::flat_handle(ctxt.collider2.0));
+
         self.filter_intersection_pair
-            .bind2(
-                &self.this,
-                &JsValue::from(utils::flat_handle(ctxt.collider1.0)),
-                &JsValue::from(utils::flat_handle(ctxt.collider2.0)),
-            )
-            .call2(&self.this, &rb1, &rb2)
+            .call4(&self.this, &collider1, &collider2, &rb1, &rb2)
             .ok()
             .and_then(|res| res.as_bool())
             .unwrap_or(false)
