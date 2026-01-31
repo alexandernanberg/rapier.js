@@ -1,0 +1,54 @@
+{
+  "name": "@alexandernanberg/rapier-2d",
+  "version": "0.19.3",
+  "description": "2-dimensional physics engine - official JS bindings",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/rapier.d.ts",
+      "default": "./dist/rapier.js"
+    },
+    "./compat": {
+      "types": "./dist/rapier.d.ts",
+      "default": "./dist/compat.js"
+    },
+    "./simd": {
+      "types": "./dist/rapier.d.ts",
+      "default": "./dist/simd.js"
+    },
+    "./compat-simd": {
+      "types": "./dist/rapier.d.ts",
+      "default": "./dist/compat-simd.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "physics",
+    "dynamics",
+    "rigid",
+    "real-time",
+    "joints",
+    "rapier",
+    "2d"
+  ],
+  "author": "Sébastien Crozet <developer@crozet.re>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dimforge/rapier.js"
+  },
+  "homepage": "https://rapier.rs",
+  "dependencies": {
+    "base64-js": "^1.5.1"
+  },
+  "devDependencies": {
+    "tsdown": "^0.11.0",
+    "typescript": "^5.7.3"
+  }
+}
