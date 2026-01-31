@@ -101,7 +101,7 @@ export class Graphics {
         );
     }
 
-    render(world: RAPIER.World, debugRender: Boolean) {
+    render(world: RAPIER.World, debugRender: boolean) {
         kk += 1;
 
         // Clean up previous debug lines

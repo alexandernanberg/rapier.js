@@ -2,12 +2,11 @@ import {Rotation, Vector, VectorOps, RotationOps} from "../math";
 import {
     RawGenericJoint,
     RawImpulseJointSet,
-    RawRigidBodySet,
     RawJointAxis,
     RawJointType,
     RawMotorModel,
 } from "../raw";
-import {RigidBody, RigidBodyHandle} from "./rigid_body";
+import {RigidBody} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";
 
 /**

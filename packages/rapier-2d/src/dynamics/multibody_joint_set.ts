@@ -1,17 +1,8 @@
 import {Coarena} from "../coarena";
-import {ColliderHandle} from "../geometry";
 import {RawMultibodyJointSet} from "../raw";
-import {ImpulseJointHandle, JointData, JointType} from "./impulse_joint";
-import {IslandManager} from "./island_manager";
-import {
-    MultibodyJoint,
-    MultibodyJointHandle,
-    RevoluteMultibodyJoint,
-    FixedMultibodyJoint,
-    PrismaticMultibodyJoint,
-} from "./multibody_joint";
+import {JointData} from "./impulse_joint";
+import {MultibodyJoint, MultibodyJointHandle} from "./multibody_joint";
 import {RigidBodyHandle} from "./rigid_body";
-import {RigidBodySet} from "./rigid_body_set";
 
 /**
  * A set of joints.

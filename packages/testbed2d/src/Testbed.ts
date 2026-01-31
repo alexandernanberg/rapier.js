@@ -129,7 +129,7 @@ export class Testbed {
         this.parameters.builders.get(demo)(this.RAPIER, this);
     }
 
-    switchToBackend(backend: string) {
+    switchToBackend(_backend: string) {
         this.switchToDemo(this.parameters.demo);
     }
 

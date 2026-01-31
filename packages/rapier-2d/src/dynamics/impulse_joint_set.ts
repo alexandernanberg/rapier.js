@@ -1,16 +1,6 @@
 import {Coarena} from "../coarena";
-import {Collider, ColliderHandle} from "../geometry";
 import {RawImpulseJointSet} from "../raw";
-import {
-    RevoluteImpulseJoint,
-    FixedImpulseJoint,
-    ImpulseJoint,
-    ImpulseJointHandle,
-    JointData,
-    JointType,
-    PrismaticImpulseJoint,
-} from "./impulse_joint";
-import {IslandManager} from "./island_manager";
+import {ImpulseJoint, ImpulseJointHandle, JointData} from "./impulse_joint";
 import {RigidBodyHandle} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";
 

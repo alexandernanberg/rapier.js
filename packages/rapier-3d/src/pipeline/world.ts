@@ -1,4 +1,3 @@
-import {Coarena} from "../coarena";
 import {KinematicCharacterController, PidAxesMask, PidController} from "../control";
 import {DynamicRayCastVehicleController} from "../control";
 import {

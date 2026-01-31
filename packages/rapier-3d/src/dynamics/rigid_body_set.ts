@@ -5,7 +5,7 @@ import {RawRigidBodySet, RawRigidBodyType} from "../raw";
 import {ImpulseJointSet} from "./impulse_joint_set";
 import {IslandManager} from "./island_manager";
 import {MultibodyJointSet} from "./multibody_joint_set";
-import {RigidBody, RigidBodyDesc, RigidBodyHandle, RigidBodyType} from "./rigid_body";
+import {RigidBody, RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
 
 /**
  * A set of rigid bodies that can be handled by a physics pipeline.

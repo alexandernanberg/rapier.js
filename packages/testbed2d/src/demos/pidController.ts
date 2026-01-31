@@ -15,7 +15,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     // Dynamic cubes.
     let rad = 0.5;
     let num = 5;
-    let i, j, k;
+    let i, _j, k;
     let shift = rad * 2.5;
     let center = num * rad;
     let height = 5.0;
@@ -46,7 +46,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let speed = 0.2;
     let movementDirection = {x: 0.0, y: 0.0};
     let targetVelocity = {x: 0.0, y: 0.0};
-    let targetRotation = 0.0;
+    let _targetRotation = 0.0;
 
     let updateCharacter = () => {
         if (movementDirection.x == 0.0 && movementDirection.y == 0.0) {

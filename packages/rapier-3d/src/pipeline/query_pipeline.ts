@@ -1,17 +1,4 @@
-import {IslandManager, RigidBodyHandle, RigidBodySet} from "../dynamics";
-import {
-    ColliderHandle,
-    ColliderSet,
-    InteractionGroups,
-    PointColliderProjection,
-    Ray,
-    RayColliderIntersection,
-    RayColliderHit,
-    Shape,
-    ColliderShapeCastHit,
-} from "../geometry";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {RawRayColliderIntersection} from "../raw";
+// NOTE: must match the bits in the QueryFilterFlags on the Rust side.
 
 // NOTE: must match the bits in the QueryFilterFlags on the Rust side.
 /**

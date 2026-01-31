@@ -1,6 +1,8 @@
 {
     "scripts": {
         "fmt": "oxfmt .",
+        "lint": "oxlint",
+        "lint:fix": "oxlint --fix",
         "build": "pnpm build:wasm && pnpm build:ts",
         "build:ts": "pnpm -r --filter './packages/rapier-*' build",
         "build:ts:2d": "pnpm --filter @alexandernanberg/rapier-2d build",
@@ -24,6 +26,7 @@
     },
     "devDependencies": {
         "oxfmt": "0.27.0",
+        "oxlint": "1.42.0",
         "typedoc": "0.28.16",
         "typescript": "5.7.3",
         "wasm-pack": "0.14.0"

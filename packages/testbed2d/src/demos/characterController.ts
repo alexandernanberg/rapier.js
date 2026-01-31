@@ -15,7 +15,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     // Dynamic cubes.
     let rad = 0.5;
     let num = 5;
-    let i, j, k;
+    let i, _j, k;
     let shift = rad * 2.5;
     let center = num * rad;
     let height = 5.0;

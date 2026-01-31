@@ -1,14 +1,13 @@
-import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
+import {IntegrationParameters, RigidBodySet} from "../dynamics";
 import {
     BroadPhase,
     Collider,
     ColliderSet,
     InteractionGroups,
     NarrowPhase,
-    Shape,
 } from "../geometry";
-import {Rotation, Vector, VectorOps} from "../math";
-import {QueryFilterFlags, World} from "../pipeline";
+import {Vector, VectorOps} from "../math";
+import {QueryFilterFlags} from "../pipeline";
 import {RawKinematicCharacterController, RawCharacterCollision} from "../raw";
 
 /**

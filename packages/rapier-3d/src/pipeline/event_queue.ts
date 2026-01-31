@@ -1,5 +1,4 @@
-import {RigidBodyHandle} from "../dynamics";
-import {Collider, ColliderHandle} from "../geometry";
+import {ColliderHandle} from "../geometry";
 import {Vector, VectorOps} from "../math";
 import {RawContactForceEvent, RawEventQueue} from "../raw";
 
