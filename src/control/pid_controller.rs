@@ -154,7 +154,7 @@ impl RawPidController {
             target_translation.0.into(),
             target_linvel.0,
         );
-        rb.set_linvel(*rb.linvel() + correction, true);
+        rb.set_linvel(rb.linvel() + correction, true);
     }
 
     #[cfg(feature = "dim2")]
@@ -213,7 +213,7 @@ impl RawPidController {
     ) -> RawVector {
         let rb_handle = crate::utils::body_handle(rb_handle);
         let Some(rb) = bodies.0.get(rb_handle) else {
-            return RawVector(Vector::zeros());
+            return RawVector(Vector::ZERO);
         };
 
         self.controller
@@ -254,7 +254,7 @@ impl RawPidController {
     ) -> RawVector {
         let rb_handle = crate::utils::body_handle(rb_handle);
         let Some(rb) = bodies.0.get(rb_handle) else {
-            return RawVector(Vector::zeros());
+            return RawVector(Vector::ZERO);
         };
 
         self.controller

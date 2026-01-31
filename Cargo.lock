@@ -229,6 +229,25 @@ name = "glam"
 version = "0.30.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19fc433e8437a212d1b6f1e68c7824af3aed907da60afa994e7f542d18d12aa9"
+dependencies = [
+ "approx",
+ "libm",
+ "serde_core",
+]
+
+[[package]]
+name = "glamx"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "375b4fa374a343fef990a18a6e0413d54bd990c6d7b8c7ada2d3c884275edea3"
+dependencies = [
+ "approx",
+ "glam 0.30.10",
+ "nalgebra",
+ "num-traits",
+ "serde",
+ "simba",
+]
 
 [[package]]
 name = "hash32"
@@ -461,9 +480,9 @@ dependencies = [
 
 [[package]]
 name = "parry2d"
-version = "0.25.3"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef681740349cec3ab9b5996b03b459b383b6998e1ffcb2804e8b57eb1e8491d9"
+checksum = "e7b05ce9599a62eec9f6b761cf32647ab1dee43477b5c00ff9221a4b7cb80c4b"
 dependencies = [
  "approx",
  "arrayvec",
@@ -472,10 +491,10 @@ dependencies = [
  "either",
  "ena",
  "foldhash 0.2.0",
+ "glamx",
  "hashbrown 0.16.1",
  "indexmap",
  "log",
- "nalgebra",
  "num-derive",
  "num-traits",
  "ordered-float",
@@ -490,9 +509,9 @@ dependencies = [
 
 [[package]]
 name = "parry3d"
-version = "0.25.3"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e99471b7b6870f7fe406d5611dd4b4c9b07aa3e5436b1d27e1515f9832bb0c6b"
+checksum = "2e04d21bda5249438b5695e7f08f1655524a6025bcdb186c324b7a66562f2d61"
 dependencies = [
  "approx",
  "arrayvec",
@@ -501,11 +520,10 @@ dependencies = [
  "either",
  "ena",
  "foldhash 0.2.0",
- "glam 0.30.10",
+ "glamx",
  "hashbrown 0.16.1",
  "indexmap",
  "log",
- "nalgebra",
  "num-derive",
  "num-traits",
  "ordered-float",
@@ -627,7 +645,6 @@ dependencies = [
  "bincode",
  "bitflags",
  "js-sys",
- "nalgebra",
  "palette",
  "rapier2d",
  "serde",
@@ -642,7 +659,6 @@ dependencies = [
  "bincode",
  "bitflags",
  "js-sys",
- "nalgebra",
  "palette",
  "rapier3d",
  "serde",
@@ -652,15 +668,16 @@ dependencies = [
 
 [[package]]
 name = "rapier2d"
-version = "0.30.1"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab12a465faea032e025eb97a3b0763422391c3edb98200ed5efd516307df550"
+checksum = "73edcbebd2c2a9eb0041e40b046b5136da32990fcd2ac76b9414ebff45908e18"
 dependencies = [
  "approx",
  "arrayvec",
  "bit-vec",
  "bitflags",
  "downcast-rs",
+ "glamx",
  "log",
  "nalgebra",
  "num-derive",
@@ -679,15 +696,16 @@ dependencies = [
 
 [[package]]
 name = "rapier3d"
-version = "0.30.1"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bd27b8eb36d0833fa0f2aea40164fabfad0fc34b9932286ae9e84f3452f5364"
+checksum = "a576251c9dc2d6aff08470b7433096a04019c8b7bea9bbb7087f092c180feaea"
 dependencies = [
  "approx",
  "arrayvec",
  "bit-vec",
  "bitflags",
  "downcast-rs",
+ "glamx",
  "log",
  "nalgebra",
  "num-derive",
@@ -903,6 +921,9 @@ name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "wasm-bindgen"

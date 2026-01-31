@@ -7,7 +7,7 @@ use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::MassProperties;
 use rapier::geometry::{ActiveCollisionTypes, ShapeType};
-use rapier::math::{Isometry, Point, Real, Vector};
+use rapier::math::{IVector, Pose, Real, Rotation, Vector};
 use rapier::parry::query;
 use rapier::parry::query::ShapeCastOptions;
 use rapier::pipeline::{ActiveEvents, ActiveHooks};
@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 impl RawColliderSet {
     /// The world-space translation of this collider.
     pub fn coTranslation(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |co| co.position().translation.vector.into())
+        self.map(handle, |co| co.position().translation.into())
     }
 
     /// The world-space orientation of this collider.
@@ -31,7 +31,7 @@ impl RawColliderSet {
     pub fn coTranslationWrtParent(&self, handle: FlatHandle) -> Option<RawVector> {
         self.map(handle, |co| {
             co.position_wrt_parent()
-                .map(|pose| pose.translation.vector.into())
+                .map(|pose| pose.translation.into())
         })
     }
 
@@ -55,7 +55,7 @@ impl RawColliderSet {
     #[cfg(feature = "dim3")]
     pub fn coSetTranslation(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32) {
         self.map_mut(handle, |co| {
-            co.set_translation(na::Vector3::new(x, y, z));
+            co.set_translation(Vector::new(x, y, z));
         })
     }
 
@@ -69,21 +69,21 @@ impl RawColliderSet {
     #[cfg(feature = "dim2")]
     pub fn coSetTranslation(&mut self, handle: FlatHandle, x: f32, y: f32) {
         self.map_mut(handle, |co| {
-            co.set_translation(na::Vector2::new(x, y));
+            co.set_translation(Vector::new(x, y));
         })
     }
 
     #[cfg(feature = "dim3")]
     pub fn coSetTranslationWrtParent(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32) {
         self.map_mut(handle, |co| {
-            co.set_translation_wrt_parent(na::Vector3::new(x, y, z));
+            co.set_translation_wrt_parent(Vector::new(x, y, z));
         })
     }
 
     #[cfg(feature = "dim2")]
     pub fn coSetTranslationWrtParent(&mut self, handle: FlatHandle, x: f32, y: f32) {
         self.map_mut(handle, |co| {
-            co.set_translation_wrt_parent(na::Vector2::new(x, y));
+            co.set_translation_wrt_parent(Vector::new(x, y));
         })
     }
 
@@ -100,7 +100,8 @@ impl RawColliderSet {
     /// wasn't moving before modifying its position.
     #[cfg(feature = "dim3")]
     pub fn coSetRotation(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, w: f32) {
-        if let Some(q) = na::Unit::try_new(na::Quaternion::new(w, x, y, z), 0.0) {
+        let q = Rotation::from_xyzw(x, y, z, w);
+        if q.is_normalized() {
             self.map_mut(handle, |co| co.set_rotation(q))
         }
     }
@@ -113,13 +114,16 @@ impl RawColliderSet {
     /// wasn't moving before modifying its position.
     #[cfg(feature = "dim2")]
     pub fn coSetRotation(&mut self, handle: FlatHandle, angle: f32) {
-        self.map_mut(handle, |co| co.set_rotation(na::UnitComplex::new(angle)))
+        self.map_mut(handle, |co| co.set_rotation(Rotation::new(angle)))
     }
 
     #[cfg(feature = "dim3")]
     pub fn coSetRotationWrtParent(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, w: f32) {
-        if let Some(q) = na::Unit::try_new(na::Quaternion::new(w, x, y, z), 0.0) {
-            self.map_mut(handle, |co| co.set_rotation_wrt_parent(q.scaled_axis()))
+        let q = Rotation::from_xyzw(x, y, z, w);
+        if q.is_normalized() {
+            // Extract the axis-angle representation for rotation_wrt_parent
+            let (axis, angle) = q.to_axis_angle();
+            self.map_mut(handle, |co| co.set_rotation_wrt_parent(axis * angle))
         }
     }
 
@@ -173,7 +177,7 @@ impl RawColliderSet {
         self.map(handle, |co| {
             co.shape()
                 .as_halfspace()
-                .map(|h| h.normal.into_inner().into())
+                .map(|h| h.normal.into())
         })
     }
 
@@ -268,7 +272,7 @@ impl RawColliderSet {
     pub fn coSetHalfHeight(&mut self, handle: FlatHandle, newHalfheight: Real) {
         self.map_mut(handle, |co| match co.shape().shape_type() {
             ShapeType::Capsule => {
-                let point = Point::from(Vector::y() * newHalfheight);
+                let point = Vector::Y * newHalfheight;
                 co.shape_mut().as_capsule_mut().map(|b| {
                     b.segment.a = -point;
                     b.segment.b = point;
@@ -357,7 +361,7 @@ impl RawColliderSet {
             let coords = vox
                 .voxels()
                 .filter_map(|vox| (!vox.state.is_empty()).then_some(vox.grid_coords))
-                .flat_map(|ids| ids.coords.data.0[0])
+                .flat_map(|ids| ids.to_array())
                 .collect();
             Some(coords)
         })
@@ -374,7 +378,7 @@ impl RawColliderSet {
     pub fn coSetVoxel(&mut self, handle: FlatHandle, ix: i32, iy: i32, filled: bool) {
         self.map_mut(handle, |co| {
             if let Some(vox) = co.shape_mut().as_voxels_mut() {
-                vox.set_voxel(Point::new(ix, iy), filled);
+                vox.set_voxel(IVector::new(ix, iy), filled);
             }
         })
     }
@@ -383,7 +387,7 @@ impl RawColliderSet {
     pub fn coSetVoxel(&mut self, handle: FlatHandle, ix: i32, iy: i32, iz: i32, filled: bool) {
         self.map_mut(handle, |co| {
             if let Some(vox) = co.shape_mut().as_voxels_mut() {
-                vox.set_voxel(Point::new(ix, iy, iz), filled);
+                vox.set_voxel(IVector::new(ix, iy, iz), filled);
             }
         })
     }
@@ -406,8 +410,8 @@ impl RawColliderSet {
                 ) {
                     vox1.propagate_voxel_change(
                         vox2,
-                        Point::new(ix, iy),
-                        Vector::new(shift_x, shift_y),
+                        IVector::new(ix, iy),
+                        IVector::new(shift_x, shift_y),
                     );
                 }
             }
@@ -434,8 +438,8 @@ impl RawColliderSet {
                 ) {
                     vox1.propagate_voxel_change(
                         vox2,
-                        Point::new(ix, iy, iz),
-                        Vector::new(shift_x, shift_y, shift_z),
+                        IVector::new(ix, iy, iz),
+                        IVector::new(shift_x, shift_y, shift_z),
                     );
                 }
             }
@@ -456,7 +460,7 @@ impl RawColliderSet {
                     co1.shape_mut().as_voxels_mut(),
                     co2.shape_mut().as_voxels_mut(),
                 ) {
-                    vox1.combine_voxel_states(vox2, Vector::new(shift_x, shift_y));
+                    vox1.combine_voxel_states(vox2, IVector::new(shift_x, shift_y));
                 }
             }
         })
@@ -477,7 +481,7 @@ impl RawColliderSet {
                     co1.shape_mut().as_voxels_mut(),
                     co2.shape_mut().as_voxels_mut(),
                 ) {
-                    vox1.combine_voxel_states(vox2, Vector::new(shift_x, shift_y, shift_z));
+                    vox1.combine_voxel_states(vox2, IVector::new(shift_x, shift_y, shift_z));
                 }
             }
         })
@@ -486,7 +490,7 @@ impl RawColliderSet {
     /// The vertices of this triangle mesh, polyline, convex polyhedron, segment, triangle or convex polyhedron, if it is one.
     pub fn coVertices(&self, handle: FlatHandle) -> Option<Vec<f32>> {
         let flatten =
-            |vertices: &[Point<f32>]| vertices.iter().flat_map(|p| p.iter()).copied().collect();
+            |vertices: &[Vector]| vertices.iter().flat_map(|p| p.as_ref().iter()).copied().collect();
         self.map(handle, |co| match co.shape().shape_type() {
             ShapeType::TriMesh => co.shape().as_trimesh().map(|t| flatten(t.vertices())),
             #[cfg(feature = "dim2")]
@@ -570,12 +574,25 @@ impl RawColliderSet {
     }
 
     /// The height of this heightfield if it is one.
+    #[cfg(feature = "dim2")]
     pub fn coHeightfieldHeights(&self, handle: FlatHandle) -> Option<Vec<f32>> {
         self.map(handle, |co| match co.shape().shape_type() {
             ShapeType::HeightField => co
                 .shape()
                 .as_heightfield()
-                .map(|h| h.heights().as_slice().to_vec()),
+                .map(|h| h.heights().to_vec()),
+            _ => None,
+        })
+    }
+
+    /// The height of this heightfield if it is one.
+    #[cfg(feature = "dim3")]
+    pub fn coHeightfieldHeights(&self, handle: FlatHandle) -> Option<Vec<f32>> {
+        self.map(handle, |co| match co.shape().shape_type() {
+            ShapeType::HeightField => co
+                .shape()
+                .as_heightfield()
+                .map(|h| h.heights().data().to_vec()),
             _ => None,
         })
     }
@@ -583,7 +600,7 @@ impl RawColliderSet {
     /// The scaling factor applied of this heightfield if it is one.
     pub fn coHeightfieldScale(&self, handle: FlatHandle) -> Option<RawVector> {
         self.map(handle, |co| match co.shape().shape_type() {
-            ShapeType::HeightField => co.shape().as_heightfield().map(|h| RawVector(*h.scale())),
+            ShapeType::HeightField => co.shape().as_heightfield().map(|h| RawVector(h.scale())),
             _ => None,
         })
     }
@@ -688,7 +705,7 @@ impl RawColliderSet {
     pub fn coContainsPoint(&self, handle: FlatHandle, point: &RawVector) -> bool {
         self.map(handle, |co| {
             co.shared_shape()
-                .containsPoint(co.position(), &point.0.into())
+                .containsPoint(co.position(), point.0)
         })
     }
 
@@ -704,16 +721,16 @@ impl RawColliderSet {
         maxToi: f32,
         stop_at_penetration: bool,
     ) -> Option<RawShapeCastHit> {
-        let pos2 = Isometry::from_parts(shape2Pos.0.into(), shape2Rot.0);
+        let pos2 = Pose::from_parts(shape2Pos.0, shape2Rot.0);
 
         self.map(handle, |co| {
             let pos1 = co.position();
             co.shared_shape().castShape(
                 pos1,
-                &colliderVel.0.into(),
+                &colliderVel.0,
                 &*shape2.0,
                 &pos2,
-                &shape2Vel.0.into(),
+                &shape2Vel.0,
                 target_distance,
                 maxToi,
                 stop_at_penetration,
@@ -740,10 +757,10 @@ impl RawColliderSet {
         self.map(handle, |co| {
             query::cast_shapes(
                 co.position(),
-                &collider1Vel.0,
+                collider1Vel.0,
                 co.shape(),
                 co2.position(),
-                &collider2Vel.0,
+                collider2Vel.0,
                 co2.shape(),
                 ShapeCastOptions {
                     max_time_of_impact: max_toi,
@@ -769,7 +786,7 @@ impl RawColliderSet {
         shapePos2: &RawVector,
         shapeRot2: &RawRotation,
     ) -> bool {
-        let pos2 = Isometry::from_parts(shapePos2.0.into(), shapeRot2.0);
+        let pos2 = Pose::from_parts(shapePos2.0, shapeRot2.0);
 
         self.map(handle, |co| {
             co.shared_shape()
@@ -785,7 +802,7 @@ impl RawColliderSet {
         shapeRot2: &RawRotation,
         prediction: f32,
     ) -> Option<RawShapeContact> {
-        let pos2 = Isometry::from_parts(shapePos2.0.into(), shapeRot2.0);
+        let pos2 = Pose::from_parts(shapePos2.0, shapeRot2.0);
 
         self.map(handle, |co| {
             co.shared_shape()
@@ -826,7 +843,7 @@ impl RawColliderSet {
     ) -> RawPointProjection {
         self.map(handle, |co| {
             co.shared_shape()
-                .projectPoint(co.position(), &point.0.into(), solid)
+                .projectPoint(co.position(), point.0, solid)
         })
     }
 
@@ -840,8 +857,8 @@ impl RawColliderSet {
         self.map(handle, |co| {
             co.shared_shape().intersectsRay(
                 co.position(),
-                rayOrig.0.into(),
-                rayDir.0.into(),
+                rayOrig.0,
+                rayDir.0,
                 maxToi,
             )
         })

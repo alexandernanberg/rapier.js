@@ -4,7 +4,6 @@
 #![allow(non_snake_case)] // JS uses camelCase, so we will follow its convention for the generated bindings.
                           // #![deny(missing_docs)]
 
-extern crate nalgebra as na;
 #[cfg(feature = "dim2")]
 extern crate rapier2d as rapier;
 #[cfg(feature = "dim3")]

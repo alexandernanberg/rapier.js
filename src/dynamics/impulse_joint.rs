@@ -36,7 +36,7 @@ impl RawImpulseJointSet {
     /// The first anchor gives the position of the points application point on the
     /// local frame of the first rigid-body it is attached to.
     pub fn jointAnchor1(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |j| j.data.local_frame1.translation.vector.into())
+        self.map(handle, |j| j.data.local_frame1.translation.into())
     }
 
     /// The position of the second anchor of this joint.
@@ -44,7 +44,7 @@ impl RawImpulseJointSet {
     /// The second anchor gives the position of the points application point on the
     /// local frame of the second rigid-body it is attached to.
     pub fn jointAnchor2(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |j| j.data.local_frame2.translation.vector.into())
+        self.map(handle, |j| j.data.local_frame2.translation.into())
     }
 
     /// Sets the position of the first local anchor

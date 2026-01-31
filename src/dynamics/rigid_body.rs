@@ -4,15 +4,15 @@ use crate::geometry::RawColliderSet;
 use crate::math::RawSdpMatrix3;
 use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
-use na::Point;
 use rapier::dynamics::MassProperties;
+use rapier::math::{Rotation, Vector};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 impl RawRigidBodySet {
     /// The world-space translation of this rigid-body.
     pub fn rbTranslation(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |rb| RawVector(rb.position().translation.vector))
+        self.map(handle, |rb| RawVector(rb.position().translation))
     }
 
     /// The world-space orientation of this rigid-body.
@@ -42,7 +42,7 @@ impl RawRigidBodySet {
     /// For non-kinematic bodies, this value is currently unspecified.
     pub fn rbNextTranslation(&self, handle: FlatHandle) -> RawVector {
         self.map(handle, |rb| {
-            RawVector(rb.next_position().translation.vector)
+            RawVector(rb.next_position().translation)
         })
     }
 
@@ -66,7 +66,7 @@ impl RawRigidBodySet {
     #[cfg(feature = "dim3")]
     pub fn rbSetTranslation(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, wakeUp: bool) {
         self.map_mut(handle, |rb| {
-            rb.set_translation(na::Vector3::new(x, y, z), wakeUp);
+            rb.set_translation(Vector::new(x, y, z), wakeUp);
         })
     }
 
@@ -80,7 +80,7 @@ impl RawRigidBodySet {
     #[cfg(feature = "dim2")]
     pub fn rbSetTranslation(&mut self, handle: FlatHandle, x: f32, y: f32, wakeUp: bool) {
         self.map_mut(handle, |rb| {
-            rb.set_translation(na::Vector2::new(x, y), wakeUp);
+            rb.set_translation(Vector::new(x, y), wakeUp);
         })
     }
 
@@ -105,7 +105,8 @@ impl RawRigidBodySet {
         w: f32,
         wakeUp: bool,
     ) {
-        if let Some(q) = na::Unit::try_new(na::Quaternion::new(w, x, y, z), 0.0) {
+        let q = Rotation::from_xyzw(x, y, z, w);
+        if q.is_normalized() {
             self.map_mut(handle, |rb| rb.set_rotation(q, wakeUp))
         }
     }
@@ -119,7 +120,7 @@ impl RawRigidBodySet {
     #[cfg(feature = "dim2")]
     pub fn rbSetRotation(&mut self, handle: FlatHandle, angle: f32, wakeUp: bool) {
         self.map_mut(handle, |rb| {
-            rb.set_rotation(na::UnitComplex::new(angle), wakeUp)
+            rb.set_rotation(Rotation::new(angle), wakeUp)
         })
     }
 
@@ -161,7 +162,7 @@ impl RawRigidBodySet {
     #[cfg(feature = "dim3")]
     pub fn rbSetNextKinematicTranslation(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32) {
         self.map_mut(handle, |rb| {
-            rb.set_next_kinematic_translation(na::Vector3::new(x, y, z));
+            rb.set_next_kinematic_translation(Vector::new(x, y, z));
         })
     }
 
@@ -179,7 +180,7 @@ impl RawRigidBodySet {
     #[cfg(feature = "dim2")]
     pub fn rbSetNextKinematicTranslation(&mut self, handle: FlatHandle, x: f32, y: f32) {
         self.map_mut(handle, |rb| {
-            rb.set_next_kinematic_translation(na::Vector2::new(x, y));
+            rb.set_next_kinematic_translation(Vector::new(x, y));
         })
     }
 
@@ -205,7 +206,8 @@ impl RawRigidBodySet {
         z: f32,
         w: f32,
     ) {
-        if let Some(q) = na::Unit::try_new(na::Quaternion::new(w, x, y, z), 0.0) {
+        let q = Rotation::from_xyzw(x, y, z, w);
+        if q.is_normalized() {
             self.map_mut(handle, |rb| {
                 rb.set_next_kinematic_rotation(q);
             })
@@ -225,7 +227,7 @@ impl RawRigidBodySet {
     #[cfg(feature = "dim2")]
     pub fn rbSetNextKinematicRotation(&mut self, handle: FlatHandle, angle: f32) {
         self.map_mut(handle, |rb| {
-            rb.set_next_kinematic_rotation(na::UnitComplex::new(angle));
+            rb.set_next_kinematic_rotation(Rotation::new(angle));
         })
     }
 
@@ -283,7 +285,7 @@ impl RawRigidBodySet {
 
     /// The linear velocity of this rigid-body.
     pub fn rbLinvel(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |rb| RawVector(*rb.linvel()))
+        self.map(handle, |rb| RawVector(rb.linvel()))
     }
 
     /// The angular velocity of this rigid-body.
@@ -295,14 +297,12 @@ impl RawRigidBodySet {
     /// The angular velocity of this rigid-body.
     #[cfg(feature = "dim3")]
     pub fn rbAngvel(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |rb| RawVector(*rb.angvel()))
+        self.map(handle, |rb| RawVector(rb.angvel()))
     }
 
     /// The velocity of the given world-space point on this rigid-body.
     pub fn rbVelocityAtPoint(&self, handle: FlatHandle, point: &RawVector) -> RawVector {
-        self.map(handle, |rb| {
-            rb.velocity_at_point(&Point::from(point.0)).into()
-        })
+        self.map(handle, |rb| rb.velocity_at_point(point.0).into())
     }
 
     pub fn rbLockTranslations(&mut self, handle: FlatHandle, locked: bool, wake_up: bool) {

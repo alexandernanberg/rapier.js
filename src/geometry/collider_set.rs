@@ -2,6 +2,7 @@ use crate::dynamics::{RawIslandManager, RawRigidBodySet};
 use crate::geometry::RawShape;
 use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
+use rapier::math::Pose;
 use rapier::prelude::*;
 use wasm_bindgen::prelude::*;
 
@@ -82,7 +83,7 @@ impl RawColliderSet {
         parent: FlatHandle,
         bodies: &mut RawRigidBodySet,
     ) -> Option<FlatHandle> {
-        let pos = Isometry::from_parts(translation.0.into(), rotation.0);
+        let pos = Pose::from_parts(translation.0, rotation.0);
         let mut builder = ColliderBuilder::new(shape.0.clone())
             .enabled(enabled)
             .position(pos)
