@@ -5,20 +5,20 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/rapier.d.ts",
-      "default": "./dist/rapier.js"
+      "types": "./dist/rapier.d.mts",
+      "default": "./dist/rapier.mjs"
     },
     "./compat": {
-      "types": "./dist/rapier.d.ts",
-      "default": "./dist/compat.js"
+      "types": "./dist/compat.d.mts",
+      "default": "./dist/compat.mjs"
     },
     "./simd": {
-      "types": "./dist/rapier.d.ts",
-      "default": "./dist/simd.js"
+      "types": "./dist/simd.d.mts",
+      "default": "./dist/simd.mjs"
     },
     "./compat-simd": {
-      "types": "./dist/rapier.d.ts",
-      "default": "./dist/compat-simd.js"
+      "types": "./dist/compat-simd.d.mts",
+      "default": "./dist/compat-simd.mjs"
     }
   },
   "files": [
@@ -48,7 +48,7 @@
     "base64-js": "^1.5.1"
   },
   "devDependencies": {
-    "tsdown": "^0.11.0",
+    "tsdown": "^0.20.1",
     "typescript": "^5.7.3"
   }
 }
