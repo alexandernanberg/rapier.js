@@ -6,7 +6,7 @@ use palette::rgb::Rgba;
 use palette::Hsla;
 use rapier::dynamics::{RigidBody, RigidBodySet};
 use rapier::geometry::ColliderSet;
-use rapier::math::{Real, Vector};
+use rapier::math::Vector;
 use rapier::pipeline::{DebugRenderBackend, DebugRenderObject, DebugRenderPipeline};
 use rapier::prelude::{QueryFilter, QueryFilterFlags};
 use wasm_bindgen::prelude::*;

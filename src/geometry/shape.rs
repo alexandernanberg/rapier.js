@@ -1,7 +1,7 @@
 use crate::geometry::{RawPointProjection, RawRayIntersection, RawShapeCastHit, RawShapeContact};
 use crate::math::{RawRotation, RawVector};
 use rapier::geometry::{Shape, SharedShape, TriMeshFlags};
-use rapier::math::{IVector, Pose, Real, Vector, DIM};
+use rapier::math::{IVector, Pose, Vector, DIM};
 use rapier::parry::query;
 use rapier::parry::query::{Ray, ShapeCastOptions};
 use wasm_bindgen::prelude::*;

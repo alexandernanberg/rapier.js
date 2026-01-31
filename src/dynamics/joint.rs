@@ -5,7 +5,7 @@ use rapier::dynamics::{
 };
 #[cfg(feature = "dim3")]
 use rapier::dynamics::{GenericJointBuilder, SphericalJointBuilder};
-use rapier::math::{Pose, Vector};
+use rapier::math::Pose;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

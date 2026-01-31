@@ -7,7 +7,7 @@ use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
 use rapier::geometry::DefaultBroadPhase;
 use rapier::geometry::{Aabb, ColliderHandle, Ray};
-use rapier::math::{Pose, Vector};
+use rapier::math::Pose;
 use rapier::parry::query::ShapeCastOptions;
 use rapier::pipeline::{QueryFilter, QueryFilterFlags};
 use rapier::prelude::FeatureId;
