@@ -65,6 +65,24 @@ pnpm dev:testbed2d      # Run 2D demo
 pnpm dev:testbed3d      # Run 3D demo
 ```
 
+## Benchmarks
+
+Run performance benchmarks to measure physics engine performance:
+
+```bash
+pnpm bench              # Full 3D benchmark
+pnpm bench:2d           # Full 2D benchmark
+pnpm bench:quick        # Quick mode (fewer iterations)
+```
+
+**Benchmark categories:**
+- **Simulation**: `world.step()` performance with stacked bodies
+- **Lifecycle**: Body creation/destruction throughput
+- **Queries**: Ray casting and point projection performance
+- **Getters**: Property access with/without allocation
+
+Results are saved to `packages/benchmarks/results/` as timestamped JSON files.
+
 ## Critical Memory Management Patterns
 
 ### Rule 1: Always `init()` Before API Use
@@ -121,6 +139,23 @@ class KinematicCharacterController {
 }
 ```
 
+## Zero-Allocation Getters
+
+For hot paths, use the optional `target` parameter to avoid allocations:
+
+```typescript
+// Allocating (creates new object each call)
+const pos = body.translation();
+
+// Zero-allocation (reuses existing object)
+const _pos = { x: 0, y: 0, z: 0 };
+body.translation(_pos);  // writes into _pos
+```
+
+Supported methods: `translation()`, `rotation()`, `linvel()`, `angvel()`,
+`nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()` on RigidBody,
+and `translation()`, `rotation()` on Collider.
+
 ## 2D vs 3D Differences
 
 | Concept  | 2D                                         | 3D                                 |
@@ -176,8 +211,8 @@ const body = world.createRigidBody(bodyDesc);
 Testbeds serve as integration tests:
 
 ```bash
-pnpm dev:testbed2d   # http://localhost:8080
-pnpm dev:testbed3d   # http://localhost:8080
+pnpm dev:testbed2d   # http://localhost:5173
+pnpm dev:testbed3d   # http://localhost:5173
 ```
 
 Demo files in `packages/testbed{2d,3d}/src/demos/` show usage patterns.

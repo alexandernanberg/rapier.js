@@ -5,18 +5,13 @@
     <a href="https://discord.gg/vt9DJSW">
         <img src="https://img.shields.io/discord/507548572338880513.svg?logo=discord&colorB=7289DA">
     </a>
-    <a href="https://github.com/dimforge/rapier.js/actions">
-        <img src="https://github.com/dimforge/rapier.js/workflows/main/badge.svg" alt="Build status">
-    </a>
     <a href="https://opensource.org/licenses/Apache-2.0">
         <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg">
     </a>
 </p>
 <p align = "center">
     <strong>
-        <a href="https://rapier.rs">Website</a> | <a href="https://rapier.rs/docs/">Documentation</a> |
-        <a href="https://github.com/dimforge/rapier.js/tree/master/testbed2d/src/demos">2D examples (sources)</a> | 
-        <a href="https://github.com/dimforge/rapier.js/tree/master/testbed3d/src/demos">3D examples (sources)</a>
+        <a href="https://rapier.rs">Website</a> | <a href="https://rapier.rs/docs/">Documentation</a>
     </strong>
 </p>
 
@@ -24,59 +19,132 @@
 
 <p align = "center">
 <b>2D and 3D physics engines</b>
-<i>for the JavaScript programming language (official bindings).</i>
+<i>for the JavaScript programming language.</i>
 </p>
 
 ---
 
-## Building packages manually
+## Fork Differences
 
-From the root of the repository, run:
+This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) with:
 
-```shell
-./builds/prepare_builds/prepare_all_projects.sh
-./builds/prepare_builds/build_all_projects.sh
+- Rapier 0.32 with glam math library
+- pnpm monorepo with tsdown bundler
+- Zero-allocation getters (optional target parameter)
+- Built-in benchmarks
+- Simplified package variants (4 per dimension)
+
+### Benchmarks vs Official
+
+Comparison against `@dimforge/rapier3d@0.19.3` (3D, 3000 bodies):
+
+| Benchmark | Fork | Fork SIMD | Official | Official SIMD |
+|-----------|------|-----------|----------|---------------|
+| world.step() | 1.18ms | **0.69ms** | 1.14ms | 0.72ms |
+| create 1000 bodies | **3.15ms** | 3.15ms | 3.47ms | 3.41ms |
+| body.translation() | **62µs** | 62µs | 210µs | 209µs |
+| body.rotation() | **68µs** | 68µs | 223µs | 220µs |
+
+Key improvements:
+- **world.step() SIMD**: 4% faster than official
+- **Getters**: 3.4x faster (zero-allocation optimization)
+- **Body creation**: 9% faster
+
+Run `pnpm bench --official` to compare on your machine.
+
+---
+
+## Installation
+
+```bash
+# 2D physics
+npm install @alexandernanberg/rapier-2d
+
+# 3D physics
+npm install @alexandernanberg/rapier-3d
 ```
 
-Note that `prepare_all_projects.sh` only needs to be run once. It needs to be re-run if any file from the
-`builds/prepare_builds` directory (and subdirectories) are modified.
+## Usage
 
-The built packages will be in `builds/rapier2d/pkg`, `builds/rapier3d/pkg`, etc. To build the `-compat` variant of the
-packages, run `npm run build` in the `rapier-compat` directory. Note that this will only work if you already ran
-`prepare_all_projects.sh`. The compat packages are then generated in, e.g., `rapier-compat/builds/3d/pkg`.
+```typescript
+import RAPIER from "@alexandernanberg/rapier-2d";
 
-## Feature selection
+await RAPIER.init();
 
-Multiple NPM packages exist for Rapier, depending on your needs:
-- [`@dimforge/rapier2d`](https://www.npmjs.com/package/@dimforge/rapier2d) or
-  [`@dimforge/rapier3d`](https://www.npmjs.com/package/@dimforge/rapier3d):
-  The main build of the Rapier physics engine for 2D or 3D physics simulation. This should have wide browser
-  support while offering great performances. This does **not** guarantee cross-platform determinism of the physics
-  simulation (but it is still locally deterministic, on the same machine).
-- [`@dimforge/rapier2d-simd`](https://www.npmjs.com/package/@dimforge/rapier2d-simd) or
-  [`@dimforge/rapier3d-simd`](https://www.npmjs.com/package/@dimforge/rapier3d-simd):
-  A build with internal SIMD optimizations enabled. More limited browser support (requires support for [simd128](https://caniuse.com/?search=simd)).
-- [`@dimforge/rapier2d-deterministic`](https://www.npmjs.com/package/@dimforge/rapier2d-deterministic) or
-  [`@dimforge/rapier3d-deterministic`](https://www.npmjs.com/package/@dimforge/rapier3d-deterministic):
-  A less optimized build but with a guarantee of a cross-platform deterministic execution of the physics simulation.
+const gravity = { x: 0.0, y: -9.81 };
+const world = new RAPIER.World(gravity);
 
-## Bundler support
+// Create a dynamic rigid body
+const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(0.0, 10.0);
+const body = world.createRigidBody(bodyDesc);
 
-Some bundlers will struggle with the `.wasm` file package into the builds above. Alternative `-compat` versions exist
-which embed the `.wasm` file into the `.js` sources encoded with base64. This results in a bigger package size, but
-much wider bundler support.
+// Create a collider attached to the body
+const colliderDesc = RAPIER.ColliderDesc.ball(0.5);
+world.createCollider(colliderDesc, body);
 
-Just append `-compat` to the build you are interested in:
-[`rapier2d-compat`](https://www.npmjs.com/package/@dimforge/rapier2d-compat),
-[`rapier2d-simd-compat`](https://www.npmjs.com/package/@dimforge/rapier2d-simd-compat),
-[`rapier2d-deterministic-compat`](https://www.npmjs.com/package/@dimforge/rapier2d-deterministic-compat),
-[`rapier3d-compat`](https://www.npmjs.com/package/@dimforge/rapier3d-compat),
-[`rapier3d-simd-compat`](https://www.npmjs.com/package/@dimforge/rapier3d-simd-compat),
-[`rapier3d-deterministic-compat`](https://www.npmjs.com/package/@dimforge/rapier3d-deterministic-compat).
+// Run the simulation
+world.step();
+console.log(body.translation()); // { x: 0, y: ~9.99 }
+```
 
-## Nightly builds
+## Package Variants
 
-Each time a new Pull Request is merged to the `main` branch of the [`rapier.js` repository](https://github.com/dimforge/rapier.js),
-an automatic _canary_ build is triggered. Builds published to npmjs under the _canary_ tag does not come with any
-stability guarantee and does not follow semver versioning. But it can be a useful solution to try out the latest
-features until a proper release is cut.
+Each package ships 4 variants via subpath exports:
+
+| Import Path                            | WASM Loading         | SIMD |
+| -------------------------------------- | -------------------- | ---- |
+| `@alexandernanberg/rapier-2d`          | `fetch()` at runtime | No   |
+| `@alexandernanberg/rapier-2d/simd`     | `fetch()` at runtime | Yes  |
+| `@alexandernanberg/rapier-2d/compat`   | Embedded base64      | No   |
+| `@alexandernanberg/rapier-2d/compat-simd` | Embedded base64   | Yes  |
+
+**When to use which:**
+- **Default/SIMD**: Best for web apps (smaller bundle, parallel loading)
+- **Compat variants**: For environments without `fetch()` (SSR, workers, tests)
+- **SIMD variants**: Better performance, requires [simd128 support](https://caniuse.com/?search=simd)
+
+## Building from Source
+
+### Prerequisites
+
+- Node.js 24+
+- pnpm (`npm install -g pnpm`)
+- Rust toolchain (`rustup`)
+- wasm-pack (`cargo install wasm-pack`)
+
+### Build Commands
+
+```bash
+pnpm install            # Install dependencies
+pnpm build              # Full build (WASM + TypeScript)
+pnpm build:wasm         # WASM only (all variants)
+pnpm build:ts           # TypeScript only
+pnpm build:2d           # 2D package only
+pnpm build:3d           # 3D package only
+```
+
+### Running Testbeds
+
+```bash
+pnpm dev:testbed2d      # http://localhost:5173
+pnpm dev:testbed3d      # http://localhost:5173
+```
+
+### Benchmarks
+
+```bash
+pnpm bench                    # Run and compare against baseline
+pnpm bench --save-baseline    # Save current results as new baseline
+pnpm bench --no-compare       # Run without baseline comparison
+pnpm bench:2d                 # Full 2D benchmark
+pnpm bench --quick            # Quick mode (fewer iterations)
+```
+
+**Baseline comparison:**
+- Results are compared against `packages/benchmarks/baseline.json`
+- Thresholds: >15% = warning, >30% = regression
+- Exit code 1 on regression (useful for CI)
+
+## License
+
+Apache 2.0
