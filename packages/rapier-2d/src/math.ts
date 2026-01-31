@@ -44,6 +44,13 @@ export class VectorOps {
         out.x = input.x;
         out.y = input.y;
     }
+
+    public static fromBuffer(buffer: Float32Array, target?: Vector): Vector {
+        target ??= VectorOps.zeros();
+        target.x = buffer[0];
+        target.y = buffer[1];
+        return target;
+    }
 }
 
 /**
@@ -66,5 +73,9 @@ export class RotationOps {
 
     public static intoRaw(angle: Rotation): RawRotation {
         return RawRotation.fromAngle(angle);
+    }
+
+    public static fromBuffer(buffer: Float32Array): Rotation {
+        return buffer[0];
     }
 }

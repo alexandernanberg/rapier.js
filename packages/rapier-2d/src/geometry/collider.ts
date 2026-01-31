@@ -101,8 +101,9 @@ export type ColliderHandle = number;
 export class Collider {
     private colliderSet: ColliderSet; // The Collider won't need to free this.
     readonly handle: ColliderHandle;
-    private _shape: Shape; // TODO: deprecate/remove this since it isn’t a reliable way of getting the latest shape properties.
+    private _shape: Shape; // TODO: deprecate/remove this since it isn't a reliable way of getting the latest shape properties.
     private _parent: RigidBody | null;
+    private scratchBuffer: Float32Array;
 
     constructor(
         colliderSet: ColliderSet,
@@ -114,6 +115,7 @@ export class Collider {
         this.handle = handle;
         this._parent = parent;
         this._shape = shape;
+        this.scratchBuffer = new Float32Array(4);
     }
 
     /** @internal */
@@ -160,42 +162,50 @@ export class Collider {
 
     /**
      * The world-space translation of this collider.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public translation(): Vector {
-        return VectorOps.fromRaw(
-            this.colliderSet.raw.coTranslation(this.handle),
-        );
+    public translation(target?: Vector): Vector {
+        this.colliderSet.raw.coTranslation(this.handle, this.scratchBuffer);
+        return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
     /**
      * The translation of this collider relative to its parent rigid-body.
      *
-     * Returns `null` if the collider doesn’t have a parent rigid-body.
+     * Returns `null` if the collider doesn't have a parent rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public translationWrtParent(): Vector | null {
-        return VectorOps.fromRaw(
-            this.colliderSet.raw.coTranslationWrtParent(this.handle),
+    public translationWrtParent(target?: Vector): Vector | null {
+        const hasParent = this.colliderSet.raw.coTranslationWrtParent(
+            this.handle,
+            this.scratchBuffer,
         );
+        if (!hasParent) return null;
+        return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
     /**
      * The world-space orientation of this collider.
      */
     public rotation(): Rotation {
-        return RotationOps.fromRaw(
-            this.colliderSet.raw.coRotation(this.handle),
-        );
+        this.colliderSet.raw.coRotation(this.handle, this.scratchBuffer);
+        return RotationOps.fromBuffer(this.scratchBuffer);
     }
 
     /**
      * The orientation of this collider relative to its parent rigid-body.
      *
-     * Returns `null` if the collider doesn’t have a parent rigid-body.
+     * Returns `null` if the collider doesn't have a parent rigid-body.
      */
     public rotationWrtParent(): Rotation | null {
-        return RotationOps.fromRaw(
-            this.colliderSet.raw.coRotationWrtParent(this.handle),
+        const hasParent = this.colliderSet.raw.coRotationWrtParent(
+            this.handle,
+            this.scratchBuffer,
         );
+        if (!hasParent) return null;
+        return RotationOps.fromBuffer(this.scratchBuffer);
     }
 
     /**

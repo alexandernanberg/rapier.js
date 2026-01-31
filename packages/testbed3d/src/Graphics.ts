@@ -10,6 +10,10 @@ const CONE_INSTANCE_INDEX = 3;
 var dummy = new THREE.Object3D();
 var kk = 0;
 
+// Scratch objects for zero-allocation getters
+const _translation = {x: 0, y: 0, z: 0};
+const _rotation = {x: 0, y: 0, z: 0, w: 1};
+
 interface InstanceDesc {
     groupId: number;
     instanceId: number;
@@ -328,18 +332,22 @@ export class Graphics {
     updatePositions(world: RAPIER.World) {
         world.forEachCollider((elt) => {
             let gfx = this.coll2instance.get(elt.handle);
-            let translation = elt.translation();
-            let rotation = elt.rotation();
+            elt.translation(_translation);
+            elt.rotation(_rotation);
 
             if (!!gfx) {
                 let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
                 dummy.scale.set(gfx.scale.x, gfx.scale.y, gfx.scale.z);
-                dummy.position.set(translation.x, translation.y, translation.z);
+                dummy.position.set(
+                    _translation.x,
+                    _translation.y,
+                    _translation.z,
+                );
                 dummy.quaternion.set(
-                    rotation.x,
-                    rotation.y,
-                    rotation.z,
-                    rotation.w,
+                    _rotation.x,
+                    _rotation.y,
+                    _rotation.z,
+                    _rotation.w,
                 );
                 dummy.updateMatrix();
                 instance.setMatrixAt(gfx.elementId, dummy.matrix);
@@ -360,12 +368,16 @@ export class Graphics {
             let mesh = this.coll2mesh.get(elt.handle);
 
             if (!!mesh) {
-                mesh.position.set(translation.x, translation.y, translation.z);
+                mesh.position.set(
+                    _translation.x,
+                    _translation.y,
+                    _translation.z,
+                );
                 mesh.quaternion.set(
-                    rotation.x,
-                    rotation.y,
-                    rotation.z,
-                    rotation.w,
+                    _rotation.x,
+                    _rotation.y,
+                    _rotation.z,
+                    _rotation.w,
                 );
                 mesh.updateMatrix();
             }
@@ -558,10 +570,10 @@ export class Graphics {
             ];
         highlightInstance.count = 0;
 
-        let t = collider.translation();
-        let r = collider.rotation();
-        dummy.position.set(t.x, t.y, t.z);
-        dummy.quaternion.set(r.x, r.y, r.z, r.w);
+        collider.translation(_translation);
+        collider.rotation(_rotation);
+        dummy.position.set(_translation.x, _translation.y, _translation.z);
+        dummy.quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
         dummy.scale.set(
             instanceDesc.scale.x,
             instanceDesc.scale.y,

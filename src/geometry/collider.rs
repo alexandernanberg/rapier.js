@@ -5,6 +5,7 @@ use crate::geometry::{
 };
 use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
+use js_sys::Float32Array;
 use rapier::dynamics::MassProperties;
 use rapier::geometry::{ActiveCollisionTypes, ShapeType};
 use rapier::math::{IVector, Pose, Real, Rotation, Vector};
@@ -15,32 +16,106 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 impl RawColliderSet {
-    /// The world-space translation of this collider.
-    pub fn coTranslation(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |co| co.position().translation.into())
-    }
-
-    /// The world-space orientation of this collider.
-    pub fn coRotation(&self, handle: FlatHandle) -> RawRotation {
-        self.map(handle, |co| co.position().rotation.into())
-    }
-
-    /// The translation of this collider relative to its parent rigid-body.
-    ///
-    /// Returns the `None` if it doesn’t have a parent.
-    pub fn coTranslationWrtParent(&self, handle: FlatHandle) -> Option<RawVector> {
+    /// The world-space translation of this collider, written to a buffer.
+    #[cfg(feature = "dim2")]
+    pub fn coTranslation(&self, handle: FlatHandle, buffer: &Float32Array) {
         self.map(handle, |co| {
-            co.position_wrt_parent()
-                .map(|pose| pose.translation.into())
+            let t = co.position().translation;
+            buffer.set_index(0, t.x);
+            buffer.set_index(1, t.y);
+        });
+    }
+
+    /// The world-space translation of this collider, written to a buffer.
+    #[cfg(feature = "dim3")]
+    pub fn coTranslation(&self, handle: FlatHandle, buffer: &Float32Array) {
+        self.map(handle, |co| {
+            let t = co.position().translation;
+            buffer.set_index(0, t.x);
+            buffer.set_index(1, t.y);
+            buffer.set_index(2, t.z);
+        });
+    }
+
+    /// The world-space orientation of this collider, written to a buffer.
+    #[cfg(feature = "dim2")]
+    pub fn coRotation(&self, handle: FlatHandle, buffer: &Float32Array) {
+        self.map(handle, |co| {
+            buffer.set_index(0, co.position().rotation.angle());
+        });
+    }
+
+    /// The world-space orientation of this collider, written to a buffer.
+    #[cfg(feature = "dim3")]
+    pub fn coRotation(&self, handle: FlatHandle, buffer: &Float32Array) {
+        self.map(handle, |co| {
+            let r = co.position().rotation;
+            buffer.set_index(0, r.x);
+            buffer.set_index(1, r.y);
+            buffer.set_index(2, r.z);
+            buffer.set_index(3, r.w);
+        });
+    }
+
+    /// The translation of this collider relative to its parent rigid-body, written to a buffer.
+    /// Returns false if it doesn't have a parent.
+    #[cfg(feature = "dim2")]
+    pub fn coTranslationWrtParent(&self, handle: FlatHandle, buffer: &Float32Array) -> bool {
+        self.map(handle, |co| {
+            if let Some(pose) = co.position_wrt_parent() {
+                buffer.set_index(0, pose.translation.x);
+                buffer.set_index(1, pose.translation.y);
+                true
+            } else {
+                false
+            }
         })
     }
 
-    /// The orientation of this collider relative to its parent rigid-body.
-    ///
-    /// Returns the `None` if it doesn’t have a parent.
-    pub fn coRotationWrtParent(&self, handle: FlatHandle) -> Option<RawRotation> {
+    /// The translation of this collider relative to its parent rigid-body, written to a buffer.
+    /// Returns false if it doesn't have a parent.
+    #[cfg(feature = "dim3")]
+    pub fn coTranslationWrtParent(&self, handle: FlatHandle, buffer: &Float32Array) -> bool {
         self.map(handle, |co| {
-            co.position_wrt_parent().map(|pose| pose.rotation.into())
+            if let Some(pose) = co.position_wrt_parent() {
+                buffer.set_index(0, pose.translation.x);
+                buffer.set_index(1, pose.translation.y);
+                buffer.set_index(2, pose.translation.z);
+                true
+            } else {
+                false
+            }
+        })
+    }
+
+    /// The orientation of this collider relative to its parent rigid-body, written to a buffer.
+    /// Returns false if it doesn't have a parent.
+    #[cfg(feature = "dim2")]
+    pub fn coRotationWrtParent(&self, handle: FlatHandle, buffer: &Float32Array) -> bool {
+        self.map(handle, |co| {
+            if let Some(pose) = co.position_wrt_parent() {
+                buffer.set_index(0, pose.rotation.angle());
+                true
+            } else {
+                false
+            }
+        })
+    }
+
+    /// The orientation of this collider relative to its parent rigid-body, written to a buffer.
+    /// Returns false if it doesn't have a parent.
+    #[cfg(feature = "dim3")]
+    pub fn coRotationWrtParent(&self, handle: FlatHandle, buffer: &Float32Array) -> bool {
+        self.map(handle, |co| {
+            if let Some(pose) = co.position_wrt_parent() {
+                buffer.set_index(0, pose.rotation.x);
+                buffer.set_index(1, pose.rotation.y);
+                buffer.set_index(2, pose.rotation.z);
+                buffer.set_index(3, pose.rotation.w);
+                true
+            } else {
+                false
+            }
         })
     }
 
