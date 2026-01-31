@@ -28,12 +28,14 @@ export class VectorOps {
     }
 
     // FIXME: type ram: RawVector?
-    public static fromRaw(raw: RawVector): Vector | null {
+    public static fromRaw(raw: RawVector, target?: Vector): Vector | null {
         if (!raw) return null;
 
-        let res = VectorOps.new(raw.x, raw.y);
+        target ??= VectorOps.zeros();
+        target.x = raw.x;
+        target.y = raw.y;
         raw.free();
-        return res;
+        return target;
     }
 
     public static intoRaw(v: Vector): RawVector {

@@ -34,12 +34,15 @@ export class VectorOps {
         return VectorOps.new(0.0, 0.0, 0.0);
     }
 
-    public static fromRaw(raw: RawVector): Vector | null {
+    public static fromRaw(raw: RawVector, target?: Vector): Vector | null {
         if (!raw) return null;
 
-        let res = VectorOps.new(raw.x, raw.y, raw.z);
+        target ??= VectorOps.zeros();
+        target.x = raw.x;
+        target.y = raw.y;
+        target.z = raw.z;
         raw.free();
-        return res;
+        return target;
     }
 
     public static copy(out: Vector, input: Vector) {
@@ -86,12 +89,16 @@ export class RotationOps {
         return new Quaternion(0.0, 0.0, 0.0, 1.0);
     }
 
-    public static fromRaw(raw: RawRotation): Rotation | null {
+    public static fromRaw(raw: RawRotation, target?: Rotation): Rotation | null {
         if (!raw) return null;
 
-        let res = new Quaternion(raw.x, raw.y, raw.z, raw.w);
+        target ??= RotationOps.identity();
+        target.x = raw.x;
+        target.y = raw.y;
+        target.z = raw.z;
+        target.w = raw.w;
         raw.free();
-        return res;
+        return target;
     }
 
     public static intoRaw(rot: Rotation): RawRotation {
