@@ -70,13 +70,11 @@ export class RigidBodySet {
             desc.massOnly,
             rawCom,
             rawLv,
-            // #if DIM2
             desc.angvel,
             desc.principalAngularInertia,
             desc.translationsEnabledX,
             desc.translationsEnabledY,
             desc.rotationsEnabled,
-            // #endif
             desc.linearDamping,
             desc.angularDamping,
             desc.status as number as RawRigidBodyType,

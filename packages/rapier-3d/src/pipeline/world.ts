@@ -1,6 +1,5 @@
 import {Coarena} from "../coarena";
 import {KinematicCharacterController, PidAxesMask, PidController} from "../control";
-// #if DIM3
 import {DynamicRayCastVehicleController} from "../control";
 import {
     CCDSolver,
@@ -57,8 +56,6 @@ import {PhysicsPipeline} from "./physics_pipeline";
 import {QueryFilterFlags} from "./query_pipeline";
 import {SerializationPipeline} from "./serialization_pipeline";
 
-// #endif
-
 /**
  * The physics world.
  *
@@ -82,10 +79,7 @@ export class World {
     characterControllers: Set<KinematicCharacterController>;
     pidControllers: Set<PidController>;
 
-    // #if DIM3
     vehicleControllers: Set<DynamicRayCastVehicleController>;
-
-    // #endif
 
     /**
      * Release the WASM memory occupied by this physics world.
@@ -109,9 +103,7 @@ export class World {
         this.characterControllers.forEach((controller) => controller.free());
         this.pidControllers.forEach((controller) => controller.free());
 
-        // #if DIM3
         this.vehicleControllers.forEach((controller) => controller.free());
-        // #endif
 
         this.integrationParameters = undefined;
         this.islands = undefined;
@@ -128,9 +120,7 @@ export class World {
         this.characterControllers = undefined;
         this.pidControllers = undefined;
 
-        // #if DIM3
         this.vehicleControllers = undefined;
-        // #endif
     }
 
     constructor(
@@ -164,9 +154,7 @@ export class World {
         this.characterControllers = new Set<KinematicCharacterController>();
         this.pidControllers = new Set<PidController>();
 
-        // #if DIM3
         this.vehicleControllers = new Set<DynamicRayCastVehicleController>();
-        // #endif
 
         this.impulseJoints.finalizeDeserialization(this.bodies);
         this.bodies.finalizeDeserialization(this.colliders);
@@ -482,7 +470,6 @@ export class World {
         controller.free();
     }
 
-    // #if DIM3
     /**
      * Creates a new vehicle controller.
      *
@@ -511,8 +498,6 @@ export class World {
         this.vehicleControllers.delete(controller);
         controller.free();
     }
-
-    // #endif
 
     /**
      * Creates a new collider.

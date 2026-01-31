@@ -83,10 +83,8 @@ export class ColliderSet {
         let rawRot = RotationOps.intoRaw(desc.rotation);
         let rawCom = VectorOps.intoRaw(desc.centerOfMass);
 
-        // #if DIM3
         let rawPrincipalInertia = VectorOps.intoRaw(desc.principalAngularInertia);
         let rawInertiaFrame = RotationOps.intoRaw(desc.angularInertiaLocalFrame);
-        // #endif
 
         let handle = this.raw.createCollider(
             desc.enabled,
@@ -96,10 +94,8 @@ export class ColliderSet {
             desc.massPropsMode,
             desc.mass,
             rawCom,
-            // #if DIM3
             rawPrincipalInertia,
             rawInertiaFrame,
-            // #endif
             desc.density,
             desc.friction,
             desc.restitution,
@@ -123,10 +119,8 @@ export class ColliderSet {
         rawRot.free();
         rawCom.free();
 
-        // #if DIM3
         rawPrincipalInertia.free();
         rawInertiaFrame.free();
-        // #endif
 
         let parent = hasParent ? bodies.get(parentHandle) : null;
         let collider = new Collider(this, handle, parent, desc.shape);

@@ -1,5 +1,4 @@
 import {Rotation, Vector, VectorOps, RotationOps} from "../math";
-// #if DIM3
 import {Quaternion} from "../math";
 import {
     RawGenericJoint,
@@ -11,7 +10,6 @@ import {
 } from "../raw";
 import {RigidBody, RigidBodyHandle} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";
-// #endif
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -35,10 +33,8 @@ export enum JointType {
     Prismatic,
     Rope,
     Spring,
-    // #if DIM3
     Spherical,
     Generic,
-    // #endif
 }
 
 export enum MotorModel {
@@ -97,12 +93,10 @@ export class ImpulseJoint {
                 return new SpringImpulseJoint(rawSet, bodySet, handle);
             case RawJointType.Rope:
                 return new RopeImpulseJoint(rawSet, bodySet, handle);
-            // #if DIM3
             case RawJointType.Spherical:
                 return new SphericalImpulseJoint(rawSet, bodySet, handle);
             case RawJointType.Generic:
                 return new GenericImpulseJoint(rawSet, bodySet, handle);
-            // #endif
             default:
                 return new ImpulseJoint(rawSet, bodySet, handle);
         }
@@ -142,7 +136,6 @@ export class ImpulseJoint {
         return this.rawSet.jointType(this.handle) as number as JointType;
     }
 
-    // #if DIM3
     /**
      * The rotation quaternion that aligns this joint's first local axis to the `x` axis.
      */
@@ -150,17 +143,12 @@ export class ImpulseJoint {
         return RotationOps.fromRaw(this.rawSet.jointFrameX1(this.handle));
     }
 
-    // #endif
-
-    // #if DIM3
     /**
      * The rotation matrix that aligns this joint's second local axis to the `x` axis.
      */
     public frameX2(): Rotation {
         return RotationOps.fromRaw(this.rawSet.jointFrameX2(this.handle));
     }
-
-    // #endif
 
     /**
      * The position of the first anchor of this joint.
@@ -317,7 +305,6 @@ export class RevoluteImpulseJoint extends UnitImpulseJoint {
     }
 }
 
-// #if DIM3
 export class GenericImpulseJoint extends ImpulseJoint {}
 
 export class SphericalImpulseJoint extends ImpulseJoint {
@@ -342,7 +329,6 @@ export class SphericalImpulseJoint extends ImpulseJoint {
     }
      */
 }
-// #endif
 
 export class JointData {
     anchor1: Vector;
@@ -414,7 +400,6 @@ export class JointData {
         return res;
     }
 
-    // #if DIM3
     /**
      * Create a new joint descriptor that builds generic joints.
      *
@@ -506,7 +491,6 @@ export class JointData {
         res.jointType = JointType.Revolute;
         return res;
     }
-    // #endif
 
     public intoRaw(): RawGenericJoint {
         let rawA1 = VectorOps.intoRaw(this.anchor1);
@@ -546,7 +530,6 @@ export class JointData {
                     limitsMax = this.limits[1];
                 }
 
-                // #if DIM3
                 result = RawGenericJoint.prismatic(
                     rawA1,
                     rawA2,
@@ -555,11 +538,9 @@ export class JointData {
                     limitsMin,
                     limitsMax,
                 );
-                // #endif
 
                 rawAx.free();
                 break;
-            // #if DIM3
             case JointType.Generic:
                 rawAx = VectorOps.intoRaw(this.axis);
                 // implicit type cast: axesMask is a JointAxesMask bitflag enum,
@@ -575,7 +556,6 @@ export class JointData {
                 result = RawGenericJoint.revolute(rawA1, rawA2, rawAx);
                 rawAx.free();
                 break;
-            // #endif
         }
 
         rawA1.free();

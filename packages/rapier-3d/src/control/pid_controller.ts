@@ -25,15 +25,11 @@ export enum PidAxesMask {
     LinX = 1 << 0,
     LinY = 1 << 1,
     LinZ = 1 << 2,
-    // #if DIM3
     AngX = 1 << 3,
     AngY = 1 << 4,
-    // #endif
     AngZ = 1 << 5,
-    // #if DIM3
     AllLin = PidAxesMask.LinX | PidAxesMask.LinY | PidAxesMask.LinZ,
     AllAng = PidAxesMask.AngX | PidAxesMask.AngY | PidAxesMask.AngZ,
-    // #endif
     All = PidAxesMask.AllLin | PidAxesMask.AllAng,
 }
 
@@ -103,7 +99,6 @@ export class PidController {
         rawVel.free();
     }
 
-    // #if DIM3
     public applyAngularCorrection(body: RigidBody, targetRotation: Rotation, targetAngVel: Vector) {
         let rawPos = RotationOps.intoRaw(targetRotation);
         let rawVel = VectorOps.intoRaw(targetAngVel);
@@ -117,7 +112,6 @@ export class PidController {
         rawPos.free();
         rawVel.free();
     }
-    // #endif
 
     public linearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector): Vector {
         let rawPos = VectorOps.intoRaw(targetPosition);
@@ -135,7 +129,6 @@ export class PidController {
         return VectorOps.fromRaw(correction);
     }
 
-    // #if DIM3
     public angularCorrection(
         body: RigidBody,
         targetRotation: Rotation,
@@ -155,5 +148,4 @@ export class PidController {
 
         return VectorOps.fromRaw(correction);
     }
-    // #endif
 }

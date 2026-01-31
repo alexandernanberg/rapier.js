@@ -23,7 +23,6 @@ import {
     RoundCuboid,
     HalfSpace,
     TriMeshFlags,
-    // #if DIM3
     Cylinder,
     RoundCylinder,
     Cone,
@@ -31,7 +30,6 @@ import {
     ConvexPolyhedron,
     RoundConvexPolyhedron,
     HeightFieldFlags,
-    // #endif
 } from "./shape";
 import {ColliderShapeCastHit, ShapeCastHit} from "./toi";
 
@@ -447,7 +445,6 @@ export class Collider {
         this.colliderSet.raw.coSetMass(this.handle, mass);
     }
 
-    // #if DIM3
     /**
      * Sets the mass of this collider.
      *
@@ -478,17 +475,13 @@ export class Collider {
         rawInertiaFrame.free();
     }
 
-    // #endif
-
     /**
      * Sets the translation of this collider.
      *
      * @param tra - The world-space position of the collider.
      */
     public setTranslation(tra: Vector) {
-        // #if DIM3
         this.colliderSet.raw.coSetTranslation(this.handle, tra.x, tra.y, tra.z);
-        // #endif
     }
 
     /**
@@ -499,12 +492,9 @@ export class Collider {
      * @param tra - The new translation of the collider relative to its parent.
      */
     public setTranslationWrtParent(tra: Vector) {
-        // #if DIM3
         this.colliderSet.raw.coSetTranslationWrtParent(this.handle, tra.x, tra.y, tra.z);
-        // #endif
     }
 
-    // #if DIM3
     /**
      * Sets the rotation quaternion of this collider.
      *
@@ -527,8 +517,6 @@ export class Collider {
     public setRotationWrtParent(rot: Rotation) {
         this.colliderSet.raw.coSetRotationWrtParent(this.handle, rot.x, rot.y, rot.z, rot.w);
     }
-
-    // #endif
 
     /**
      * The type of the shape of this collider.
@@ -613,23 +601,8 @@ export class Collider {
      * bounds of the currently allocated internal grid in which case the grid
      * will be grown automatically.
      */
-    public setVoxel(
-        ix: number,
-        iy: number,
-        // #if DIM3
-        iz: number,
-        // #endif
-        filled: boolean,
-    ) {
-        this.colliderSet.raw.coSetVoxel(
-            this.handle,
-            ix,
-            iy,
-            // #if DIM3
-            iz,
-            // #endif
-            filled,
-        );
+    public setVoxel(ix: number, iy: number, iz: number, filled: boolean) {
+        this.colliderSet.raw.coSetVoxel(this.handle, ix, iy, iz, filled);
         // We modified the shape, invalidate it to keep our cache
         // up-to-date the next time the user requests the shape data.
         // PERF: this isn’t ideal for performances as this adds a
@@ -659,28 +632,20 @@ export class Collider {
         voxels2: Collider,
         ix: number,
         iy: number,
-        // #if DIM3
         iz: number,
-        // #endif
         shift_x: number,
         shift_y: number,
-        // #if DIM3
         shift_z: number,
-        // #endif
     ) {
         this.colliderSet.raw.coPropagateVoxelChange(
             this.handle,
             voxels2.handle,
             ix,
             iy,
-            // #if DIM3
             iz,
-            // #endif
             shift_x,
             shift_y,
-            // #if DIM3
             shift_z,
-            // #endif
         );
         // We modified the shape, invalidate it to keep our cache
         // up-to-date the next time the user requests the shape data.
@@ -709,18 +674,14 @@ export class Collider {
         voxels2: Collider,
         shift_x: number,
         shift_y: number,
-        // #if DIM3
         shift_z: number,
-        // #endif
     ) {
         this.colliderSet.raw.coCombineVoxelStates(
             this.handle,
             voxels2.handle,
             shift_x,
             shift_y,
-            // #if DIM3
             shift_z,
-            // #endif
         );
         // We modified the shape, invalidate it to keep our cache
         // up-to-date the next time the user requests the shape data.
@@ -763,7 +724,6 @@ export class Collider {
         return VectorOps.fromRaw(scale);
     }
 
-    // #if DIM3
     /**
      * If this collider has a heightfield shape, this returns the number of
      * rows of its height matrix.
@@ -779,8 +739,6 @@ export class Collider {
     public heightfieldNCols(): number {
         return this.colliderSet.raw.coHeightfieldNCols(this.handle);
     }
-
-    // #endif
 
     /**
      * The rigid-body this collider is attached to.
@@ -1121,10 +1079,8 @@ export class ColliderDesc {
     massPropsMode: MassPropsMode;
     mass: number;
     centerOfMass: Vector;
-    // #if DIM3
     principalAngularInertia: Vector;
     angularInertiaLocalFrame: Rotation;
-    // #endif
     density: number;
     friction: number;
     restitution: number;
@@ -1168,10 +1124,8 @@ export class ColliderDesc {
         this.contactForceEventThreshold = 0.0;
         this.contactSkin = 0.0;
 
-        // #if DIM3
         this.principalAngularInertia = VectorOps.zeros();
         this.angularInertiaLocalFrame = RotationOps.identity();
-        // #endif
     }
 
     /**
@@ -1281,7 +1235,6 @@ export class ColliderDesc {
         return new ColliderDesc(shape);
     }
 
-    // #if DIM3
     /**
      * Creates a new collider descriptor with a cuboid shape.
      *
@@ -1440,9 +1393,6 @@ export class ColliderDesc {
         return new ColliderDesc(shape);
     }
 
-    // #endif
-
-    // #if DIM3
     /**
      * Sets the position of the collider to be created relative to the rigid-body it is attached to.
      */
@@ -1454,17 +1404,13 @@ export class ColliderDesc {
         return this;
     }
 
-    // #endif
-
     /**
      * Sets the rotation of the collider to be created relative to the rigid-body it is attached to.
      *
      * @param rot - The rotation of the collider to be created relative to the rigid-body it is attached to.
      */
     public setRotation(rot: Rotation): ColliderDesc {
-        // #if DIM3
         RotationOps.copy(this.rotation, rot);
-        // #endif
         return this;
     }
 
@@ -1533,7 +1479,6 @@ export class ColliderDesc {
         return this;
     }
 
-    // #if DIM3
     /**
      * Sets the mass properties of the collider being built.
      *
@@ -1560,8 +1505,6 @@ export class ColliderDesc {
         RotationOps.copy(this.angularInertiaLocalFrame, angularInertiaLocalFrame);
         return this;
     }
-
-    // #endif
 
     /**
      * Sets the restitution coefficient of the collider to be created.

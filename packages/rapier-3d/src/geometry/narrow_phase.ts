@@ -155,7 +155,6 @@ export class TempContactManifold {
         return this.raw.contact_impulse(i);
     }
 
-    // #if DIM3
     public contactTangentImpulseX(i: number): number {
         return this.raw.contact_tangent_impulse_x(i);
     }
@@ -163,7 +162,6 @@ export class TempContactManifold {
     public contactTangentImpulseY(i: number): number {
         return this.raw.contact_tangent_impulse_y(i);
     }
-    // #endif
 
     public numSolverContacts(): number {
         return this.raw.num_solver_contacts();

@@ -61,11 +61,9 @@ export class RigidBodySet {
         let rawLv = VectorOps.intoRaw(desc.linvel);
         let rawCom = VectorOps.intoRaw(desc.centerOfMass);
 
-        // #if DIM3
         let rawAv = VectorOps.intoRaw(desc.angvel);
         let rawPrincipalInertia = VectorOps.intoRaw(desc.principalAngularInertia);
         let rawInertiaFrame = RotationOps.intoRaw(desc.angularInertiaLocalFrame);
-        // #endif
 
         let handle = this.raw.createRigidBody(
             desc.enabled,
@@ -76,7 +74,6 @@ export class RigidBodySet {
             desc.massOnly,
             rawCom,
             rawLv,
-            // #if DIM3
             rawAv,
             rawPrincipalInertia,
             rawInertiaFrame,
@@ -86,7 +83,6 @@ export class RigidBodySet {
             desc.rotationsEnabledX,
             desc.rotationsEnabledY,
             desc.rotationsEnabledZ,
-            // #endif
             desc.linearDamping,
             desc.angularDamping,
             desc.status as number as RawRigidBodyType,
@@ -103,11 +99,9 @@ export class RigidBodySet {
         rawLv.free();
         rawCom.free();
 
-        // #if DIM3
         rawAv.free();
         rawPrincipalInertia.free();
         rawInertiaFrame.free();
-        // #endif
 
         const body = new RigidBody(this.raw, colliderSet, handle);
         body.userData = desc.userData;
