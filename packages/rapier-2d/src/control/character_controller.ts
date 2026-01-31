@@ -1,5 +1,4 @@
-import {RawKinematicCharacterController, RawCharacterCollision} from "../raw";
-import {Rotation, Vector, VectorOps} from "../math";
+import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
 import {
     BroadPhase,
     Collider,
@@ -8,8 +7,9 @@ import {
     NarrowPhase,
     Shape,
 } from "../geometry";
+import {Rotation, Vector, VectorOps} from "../math";
 import {QueryFilterFlags, World} from "../pipeline";
-import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
+import {RawKinematicCharacterController, RawCharacterCollision} from "../raw";
 
 /**
  * A collision between the character and an obstacle hit on its path.
@@ -217,11 +217,7 @@ export class KinematicCharacterController {
      * @param minWidth - The minimum width of free space that must be available after stepping on a stair.
      * @param includeDynamicBodies - Can the character automatically step over dynamic bodies too?
      */
-    public enableAutostep(
-        maxHeight: number,
-        minWidth: number,
-        includeDynamicBodies: boolean,
-    ) {
+    public enableAutostep(maxHeight: number, minWidth: number, includeDynamicBodies: boolean) {
         this.raw.enableAutostep(maxHeight, minWidth, includeDynamicBodies);
     }
 
@@ -359,21 +355,14 @@ export class KinematicCharacterController {
      * @param i - The i-th collision will be returned.
      * @param out - If this argument is set, it will be filled with the collision information.
      */
-    public computedCollision(
-        i: number,
-        out?: CharacterCollision,
-    ): CharacterCollision | null {
+    public computedCollision(i: number, out?: CharacterCollision): CharacterCollision | null {
         if (!this.raw.computedCollision(i, this.rawCharacterCollision)) {
             return null;
         } else {
             let c = this.rawCharacterCollision;
             out = out ?? new CharacterCollision();
-            out.translationDeltaApplied = VectorOps.fromRaw(
-                c.translationDeltaApplied(),
-            );
-            out.translationDeltaRemaining = VectorOps.fromRaw(
-                c.translationDeltaRemaining(),
-            );
+            out.translationDeltaApplied = VectorOps.fromRaw(c.translationDeltaApplied());
+            out.translationDeltaRemaining = VectorOps.fromRaw(c.translationDeltaRemaining());
             out.toi = c.toi();
             out.witness1 = VectorOps.fromRaw(c.worldWitness1());
             out.witness2 = VectorOps.fromRaw(c.worldWitness2());

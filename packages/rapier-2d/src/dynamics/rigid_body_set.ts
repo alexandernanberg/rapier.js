@@ -1,16 +1,11 @@
-import {RawRigidBodySet, RawRigidBodyType} from "../raw";
 import {Coarena} from "../coarena";
-import {VectorOps, RotationOps} from "../math";
-import {
-    RigidBody,
-    RigidBodyDesc,
-    RigidBodyHandle,
-    RigidBodyType,
-} from "./rigid_body";
 import {ColliderSet} from "../geometry";
+import {VectorOps, RotationOps} from "../math";
+import {RawRigidBodySet, RawRigidBodyType} from "../raw";
 import {ImpulseJointSet} from "./impulse_joint_set";
-import {MultibodyJointSet} from "./multibody_joint_set";
 import {IslandManager} from "./island_manager";
+import {MultibodyJointSet} from "./multibody_joint_set";
+import {RigidBody, RigidBodyDesc, RigidBodyHandle, RigidBodyType} from "./rigid_body";
 
 /**
  * A set of rigid bodies that can be handled by a physics pipeline.
@@ -60,15 +55,11 @@ export class RigidBodySet {
      *
      * @param desc - The description of the rigid-body to create.
      */
-    public createRigidBody(
-        colliderSet: ColliderSet,
-        desc: RigidBodyDesc,
-    ): RigidBody {
+    public createRigidBody(colliderSet: ColliderSet, desc: RigidBodyDesc): RigidBody {
         let rawTra = VectorOps.intoRaw(desc.translation);
         let rawRot = RotationOps.intoRaw(desc.rotation);
         let rawLv = VectorOps.intoRaw(desc.linvel);
         let rawCom = VectorOps.intoRaw(desc.centerOfMass);
-
 
         let handle = this.raw.createRigidBody(
             desc.enabled,
@@ -101,7 +92,6 @@ export class RigidBodySet {
         rawRot.free();
         rawLv.free();
         rawCom.free();
-
 
         const body = new RigidBody(this.raw, colliderSet, handle);
         body.userData = desc.userData;
@@ -136,19 +126,12 @@ export class RigidBodySet {
         impulseJoints.forEachJointHandleAttachedToRigidBody(handle, (handle) =>
             impulseJoints.unmap(handle),
         );
-        multibodyJoints.forEachJointHandleAttachedToRigidBody(
-            handle,
-            (handle) => multibodyJoints.unmap(handle),
+        multibodyJoints.forEachJointHandleAttachedToRigidBody(handle, (handle) =>
+            multibodyJoints.unmap(handle),
         );
 
         // Remove the rigid-body.
-        this.raw.remove(
-            handle,
-            islands.raw,
-            colliders.raw,
-            impulseJoints.raw,
-            multibodyJoints.raw,
-        );
+        this.raw.remove(handle, islands.raw, colliders.raw, impulseJoints.raw, multibodyJoints.raw);
         this.map.delete(handle);
     }
 
@@ -193,10 +176,7 @@ export class RigidBodySet {
      *
      * @param f - The closure to apply.
      */
-    public forEachActiveRigidBody(
-        islands: IslandManager,
-        f: (body: RigidBody) => void,
-    ) {
+    public forEachActiveRigidBody(islands: IslandManager, f: (body: RigidBody) => void) {
         islands.forEachActiveRigidBodyHandle((handle) => {
             f(this.get(handle));
         });

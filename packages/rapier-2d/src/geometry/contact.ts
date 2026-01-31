@@ -32,13 +32,7 @@ export class ShapeContact {
      */
     normal2: Vector;
 
-    constructor(
-        dist: number,
-        point1: Vector,
-        point2: Vector,
-        normal1: Vector,
-        normal2: Vector,
-    ) {
+    constructor(dist: number, point1: Vector, point2: Vector, normal1: Vector, normal2: Vector) {
         this.distance = dist;
         this.point1 = point1;
         this.point2 = point2;

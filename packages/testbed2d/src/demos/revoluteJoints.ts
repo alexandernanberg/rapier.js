@@ -20,10 +20,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                     ? RAPIER.RigidBodyType.Fixed
                     : RAPIER.RigidBodyType.Dynamic;
 
-            let bodyDesc = new RAPIER.RigidBodyDesc(status).setTranslation(
-                k * shift,
-                -i * shift,
-            );
+            let bodyDesc = new RAPIER.RigidBodyDesc(status).setTranslation(k * shift, -i * shift);
             let child = world.createRigidBody(bodyDesc);
             let colliderDesc = RAPIER.ColliderDesc.ball(rad);
             world.createCollider(colliderDesc, child);

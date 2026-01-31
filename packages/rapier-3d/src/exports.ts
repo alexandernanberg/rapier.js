@@ -1,4 +1,4 @@
-import { version as vers, reserve_memory as reserve } from "./raw";
+import {version as vers, reserve_memory as reserve} from "./raw";
 
 export function version(): string {
     return vers();

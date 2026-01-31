@@ -38,14 +38,15 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 
 Comparison against `@dimforge/rapier3d@0.19.3` (3D, 3000 bodies):
 
-| Benchmark | Fork | Fork SIMD | Official | Official SIMD |
-|-----------|------|-----------|----------|---------------|
-| world.step() | 1.18ms | **0.69ms** | 1.14ms | 0.72ms |
-| create 1000 bodies | **3.15ms** | 3.15ms | 3.47ms | 3.41ms |
-| body.translation() | **62µs** | 62µs | 210µs | 209µs |
-| body.rotation() | **68µs** | 68µs | 223µs | 220µs |
+| Benchmark          | Fork       | Fork SIMD  | Official | Official SIMD |
+| ------------------ | ---------- | ---------- | -------- | ------------- |
+| world.step()       | 1.18ms     | **0.69ms** | 1.14ms   | 0.72ms        |
+| create 1000 bodies | **3.15ms** | 3.15ms     | 3.47ms   | 3.41ms        |
+| body.translation() | **62µs**   | 62µs       | 210µs    | 209µs         |
+| body.rotation()    | **68µs**   | 68µs       | 223µs    | 220µs         |
 
 Key improvements:
+
 - **world.step() SIMD**: 4% faster than official
 - **Getters**: 3.4x faster (zero-allocation optimization)
 - **Body creation**: 9% faster
@@ -71,7 +72,7 @@ import RAPIER from "@alexandernanberg/rapier-2d";
 
 await RAPIER.init();
 
-const gravity = { x: 0.0, y: -9.81 };
+const gravity = {x: 0.0, y: -9.81};
 const world = new RAPIER.World(gravity);
 
 // Create a dynamic rigid body
@@ -91,14 +92,15 @@ console.log(body.translation()); // { x: 0, y: ~9.99 }
 
 Each package ships 4 variants via subpath exports:
 
-| Import Path                            | WASM Loading         | SIMD |
-| -------------------------------------- | -------------------- | ---- |
-| `@alexandernanberg/rapier-2d`          | `fetch()` at runtime | No   |
-| `@alexandernanberg/rapier-2d/simd`     | `fetch()` at runtime | Yes  |
-| `@alexandernanberg/rapier-2d/compat`   | Embedded base64      | No   |
-| `@alexandernanberg/rapier-2d/compat-simd` | Embedded base64   | Yes  |
+| Import Path                               | WASM Loading         | SIMD |
+| ----------------------------------------- | -------------------- | ---- |
+| `@alexandernanberg/rapier-2d`             | `fetch()` at runtime | No   |
+| `@alexandernanberg/rapier-2d/simd`        | `fetch()` at runtime | Yes  |
+| `@alexandernanberg/rapier-2d/compat`      | Embedded base64      | No   |
+| `@alexandernanberg/rapier-2d/compat-simd` | Embedded base64      | Yes  |
 
 **When to use which:**
+
 - **Default/SIMD**: Best for web apps (smaller bundle, parallel loading)
 - **Compat variants**: For environments without `fetch()` (SSR, workers, tests)
 - **SIMD variants**: Better performance, requires [simd128 support](https://caniuse.com/?search=simd)
@@ -141,6 +143,7 @@ pnpm bench --quick            # Quick mode (fewer iterations)
 ```
 
 **Baseline comparison:**
+
 - Results are compared against `packages/benchmarks/baseline.json`
 - Thresholds: >15% = warning, >30% = regression
 - Exit code 1 on regression (useful for CI)

@@ -23,9 +23,7 @@ export class Gui {
         this.stats = new Stats();
         this.rapierVersion = testbed.RAPIER.version();
         this.maxTimePanelValue = 16.0;
-        this.stepTimePanel = this.stats.addPanel(
-            new Stats.Panel("ms (step)", "#ff8", "#221"),
-        );
+        this.stepTimePanel = this.stats.addPanel(new Stats.Panel("ms (step)", "#ff8", "#221"));
         this.stats.showPanel(this.stats.dom.children.length - 1);
         document.body.appendChild(this.stats.dom);
 
@@ -42,10 +40,7 @@ export class Gui {
             .onChange((demo: string) => {
                 testbed.switchToDemo(demo);
             });
-        this.gui
-            .add(simulationParameters, "numSolverIters", 0, 20)
-            .step(1)
-            .listen();
+        this.gui.add(simulationParameters, "numSolverIters", 0, 20).step(1).listen();
         this.gui
             .add(simulationParameters, "debugInfos")
             .listen()
@@ -88,12 +83,8 @@ export class Gui {
         text += "<br/>[Step " + infos.stepId + "]";
 
         if (infos.worldHash) {
-            text +=
-                "<br/>World hash (xxHash128): " + infos.worldHash.toString();
-            text +=
-                "<br/>World hash time (xxHash128): " +
-                infos.worldHashTime +
-                "ms";
+            text += "<br/>World hash (xxHash128): " + infos.worldHash.toString();
+            text += "<br/>World hash time (xxHash128): " + infos.worldHashTime + "ms";
             text += "<br/>Snapshot time: " + infos.snapshotTime + "ms";
         }
         this.debugText.innerHTML = text;

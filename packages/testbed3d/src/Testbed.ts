@@ -1,8 +1,8 @@
+import type * as RAPIER from "@alexandernanberg/rapier-3d";
+import {xxhash128} from "hash-wasm";
+import type {DebugInfos} from "./Gui";
 import {Graphics} from "./Graphics";
 import {Gui} from "./Gui";
-import type {DebugInfos} from "./Gui";
-import {xxhash128} from "hash-wasm";
-import type * as RAPIER from "@alexandernanberg/rapier-3d";
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");
 
@@ -164,25 +164,20 @@ export class Testbed {
                     worldHashTime: 0,
                     snapshotTime: 0,
                     timingStep: this.world.timingStep(),
-                    timingCollisionDetection:
-                        this.world.timingCollisionDetection(),
+                    timingCollisionDetection: this.world.timingCollisionDetection(),
                     timingBroadPhase: this.world.timingBroadPhase(),
                     timingNarrowPhase: this.world.timingNarrowPhase(),
                     timingSolver: this.world.timingSolver(),
                     timingVelocityAssembly: this.world.timingVelocityAssembly(),
-                    timingVelocityResolution:
-                        this.world.timingVelocityResolution(),
+                    timingVelocityResolution: this.world.timingVelocityResolution(),
                     timingVelocityUpdate: this.world.timingVelocityUpdate(),
-                    timingVelocityWriteback:
-                        this.world.timingVelocityWriteback(),
+                    timingVelocityWriteback: this.world.timingVelocityWriteback(),
                     timingCcd: this.world.timingCcd(),
-                    timingCcdToiComputation:
-                        this.world.timingCcdToiComputation(),
+                    timingCcdToiComputation: this.world.timingCcdToiComputation(),
                     timingCcdBroadPhase: this.world.timingCcdBroadPhase(),
                     timingCcdNarrowPhase: this.world.timingCcdNarrowPhase(),
                     timingCcdSolver: this.world.timingCcdSolver(),
-                    timingIslandConstruction:
-                        this.world.timingIslandConstruction(),
+                    timingIslandConstruction: this.world.timingIslandConstruction(),
                     timingUserChanges: this.world.timingUserChanges(),
                 };
                 t0 = performance.now();

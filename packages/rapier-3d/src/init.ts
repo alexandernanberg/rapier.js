@@ -1,4 +1,4 @@
-import wasmInit, { InitInput } from "../wasm/release/rapier_wasm_3d";
+import wasmInit, {InitInput} from "../wasm/release/rapier_wasm_3d";
 
 /**
  * Initializes RAPIER using fetch (requires WASM file to be served).

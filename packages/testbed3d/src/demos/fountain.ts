@@ -37,11 +37,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 colliderDesc = RAPIER.ColliderDesc.ball(rad);
                 break;
             case 2:
-                colliderDesc = RAPIER.ColliderDesc.roundCylinder(
-                    rad,
-                    rad,
-                    rad / 10.0,
-                );
+                colliderDesc = RAPIER.ColliderDesc.roundCylinder(rad, rad, rad / 10.0);
                 break;
             case 3:
                 colliderDesc = RAPIER.ColliderDesc.cone(rad, rad);

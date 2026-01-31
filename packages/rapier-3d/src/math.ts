@@ -1,4 +1,4 @@
-import { RawVector, RawRotation, RawSdpMatrix3 } from "./raw";
+import {RawVector, RawRotation, RawSdpMatrix3} from "./raw";
 
 export interface Vector {
     x: number;

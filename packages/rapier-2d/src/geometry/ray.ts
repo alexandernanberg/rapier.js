@@ -6,8 +6,8 @@ import {
     RawRayIntersection,
 } from "../raw";
 import {Collider} from "./collider";
-import {FeatureType} from "./feature";
 import {ColliderSet} from "./collider_set";
+import {FeatureType} from "./feature";
 
 /**
  * A ray. This is a directed half-line.
@@ -173,10 +173,7 @@ export class RayColliderHit {
         this.timeOfImpact = timeOfImpact;
     }
 
-    public static fromRaw(
-        colliderSet: ColliderSet,
-        raw: RawRayColliderHit,
-    ): RayColliderHit {
+    public static fromRaw(colliderSet: ColliderSet, raw: RawRayColliderHit): RayColliderHit {
         if (!raw) return null;
 
         const result = new RayColliderHit(

@@ -1,6 +1,6 @@
+import {Vector, VectorOps} from "../math";
 import {RawNarrowPhase, RawContactManifold} from "../raw";
 import {ColliderHandle} from "./collider";
-import {Vector, VectorOps} from "../math";
 
 /**
  * The narrow-phase used for precise collision-detection.
@@ -33,10 +33,7 @@ export class NarrowPhase {
      * @param collider1 - The second collider involved in the contact.
      * @param f - Closure that will be called on each collider that is in contact with `collider1`.
      */
-    public contactPairsWith(
-        collider1: ColliderHandle,
-        f: (collider2: ColliderHandle) => void,
-    ) {
+    public contactPairsWith(collider1: ColliderHandle, f: (collider2: ColliderHandle) => void) {
         this.raw.contact_pairs_with(collider1, f);
     }
 
@@ -91,10 +88,7 @@ export class NarrowPhase {
      * @param collider1 − The first collider involved in the intersection.
      * @param collider2 − The second collider involved in the intersection.
      */
-    public intersectionPair(
-        collider1: ColliderHandle,
-        collider2: ColliderHandle,
-    ): boolean {
+    public intersectionPair(collider1: ColliderHandle, collider2: ColliderHandle): boolean {
         return this.raw.intersection_pair(collider1, collider2);
     }
 }
@@ -160,7 +154,6 @@ export class TempContactManifold {
     public contactImpulse(i: number): number {
         return this.raw.contact_impulse(i);
     }
-
 
     // #if DIM3
     public contactTangentImpulseX(i: number): number {

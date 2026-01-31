@@ -1,12 +1,8 @@
-import {Collider, ColliderHandle} from "./collider";
 import {Vector, VectorOps} from "../math";
-import {
-    RawFeatureType,
-    RawPointColliderProjection,
-    RawPointProjection,
-} from "../raw";
-import {FeatureType} from "./feature";
+import {RawFeatureType, RawPointColliderProjection, RawPointProjection} from "../raw";
+import {Collider, ColliderHandle} from "./collider";
 import {ColliderSet} from "./collider_set";
+import {FeatureType} from "./feature";
 
 /**
  * The projection of a point on a collider.
@@ -29,10 +25,7 @@ export class PointProjection {
     public static fromRaw(raw: RawPointProjection): PointProjection {
         if (!raw) return null;
 
-        const result = new PointProjection(
-            VectorOps.fromRaw(raw.point()),
-            raw.isInside(),
-        );
+        const result = new PointProjection(VectorOps.fromRaw(raw.point()), raw.isInside());
         raw.free();
         return result;
     }

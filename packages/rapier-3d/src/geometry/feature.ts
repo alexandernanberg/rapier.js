@@ -1,4 +1,3 @@
-
 // #if DIM3
 export enum FeatureType {
     Vertex,

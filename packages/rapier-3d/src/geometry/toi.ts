@@ -1,6 +1,6 @@
-import {Collider} from "./collider";
 import {Vector, VectorOps} from "../math";
 import {RawShapeCastHit, RawColliderShapeCastHit} from "../raw";
+import {Collider} from "./collider";
 import {ColliderSet} from "./collider_set";
 
 /**
@@ -46,10 +46,7 @@ export class ShapeCastHit {
         this.normal2 = normal2;
     }
 
-    public static fromRaw(
-        colliderSet: ColliderSet,
-        raw: RawShapeCastHit,
-    ): ShapeCastHit {
+    public static fromRaw(colliderSet: ColliderSet, raw: RawShapeCastHit): ShapeCastHit {
         if (!raw) return null;
 
         const result = new ShapeCastHit(

@@ -1,6 +1,6 @@
-import {RawImpulseJointSet} from "../raw";
 import {Coarena} from "../coarena";
-import {RigidBodySet} from "./rigid_body_set";
+import {Collider, ColliderHandle} from "../geometry";
+import {RawImpulseJointSet} from "../raw";
 import {
     RevoluteImpulseJoint,
     FixedImpulseJoint,
@@ -15,7 +15,7 @@ import {
 } from "./impulse_joint";
 import {IslandManager} from "./island_manager";
 import {RigidBodyHandle} from "./rigid_body";
-import {Collider, ColliderHandle} from "../geometry";
+import {RigidBodySet} from "./rigid_body_set";
 
 /**
  * A set of joints.
@@ -75,12 +75,7 @@ export class ImpulseJointSet {
         wakeUp: boolean,
     ): ImpulseJoint {
         const rawParams = desc.intoRaw();
-        const handle = this.raw.createJoint(
-            rawParams,
-            parent1,
-            parent2,
-            wakeUp,
-        );
+        const handle = this.raw.createJoint(rawParams, parent1, parent2, wakeUp);
         rawParams.free();
         let joint = ImpulseJoint.newTyped(this.raw, bodies, handle);
         this.map.set(handle, joint);

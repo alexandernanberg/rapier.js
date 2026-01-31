@@ -1,4 +1,4 @@
-import wasmInit, { InitInput } from "../wasm/release-simd/rapier_wasm_2d";
+import wasmInit, {InitInput} from "../wasm/release-simd/rapier_wasm_2d";
 
 /**
  * Initializes RAPIER SIMD using fetch (requires WASM file to be served).

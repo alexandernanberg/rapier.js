@@ -12,11 +12,7 @@ function createPrismaticJoints(
     let rad = 0.4;
     let shift = 1.0;
 
-    let groundDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(
-        origin.x,
-        origin.y,
-        origin.z,
-    );
+    let groundDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(origin.x, origin.y, origin.z);
     let currParent = world.createRigidBody(groundDesc);
     let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad, rad);
     world.createCollider(colliderDesc, currParent);
@@ -26,11 +22,7 @@ function createPrismaticJoints(
 
     for (i = 0; i < num; ++i) {
         z = origin.z + (i + 1) * shift;
-        let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(
-            origin.x,
-            origin.y,
-            z,
-        );
+        let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(origin.x, origin.y, z);
         let currChild = world.createRigidBody(rigidBodyDesc);
         let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad, rad);
         world.createCollider(colliderDesc, currChild);
@@ -66,11 +58,7 @@ function createRevoluteJoints(
     let rad = 0.4;
     let shift = 2.0;
 
-    let groundDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(
-        origin.x,
-        origin.y,
-        0.0,
-    );
+    let groundDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(origin.x, origin.y, 0.0);
     let currParent = world.createRigidBody(groundDesc);
     let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad, rad);
     world.createCollider(colliderDesc, currParent);
@@ -110,26 +98,10 @@ function createRevoluteJoints(
         z = new RAPIER.Vector3(0.0, 0.0, 1.0);
 
         let revs = [
-            RAPIER.JointData.revolute(
-                o,
-                new RAPIER.Vector3(0.0, 0.0, -shift),
-                z,
-            ),
-            RAPIER.JointData.revolute(
-                o,
-                new RAPIER.Vector3(-shift, 0.0, 0.0),
-                x,
-            ),
-            RAPIER.JointData.revolute(
-                o,
-                new RAPIER.Vector3(0.0, 0.0, -shift),
-                z,
-            ),
-            RAPIER.JointData.revolute(
-                o,
-                new RAPIER.Vector3(shift, 0.0, 0.0),
-                x,
-            ),
+            RAPIER.JointData.revolute(o, new RAPIER.Vector3(0.0, 0.0, -shift), z),
+            RAPIER.JointData.revolute(o, new RAPIER.Vector3(-shift, 0.0, 0.0), x),
+            RAPIER.JointData.revolute(o, new RAPIER.Vector3(0.0, 0.0, -shift), z),
+            RAPIER.JointData.revolute(o, new RAPIER.Vector3(shift, 0.0, 0.0), x),
         ];
 
         world.createImpulseJoint(revs[0], currParent, parents[0], true);
@@ -209,11 +181,7 @@ function createFixedJoints(
     }
 }
 
-function createBallJoints(
-    RAPIER: RAPIER_API,
-    world: RAPIER.World,
-    num: number,
-) {
+function createBallJoints(RAPIER: RAPIER_API, world: RAPIER.World, num: number) {
     let rad = 0.4;
     let shift = 1.0;
     let i, k;
@@ -246,10 +214,7 @@ function createBallJoints(
 
             if (i > 0) {
                 let parent = parents[parents.length - 1];
-                let params = RAPIER.JointData.spherical(
-                    o,
-                    new RAPIER.Vector3(0.0, 0.0, -shift),
-                );
+                let params = RAPIER.JointData.spherical(o, new RAPIER.Vector3(0.0, 0.0, -shift));
                 world.createImpulseJoint(params, parent, child, true);
             }
 
@@ -257,10 +222,7 @@ function createBallJoints(
             if (k > 0) {
                 let parent_index = parents.length - num;
                 let parent = parents[parent_index];
-                let params = RAPIER.JointData.spherical(
-                    o,
-                    new RAPIER.Vector3(-shift, 0.0, 0.0),
-                );
+                let params = RAPIER.JointData.spherical(o, new RAPIER.Vector3(-shift, 0.0, 0.0));
                 world.createImpulseJoint(params, parent, child, true);
             }
 
@@ -273,12 +235,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
     let world = new RAPIER.World(gravity);
 
-    createPrismaticJoints(
-        RAPIER,
-        world,
-        new RAPIER.Vector3(20.0, 10.0, 0.0),
-        5,
-    );
+    createPrismaticJoints(RAPIER, world, new RAPIER.Vector3(20.0, 10.0, 0.0), 5);
     createFixedJoints(RAPIER, world, new RAPIER.Vector3(0.0, 10.0, 0.0), 5);
     createRevoluteJoints(RAPIER, world, new RAPIER.Vector3(20.0, 0.0, 0.0), 3);
     createBallJoints(RAPIER, world, 15);

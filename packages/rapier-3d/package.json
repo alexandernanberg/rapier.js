@@ -1,54 +1,54 @@
 {
-  "name": "@alexandernanberg/rapier-3d",
-  "version": "0.19.3",
-  "description": "3-dimensional physics engine - official JS bindings",
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/rapier.d.mts",
-      "default": "./dist/rapier.mjs"
+    "name": "@alexandernanberg/rapier-3d",
+    "version": "0.0.1",
+    "description": "3-dimensional physics engine - official JS bindings",
+    "keywords": [
+        "3d",
+        "dynamics",
+        "joints",
+        "physics",
+        "rapier",
+        "real-time",
+        "rigid"
+    ],
+    "homepage": "https://rapier.rs",
+    "license": "Apache-2.0",
+    "author": "Sébastien Crozet <developer@crozet.re>",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/dimforge/rapier.js"
     },
-    "./compat": {
-      "types": "./dist/compat.d.mts",
-      "default": "./dist/compat.mjs"
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/rapier.d.mts",
+            "default": "./dist/rapier.mjs"
+        },
+        "./compat": {
+            "types": "./dist/compat.d.mts",
+            "default": "./dist/compat.mjs"
+        },
+        "./simd": {
+            "types": "./dist/simd.d.mts",
+            "default": "./dist/simd.mjs"
+        },
+        "./compat-simd": {
+            "types": "./dist/compat-simd.d.mts",
+            "default": "./dist/compat-simd.mjs"
+        }
     },
-    "./simd": {
-      "types": "./dist/simd.d.mts",
-      "default": "./dist/simd.mjs"
+    "scripts": {
+        "build": "tsdown",
+        "typecheck": "tsc --noEmit"
     },
-    "./compat-simd": {
-      "types": "./dist/compat-simd.d.mts",
-      "default": "./dist/compat-simd.mjs"
+    "dependencies": {
+        "base64-js": "^1.5.1"
+    },
+    "devDependencies": {
+        "tsdown": "^0.20.1",
+        "typescript": "^5.9.3"
     }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsdown",
-    "typecheck": "tsc --noEmit"
-  },
-  "keywords": [
-    "physics",
-    "dynamics",
-    "rigid",
-    "real-time",
-    "joints",
-    "rapier",
-    "3d"
-  ],
-  "author": "Sébastien Crozet <developer@crozet.re>",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/dimforge/rapier.js"
-  },
-  "homepage": "https://rapier.rs",
-  "dependencies": {
-    "base64-js": "^1.5.1"
-  },
-  "devDependencies": {
-    "tsdown": "^0.20.1",
-    "typescript": "^5.9.3"
-  }
 }

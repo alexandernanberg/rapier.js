@@ -12,17 +12,9 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let ground_size = 1.7;
     let ground_height = 0.1;
 
-    let bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(
-        0.0,
-        -ground_height,
-        0.0,
-    );
+    let bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(0.0, -ground_height, 0.0);
     let body = world.createRigidBody(bodyDesc);
-    let colliderDesc = RAPIER.ColliderDesc.cuboid(
-        ground_size,
-        ground_height,
-        ground_size,
-    );
+    let colliderDesc = RAPIER.ColliderDesc.cuboid(ground_size, ground_height, ground_size);
     world.createCollider(colliderDesc, body);
 
     /*
@@ -39,9 +31,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     /*
      * A cylinder that cannot rotate.
      */
-    bodyDesc = RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(0.2, 5.0, 0.4)
-        .lockRotations();
+    bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(0.2, 5.0, 0.4).lockRotations();
     body = world.createRigidBody(bodyDesc);
     colliderDesc = RAPIER.ColliderDesc.cylinder(0.6, 0.4);
     world.createCollider(colliderDesc, body);

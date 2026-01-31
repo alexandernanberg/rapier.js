@@ -1,7 +1,7 @@
-import {RawContactForceEvent, RawEventQueue} from "../raw";
 import {RigidBodyHandle} from "../dynamics";
 import {Collider, ColliderHandle} from "../geometry";
 import {Vector, VectorOps} from "../math";
+import {RawContactForceEvent, RawEventQueue} from "../raw";
 
 /**
  * Flags indicating what events are enabled for colliders.
@@ -124,11 +124,7 @@ export class EventQueue {
      * (false).
      */
     public drainCollisionEvents(
-        f: (
-            handle1: ColliderHandle,
-            handle2: ColliderHandle,
-            started: boolean,
-        ) => void,
+        f: (handle1: ColliderHandle, handle2: ColliderHandle, started: boolean) => void,
     ) {
         this.raw.drainCollisionEvents(f);
     }

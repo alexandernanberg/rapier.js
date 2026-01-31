@@ -15,10 +15,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     ];
 
     grounds.forEach((ground) => {
-        let bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(
-            ground.x,
-            ground.y,
-        );
+        let bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(ground.x, ground.y);
         let body = world.createRigidBody(bodyDesc);
         let colliderDesc = RAPIER.ColliderDesc.cuboid(ground.hx, ground.hy);
         world.createCollider(colliderDesc, body);

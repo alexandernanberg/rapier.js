@@ -1,7 +1,7 @@
+import base64 from "base64-js";
+import {initSync} from "../wasm/release/rapier_wasm_3d";
 // @ts-ignore - WASM file imported as base64 string by bundler
 import wasmBase64 from "../wasm/release/rapier_wasm_3d_bg.wasm";
-import { initSync } from "../wasm/release/rapier_wasm_3d";
-import base64 from "base64-js";
 
 /**
  * Initializes RAPIER with embedded WASM (no separate file needed).

@@ -1,9 +1,9 @@
-import {RawColliderSet} from "../raw";
 import {Coarena} from "../coarena";
-import {RotationOps, VectorOps} from "../math";
-import {Collider, ColliderDesc, ColliderHandle} from "./collider";
 import {ImpulseJointHandle, IslandManager, RigidBodyHandle} from "../dynamics";
 import {RigidBodySet} from "../dynamics";
+import {RotationOps, VectorOps} from "../math";
+import {RawColliderSet} from "../raw";
+import {Collider, ColliderDesc, ColliderHandle} from "./collider";
 
 /**
  * A set of rigid bodies that can be handled by a physics pipeline.
@@ -56,9 +56,7 @@ export class ColliderSet {
 
     /** @internal */
     public finalizeDeserialization(bodies: RigidBodySet) {
-        this.map.forEach((collider) =>
-            collider.finalizeDeserialization(bodies),
-        );
+        this.map.forEach((collider) => collider.finalizeDeserialization(bodies));
     }
 
     /**
@@ -86,12 +84,8 @@ export class ColliderSet {
         let rawCom = VectorOps.intoRaw(desc.centerOfMass);
 
         // #if DIM3
-        let rawPrincipalInertia = VectorOps.intoRaw(
-            desc.principalAngularInertia,
-        );
-        let rawInertiaFrame = RotationOps.intoRaw(
-            desc.angularInertiaLocalFrame,
-        );
+        let rawPrincipalInertia = VectorOps.intoRaw(desc.principalAngularInertia);
+        let rawInertiaFrame = RotationOps.intoRaw(desc.angularInertiaLocalFrame);
         // #endif
 
         let handle = this.raw.createCollider(

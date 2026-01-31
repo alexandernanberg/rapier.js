@@ -1,7 +1,7 @@
+import type * as RAPIER from "@alexandernanberg/rapier-2d";
+import {Viewport} from "pixi-viewport";
 import * as PIXI from "pixi.js";
 import {Color} from "pixi.js";
-import {Viewport} from "pixi-viewport";
-import type * as RAPIER from "@alexandernanberg/rapier-2d";
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier-2d");
 
@@ -118,14 +118,10 @@ export class Graphics {
 
             // Group lines by color for efficient batching in pixi.js 8
             // (stroke() re-strokes all accumulated paths, so we batch by color)
-            const linesByColor = new Map<number, {vtx: number[], alpha: number}>();
+            const linesByColor = new Map<number, {vtx: number[]; alpha: number}>();
 
             for (let i = 0; i < vtx.length / 4; i += 1) {
-                const color = new Color([
-                    cls[i * 8],
-                    cls[i * 8 + 1],
-                    cls[i * 8 + 2],
-                ]).toNumber();
+                const color = new Color([cls[i * 8], cls[i * 8 + 1], cls[i * 8 + 2]]).toNumber();
                 const alpha = cls[i * 8 + 3];
                 const key = color * 1000 + Math.round(alpha * 100); // Combine color and alpha as key
 
@@ -133,10 +129,7 @@ export class Graphics {
                     linesByColor.set(key, {vtx: [], alpha});
                 }
                 const group = linesByColor.get(key)!;
-                group.vtx.push(
-                    vtx[i * 4], -vtx[i * 4 + 1],
-                    vtx[i * 4 + 2], -vtx[i * 4 + 3]
-                );
+                group.vtx.push(vtx[i * 4], -vtx[i * 4 + 1], vtx[i * 4 + 2], -vtx[i * 4 + 3]);
             }
 
             // Create container for all line groups
@@ -190,11 +183,7 @@ export class Graphics {
         this.colorIndex = 0;
     }
 
-    addCollider(
-        RAPIER: RAPIER_API,
-        world: RAPIER.World,
-        collider: RAPIER.Collider,
-    ) {
+    addCollider(RAPIER: RAPIER_API, world: RAPIER.World, collider: RAPIER.Collider) {
         let i;
         let parent = collider.parent();
         let instance;
@@ -241,10 +230,7 @@ export class Graphics {
                 graphics.moveTo(-scale.x / 2.0, -heights[0] * scale.y);
 
                 for (i = 1; i < heights.length; i += 1) {
-                    graphics.lineTo(
-                        -scale.x / 2.0 + i * step,
-                        -heights[i] * scale.y,
-                    );
+                    graphics.lineTo(-scale.x / 2.0 + i * step, -heights[i] * scale.y);
                 }
 
                 graphics.stroke({
@@ -262,7 +248,10 @@ export class Graphics {
                     graphics.lineTo(vertices[i], -vertices[i + 1]);
                 }
 
-                graphics.fill({color: this.colorPalette[instanceId], alpha: 1.0});
+                graphics.fill({
+                    color: this.colorPalette[instanceId],
+                    alpha: 1.0,
+                });
                 this.viewport.addChild(graphics);
                 break;
             case RAPIER.ShapeType.Voxels:
@@ -285,7 +274,10 @@ export class Graphics {
                     graphics.closePath();
                 }
 
-                graphics.fill({color: this.colorPalette[instanceId], alpha: 1.0});
+                graphics.fill({
+                    color: this.colorPalette[instanceId],
+                    alpha: 1.0,
+                });
                 this.viewport.addChild(graphics);
                 break;
             default:
@@ -300,7 +292,6 @@ export class Graphics {
         graphics.rotation = r;
 
         this.coll2gfx.set(collider.handle, graphics);
-        this.colorIndex =
-            (this.colorIndex + 1) % (this.colorPalette.length - 1);
+        this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 1);
     }
 }

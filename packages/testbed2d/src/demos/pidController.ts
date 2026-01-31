@@ -42,12 +42,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let characterColliderDesc = RAPIER.ColliderDesc.cuboid(0.6, 1.2);
     world.createCollider(characterColliderDesc, character);
 
-    let pidController = world.createPidController(
-        60.0,
-        0.0,
-        1.0,
-        RAPIER.PidAxesMask.AllAng,
-    );
+    let pidController = world.createPidController(60.0, 0.0, 1.0, RAPIER.PidAxesMask.AllAng);
     let speed = 0.2;
     let movementDirection = {x: 0.0, y: 0.0};
     let targetVelocity = {x: 0.0, y: 0.0};
@@ -59,9 +54,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             pidController.setAxes(RAPIER.PidAxesMask.AllAng);
         } else if (movementDirection.y == 0.0) {
             // Don’t control the linear Y axis so the player can fall down due to gravity.
-            pidController.setAxes(
-                RAPIER.PidAxesMask.AllAng | RAPIER.PidAxesMask.LinX,
-            );
+            pidController.setAxes(RAPIER.PidAxesMask.AllAng | RAPIER.PidAxesMask.LinX);
         } else {
             pidController.setAxes(RAPIER.PidAxesMask.All);
         }
@@ -70,11 +63,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         targetPoint.x += movementDirection.x;
         targetPoint.y += movementDirection.y;
 
-        pidController.applyLinearCorrection(
-            character,
-            targetPoint,
-            targetVelocity,
-        );
+        pidController.applyLinearCorrection(character, targetPoint, targetVelocity);
         pidController.applyAngularCorrection(character, 0.0, 0.0);
     };
 

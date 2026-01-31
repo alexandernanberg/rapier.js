@@ -40,9 +40,7 @@ export class Gui {
         this.stats = new Stats();
         this.rapierVersion = testbed.RAPIER.version();
         this.maxTimePanelValue = 16.0;
-        this.stepTimePanel = this.stats.addPanel(
-            new Stats.Panel("ms (step)", "#ff8", "#221"),
-        );
+        this.stepTimePanel = this.stats.addPanel(new Stats.Panel("ms (step)", "#ff8", "#221"));
         this.stats.showPanel(this.stats.dom.children.length - 1);
         document.body.appendChild(this.stats.dom);
 
@@ -59,10 +57,7 @@ export class Gui {
             .onChange((demo: string) => {
                 testbed.switchToDemo(demo);
             });
-        this.gui
-            .add(simulationParameters, "numSolverIters", 0, 20)
-            .step(1)
-            .listen();
+        this.gui.add(simulationParameters, "numSolverIters", 0, 20).step(1).listen();
         this.gui
             .add(simulationParameters, "debugInfos")
             .listen()
@@ -105,50 +100,26 @@ export class Gui {
         text += "<br/>[Step " + infos.stepId + "]";
 
         if (infos.worldHash) {
-            text +=
-                "<br/>World hash (xxHash128): " + infos.worldHash.toString();
-            text +=
-                "<br/>World hash time (xxHash128): " +
-                infos.worldHashTime +
-                "ms";
+            text += "<br/>World hash (xxHash128): " + infos.worldHash.toString();
+            text += "<br/>World hash time (xxHash128): " + infos.worldHashTime + "ms";
             text += "<br/>Snapshot time: " + infos.snapshotTime + "ms";
         }
 
         text += "<br/>timingStep: " + infos.timingStep + "ms";
-        text +=
-            "<br/>timingCollisionDetection: " +
-            infos.timingCollisionDetection +
-            "ms";
+        text += "<br/>timingCollisionDetection: " + infos.timingCollisionDetection + "ms";
         text += "<br/>timingBroadPhase: " + infos.timingBroadPhase + "ms";
         text += "<br/>timingNarrowPhase: " + infos.timingNarrowPhase + "ms";
         text += "<br/>timingSolver: " + infos.timingSolver + "ms";
-        text +=
-            "<br/>timingVelocityAssembly: " +
-            infos.timingVelocityAssembly +
-            "ms";
-        text +=
-            "<br/>timingVelocityResolution: " +
-            infos.timingVelocityResolution +
-            "ms";
-        text +=
-            "<br/>timingVelocityUpdate: " + infos.timingVelocityUpdate + "ms";
-        text +=
-            "<br/>timingVelocityWriteback: " +
-            infos.timingVelocityWriteback +
-            "ms";
+        text += "<br/>timingVelocityAssembly: " + infos.timingVelocityAssembly + "ms";
+        text += "<br/>timingVelocityResolution: " + infos.timingVelocityResolution + "ms";
+        text += "<br/>timingVelocityUpdate: " + infos.timingVelocityUpdate + "ms";
+        text += "<br/>timingVelocityWriteback: " + infos.timingVelocityWriteback + "ms";
         text += "<br/>timingCcd: " + infos.timingCcd + "ms";
-        text +=
-            "<br/>timingCcdToiComputation: " +
-            infos.timingCcdToiComputation +
-            "ms";
+        text += "<br/>timingCcdToiComputation: " + infos.timingCcdToiComputation + "ms";
         text += "<br/>timingCcdBroadPhase: " + infos.timingCcdBroadPhase + "ms";
-        text +=
-            "<br/>timingCcdNarrowPhase: " + infos.timingCcdNarrowPhase + "ms";
+        text += "<br/>timingCcdNarrowPhase: " + infos.timingCcdNarrowPhase + "ms";
         text += "<br/>timingCcdSolver: " + infos.timingCcdSolver + "ms";
-        text +=
-            "<br/>timingIslandConstruction: " +
-            infos.timingIslandConstruction +
-            "ms";
+        text += "<br/>timingIslandConstruction: " + infos.timingIslandConstruction + "ms";
         text += "<br/>timingUserChanges: " + infos.timingUserChanges + "ms";
         this.debugText.innerHTML = text;
     }

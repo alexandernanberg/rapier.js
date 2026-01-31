@@ -22,10 +22,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
     let bodyDesc = RAPIER.RigidBodyDesc.fixed();
     let body = world.createRigidBody(bodyDesc);
-    let colliderDesc = RAPIER.ColliderDesc.heightfield(
-        new Float32Array(heights),
-        ground_size,
-    );
+    let colliderDesc = RAPIER.ColliderDesc.heightfield(new Float32Array(heights), ground_size);
     world.createCollider(colliderDesc, body);
 
     /*

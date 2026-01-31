@@ -1,9 +1,4 @@
-import {
-    RawImpulseJointSet,
-    RawJointAxis,
-    RawJointType,
-    RawMultibodyJointSet,
-} from "../raw";
+import {RawImpulseJointSet, RawJointAxis, RawJointType, RawMultibodyJointSet} from "../raw";
 import {
     FixedImpulseJoint,
     ImpulseJointHandle,
@@ -12,7 +7,6 @@ import {
     PrismaticImpulseJoint,
     RevoluteImpulseJoint,
 } from "./impulse_joint";
-
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -169,4 +163,3 @@ export class RevoluteMultibodyJoint extends UnitMultibodyJoint {
         return RawJointAxis.AngX;
     }
 }
-

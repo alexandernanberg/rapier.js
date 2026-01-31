@@ -12,10 +12,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let ground_size = 5.0;
     let ground_height = 0.1;
 
-    let groundBodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(
-        0.0,
-        -ground_height,
-    );
+    let groundBodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(0.0, -ground_height);
     let groundBody = world.createRigidBody(groundBodyDesc);
     let colliderDesc = RAPIER.ColliderDesc.cuboid(ground_size, ground_height);
     world.createCollider(colliderDesc, groundBody);
@@ -63,10 +60,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
             let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
             let body = world.createRigidBody(bodyDesc);
-            let colliderDesc = RAPIER.ColliderDesc.cuboid(
-                rad,
-                rad,
-            ).setCollisionGroups(group);
+            let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad).setCollisionGroups(group);
             world.createCollider(colliderDesc, body);
         }
     }

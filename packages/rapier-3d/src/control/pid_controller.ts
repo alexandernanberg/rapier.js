@@ -1,8 +1,8 @@
-import {RawPidController} from "../raw";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {Collider, ColliderSet, InteractionGroups, Shape} from "../geometry";
-import {QueryFilterFlags, World} from "../pipeline";
 import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
+import {Collider, ColliderSet, InteractionGroups, Shape} from "../geometry";
+import {Rotation, RotationOps, Vector, VectorOps} from "../math";
+import {QueryFilterFlags, World} from "../pipeline";
+import {RawPidController} from "../raw";
 
 // TODO: unify with the JointAxesMask
 /**
@@ -89,11 +89,7 @@ export class PidController {
         this.raw.reset_integrals();
     }
 
-    public applyLinearCorrection(
-        body: RigidBody,
-        targetPosition: Vector,
-        targetLinvel: Vector,
-    ) {
+    public applyLinearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector) {
         let rawPos = VectorOps.intoRaw(targetPosition);
         let rawVel = VectorOps.intoRaw(targetLinvel);
         this.raw.apply_linear_correction(
@@ -107,13 +103,8 @@ export class PidController {
         rawVel.free();
     }
 
-
     // #if DIM3
-    public applyAngularCorrection(
-        body: RigidBody,
-        targetRotation: Rotation,
-        targetAngVel: Vector,
-    ) {
+    public applyAngularCorrection(body: RigidBody, targetRotation: Rotation, targetAngVel: Vector) {
         let rawPos = RotationOps.intoRaw(targetRotation);
         let rawVel = VectorOps.intoRaw(targetAngVel);
         this.raw.apply_angular_correction(
@@ -128,11 +119,7 @@ export class PidController {
     }
     // #endif
 
-    public linearCorrection(
-        body: RigidBody,
-        targetPosition: Vector,
-        targetLinvel: Vector,
-    ): Vector {
+    public linearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector): Vector {
         let rawPos = VectorOps.intoRaw(targetPosition);
         let rawVel = VectorOps.intoRaw(targetLinvel);
         let correction = this.raw.linear_correction(
@@ -147,7 +134,6 @@ export class PidController {
 
         return VectorOps.fromRaw(correction);
     }
-
 
     // #if DIM3
     public angularCorrection(

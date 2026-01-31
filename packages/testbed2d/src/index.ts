@@ -1,15 +1,15 @@
-import {Testbed} from "./Testbed";
+import * as CharacterController from "./demos/characterController";
 import * as CollisionGroups from "./demos/collisionGroups";
+import * as ConvexPolygons from "./demos/convexPolygons";
 import * as Cubes from "./demos/cubes";
-import * as Keva from "./demos/keva";
 import * as Heightfield from "./demos/heightfield";
+import * as Keva from "./demos/keva";
+import * as LockedRotations from "./demos/lockedRotations";
+import * as PidController from "./demos/pidController";
 import * as Polyline from "./demos/polyline";
 import * as RevoluteJoints from "./demos/revoluteJoints";
-import * as LockedRotations from "./demos/lockedRotations";
-import * as ConvexPolygons from "./demos/convexPolygons";
-import * as CharacterController from "./demos/characterController";
-import * as PidController from "./demos/pidController";
 import * as Voxels from "./demos/voxels";
+import {Testbed} from "./Testbed";
 
 import("@alexandernanberg/rapier-2d/compat").then(async (RAPIER) => {
     await RAPIER.init();

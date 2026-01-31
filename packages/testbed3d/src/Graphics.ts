@@ -1,6 +1,6 @@
+import RAPIER from "@alexandernanberg/rapier-3d";
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
-import RAPIER from "@alexandernanberg/rapier-3d";
 
 const BOX_INSTANCE_INDEX = 0;
 const BALL_INSTANCE_INDEX = 1;
@@ -152,9 +152,7 @@ export class Graphics {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setClearColor(0x292929, 1);
         // High pixel Ratio make the rendering extremely slow, so we cap it.
-        const pixelRatio = window.devicePixelRatio
-            ? Math.min(window.devicePixelRatio, 1.5)
-            : 1;
+        const pixelRatio = window.devicePixelRatio ? Math.min(window.devicePixelRatio, 1.5) : 1;
         this.renderer.setPixelRatio(pixelRatio);
         document.body.appendChild(this.renderer.domElement);
 
@@ -187,10 +185,7 @@ export class Graphics {
 
         window.addEventListener("resize", onWindowResize, false);
 
-        this.controls = new OrbitControls(
-            this.camera,
-            this.renderer.domElement,
-        );
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.2;
         this.controls.maxPolarAngle = Math.PI / 2;
@@ -274,10 +269,7 @@ export class Graphics {
                 "position",
                 new THREE.BufferAttribute(buffers.vertices, 3),
             );
-            this.lines.geometry.setAttribute(
-                "color",
-                new THREE.BufferAttribute(buffers.colors, 4),
-            );
+            this.lines.geometry.setAttribute("color", new THREE.BufferAttribute(buffers.colors, 4));
         } else {
             this.lines.visible = false;
         }
@@ -314,9 +306,7 @@ export class Graphics {
 
             if (!!desc) {
                 desc.highlighted = false;
-                this.instanceGroups[desc.groupId][
-                    this.highlightInstanceId()
-                ].count = 0;
+                this.instanceGroups[desc.groupId][this.highlightInstanceId()].count = 0;
             }
         }
         if (handle != null) {
@@ -340,24 +330,13 @@ export class Graphics {
             if (!!gfx) {
                 let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
                 dummy.scale.set(gfx.scale.x, gfx.scale.y, gfx.scale.z);
-                dummy.position.set(
-                    _translation.x,
-                    _translation.y,
-                    _translation.z,
-                );
-                dummy.quaternion.set(
-                    _rotation.x,
-                    _rotation.y,
-                    _rotation.z,
-                    _rotation.w,
-                );
+                dummy.position.set(_translation.x, _translation.y, _translation.z);
+                dummy.quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
                 dummy.updateMatrix();
                 instance.setMatrixAt(gfx.elementId, dummy.matrix);
 
                 let highlightInstance =
-                    this.instanceGroups[gfx.groupId][
-                        this.highlightInstanceId()
-                    ];
+                    this.instanceGroups[gfx.groupId][this.highlightInstanceId()];
                 if (gfx.highlighted) {
                     highlightInstance.count = 1;
                     highlightInstance.setMatrixAt(0, dummy.matrix);
@@ -370,17 +349,8 @@ export class Graphics {
             let mesh = this.coll2mesh.get(elt.handle);
 
             if (!!mesh) {
-                mesh.position.set(
-                    _translation.x,
-                    _translation.y,
-                    _translation.z,
-                );
-                mesh.quaternion.set(
-                    _rotation.x,
-                    _rotation.y,
-                    _rotation.z,
-                    _rotation.w,
-                );
+                mesh.position.set(_translation.x, _translation.y, _translation.z);
+                mesh.quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
                 mesh.updateMatrix();
             }
         });
@@ -420,9 +390,7 @@ export class Graphics {
 
     removeRigidBody(body: RAPIER.RigidBody) {
         if (!!this.rb2colls.get(body.handle)) {
-            this.rb2colls
-                .get(body.handle)
-                .forEach((coll) => this.removeCollider(coll));
+            this.rb2colls.get(body.handle).forEach((coll) => this.removeCollider(coll));
             this.rb2colls.delete(body.handle);
         }
     }
@@ -432,9 +400,7 @@ export class Graphics {
         let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
 
         if (instance.count > 1) {
-            let coll2 = instance.userData.elementId2coll.get(
-                instance.count - 1,
-            );
+            let coll2 = instance.userData.elementId2coll.get(instance.count - 1);
             instance.userData.elementId2coll.delete(instance.count - 1);
             instance.userData.elementId2coll.set(gfx.elementId, coll2);
 
@@ -446,13 +412,8 @@ export class Graphics {
         this.coll2instance.delete(collider.handle);
     }
 
-    addCollider(
-        RAPIER: RAPIER_API,
-        world: RAPIER.World,
-        collider: RAPIER.Collider,
-    ) {
-        this.colorIndex =
-            (this.colorIndex + 1) % (this.colorPalette.length - 2);
+    addCollider(RAPIER: RAPIER_API, world: RAPIER.World, collider: RAPIER.Collider) {
+        this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 2);
         let parent = collider.parent();
         if (!this.rb2colls.get(parent.handle)) {
             this.rb2colls.set(parent.handle, [collider]);
@@ -471,19 +432,13 @@ export class Graphics {
         switch (collider.shapeType()) {
             case RAPIER.ShapeType.Cuboid:
                 let hext = collider.halfExtents();
-                instance =
-                    this.instanceGroups[BOX_INSTANCE_INDEX][
-                        instanceDesc.instanceId
-                    ];
+                instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = BOX_INSTANCE_INDEX;
                 instanceDesc.scale = new THREE.Vector3(hext.x, hext.y, hext.z);
                 break;
             case RAPIER.ShapeType.Ball:
                 let rad = collider.radius();
-                instance =
-                    this.instanceGroups[BALL_INSTANCE_INDEX][
-                        instanceDesc.instanceId
-                    ];
+                instance = this.instanceGroups[BALL_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = BALL_INSTANCE_INDEX;
                 instanceDesc.scale = new THREE.Vector3(rad, rad, rad);
                 break;
@@ -491,30 +446,16 @@ export class Graphics {
             case RAPIER.ShapeType.RoundCylinder:
                 let cyl_rad = collider.radius();
                 let cyl_height = collider.halfHeight() * 2.0;
-                instance =
-                    this.instanceGroups[CYLINDER_INSTANCE_INDEX][
-                        instanceDesc.instanceId
-                    ];
+                instance = this.instanceGroups[CYLINDER_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = CYLINDER_INSTANCE_INDEX;
-                instanceDesc.scale = new THREE.Vector3(
-                    cyl_rad,
-                    cyl_height,
-                    cyl_rad,
-                );
+                instanceDesc.scale = new THREE.Vector3(cyl_rad, cyl_height, cyl_rad);
                 break;
             case RAPIER.ShapeType.Cone:
                 let cone_rad = collider.radius();
                 let cone_height = collider.halfHeight() * 2.0;
-                instance =
-                    this.instanceGroups[CONE_INSTANCE_INDEX][
-                        instanceDesc.instanceId
-                    ];
+                instance = this.instanceGroups[CONE_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = CONE_INSTANCE_INDEX;
-                instanceDesc.scale = new THREE.Vector3(
-                    cone_rad,
-                    cone_height,
-                    cone_rad,
-                );
+                instanceDesc.scale = new THREE.Vector3(cone_rad, cone_height, cone_rad);
                 break;
             case RAPIER.ShapeType.TriMesh:
             case RAPIER.ShapeType.HeightField:
@@ -539,10 +480,7 @@ export class Graphics {
                 }
 
                 geometry.setIndex(Array.from(indices));
-                geometry.setAttribute(
-                    "position",
-                    new THREE.BufferAttribute(vertices, 3),
-                );
+                geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
                 let color = parent.isFixed() ? 0 : this.colorIndex + 1;
 
                 let material = new THREE.MeshPhongMaterial({
@@ -567,20 +505,14 @@ export class Graphics {
         }
 
         let highlightInstance =
-            this.instanceGroups[instanceDesc.groupId][
-                this.highlightInstanceId()
-            ];
+            this.instanceGroups[instanceDesc.groupId][this.highlightInstanceId()];
         highlightInstance.count = 0;
 
         collider.translation(_translation);
         collider.rotation(_rotation);
         dummy.position.set(_translation.x, _translation.y, _translation.z);
         dummy.quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
-        dummy.scale.set(
-            instanceDesc.scale.x,
-            instanceDesc.scale.y,
-            instanceDesc.scale.z,
-        );
+        dummy.scale.set(instanceDesc.scale.x, instanceDesc.scale.y, instanceDesc.scale.z);
         dummy.updateMatrix();
         instance.setMatrixAt(instanceDesc.elementId, dummy.matrix);
         instance.instanceMatrix.needsUpdate = true;

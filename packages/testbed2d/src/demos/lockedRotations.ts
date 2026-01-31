@@ -12,10 +12,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let ground_size = 1.8;
     let ground_height = 1.0;
 
-    let bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(
-        0.0,
-        -ground_height,
-    );
+    let bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(0.0, -ground_height);
     let body = world.createRigidBody(bodyDesc);
     let colliderDesc = RAPIER.ColliderDesc.cuboid(ground_size, ground_height);
     world.createCollider(colliderDesc, body);
@@ -23,9 +20,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     /*
      * A rectangle that only rotates along the `x` axis.
      */
-    bodyDesc = RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(0.0, 3.0)
-        .lockTranslations();
+    bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(0.0, 3.0).lockTranslations();
     body = world.createRigidBody(bodyDesc);
     colliderDesc = RAPIER.ColliderDesc.cuboid(2.0, 0.6);
     world.createCollider(colliderDesc, body);
@@ -33,9 +28,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     /*
      * A cuboid that cannot rotate.
      */
-    bodyDesc = RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(0.4, 5.0)
-        .lockRotations();
+    bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(0.4, 5.0).lockRotations();
     body = world.createRigidBody(bodyDesc);
     colliderDesc = RAPIER.ColliderDesc.cuboid(0.4, 0.6);
     world.createCollider(colliderDesc, body);

@@ -1,4 +1,6 @@
 import {Rotation, Vector, VectorOps, RotationOps} from "../math";
+// #if DIM3
+import {Quaternion} from "../math";
 import {
     RawGenericJoint,
     RawImpulseJointSet,
@@ -9,8 +11,6 @@ import {
 } from "../raw";
 import {RigidBody, RigidBodyHandle} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";
-// #if DIM3
-import {Quaternion} from "../math";
 // #endif
 
 /**
@@ -75,11 +75,7 @@ export class ImpulseJoint {
     protected bodySet: RigidBodySet; // The ImpulseJoint won’t need to free this.
     handle: ImpulseJointHandle;
 
-    constructor(
-        rawSet: RawImpulseJointSet,
-        bodySet: RigidBodySet,
-        handle: ImpulseJointHandle,
-    ) {
+    constructor(rawSet: RawImpulseJointSet, bodySet: RigidBodySet, handle: ImpulseJointHandle) {
         this.rawSet = rawSet;
         this.bodySet = bodySet;
         this.handle = handle;
@@ -273,19 +269,10 @@ export class UnitImpulseJoint extends ImpulseJoint {
     }
 
     public configureMotorVelocity(targetVel: number, factor: number) {
-        this.rawSet.jointConfigureMotorVelocity(
-            this.handle,
-            this.rawAxis(),
-            targetVel,
-            factor,
-        );
+        this.rawSet.jointConfigureMotorVelocity(this.handle, this.rawAxis(), targetVel, factor);
     }
 
-    public configureMotorPosition(
-        targetPos: number,
-        stiffness: number,
-        damping: number,
-    ) {
+    public configureMotorPosition(targetPos: number, stiffness: number, damping: number) {
         this.rawSet.jointConfigureMotorPosition(
             this.handle,
             this.rawAxis(),
@@ -418,11 +405,7 @@ export class JointData {
         return res;
     }
 
-    public static rope(
-        length: number,
-        anchor1: Vector,
-        anchor2: Vector,
-    ): JointData {
+    public static rope(length: number, anchor1: Vector, anchor2: Vector): JointData {
         let res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
@@ -430,7 +413,6 @@ export class JointData {
         res.jointType = JointType.Rope;
         return res;
     }
-
 
     // #if DIM3
     /**
@@ -495,11 +477,7 @@ export class JointData {
      *                  local-space of the rigid-body.
      * @param axis - Axis of the joint, expressed in the local-space of the rigid-bodies it is attached to.
      */
-    public static prismatic(
-        anchor1: Vector,
-        anchor2: Vector,
-        axis: Vector,
-    ): JointData {
+    public static prismatic(anchor1: Vector, anchor2: Vector, axis: Vector): JointData {
         let res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
@@ -520,11 +498,7 @@ export class JointData {
      *                  local-space of the rigid-body.
      * @param axis - Axis of the joint, expressed in the local-space of the rigid-bodies it is attached to.
      */
-    public static revolute(
-        anchor1: Vector,
-        anchor2: Vector,
-        axis: Vector,
-    ): JointData {
+    public static revolute(anchor1: Vector, anchor2: Vector, axis: Vector): JointData {
         let res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
@@ -572,7 +546,6 @@ export class JointData {
                     limitsMax = this.limits[1];
                 }
 
-
                 // #if DIM3
                 result = RawGenericJoint.prismatic(
                     rawA1,
@@ -592,12 +565,7 @@ export class JointData {
                 // implicit type cast: axesMask is a JointAxesMask bitflag enum,
                 // we're treating it as a u8 on the Rust side
                 let rawAxesMask = this.axesMask;
-                result = RawGenericJoint.generic(
-                    rawA1,
-                    rawA2,
-                    rawAx,
-                    rawAxesMask,
-                );
+                result = RawGenericJoint.generic(rawA1, rawA2, rawAx, rawAxesMask);
                 break;
             case JointType.Spherical:
                 result = RawGenericJoint.spherical(rawA1, rawA2);

@@ -11,9 +11,9 @@ This is a **fork** of rapier.js - TypeScript bindings for the Rapier physics eng
 - Rust toolchain (`rustup`)
 - wasm-pack (`cargo install wasm-pack`)
 
--   **Package scope**: `@alexandernanberg/rapier-{2d,3d}`
--   **Monorepo**: pnpm workspaces
--   **Stack**: Rust + wasm-bindgen → WASM, TypeScript bindings
+- **Package scope**: `@alexandernanberg/rapier-{2d,3d}`
+- **Monorepo**: pnpm workspaces
+- **Stack**: Rust + wasm-bindgen → WASM, TypeScript bindings
 
 ### Performance Goals
 
@@ -48,8 +48,8 @@ Each package (`rapier-2d`, `rapier-3d`) ships 4 variants:
 
 **Usage**:
 
--   Default/SIMD: Best for web apps (smaller bundle, parallel loading)
--   Compat variants: For environments without `fetch()` (SSR, workers, tests)
+- Default/SIMD: Best for web apps (smaller bundle, parallel loading)
+- Compat variants: For environments without `fetch()` (SSR, workers, tests)
 
 ## Build Commands
 
@@ -60,7 +60,7 @@ pnpm build:ts           # TypeScript packages only
 pnpm build:2d           # 2D only (WASM + TS)
 pnpm build:3d           # 3D only (WASM + TS)
 pnpm typecheck          # Type check all packages
-pnpm fmt                # Format code with Prettier
+pnpm fmt                # Format code with oxfmt
 pnpm dev:testbed2d      # Run 2D demo
 pnpm dev:testbed3d      # Run 3D demo
 ```
@@ -76,6 +76,7 @@ pnpm bench:quick        # Quick mode (fewer iterations)
 ```
 
 **Benchmark categories:**
+
 - **Simulation**: `world.step()` performance with stacked bodies
 - **Lifecycle**: Body creation/destruction throughput
 - **Queries**: Ray casting and point projection performance
@@ -121,8 +122,8 @@ return this.raw.castRay(rawOrig, rawDir, maxToi);
 
 ### Rule 3: `fromRaw()` Auto-Frees, `intoRaw()` Does Not
 
--   `fromRaw(raw)`: Consumes and frees the raw object automatically
--   `intoRaw()`: Returns raw object that YOU must free
+- `fromRaw(raw)`: Consumes and frees the raw object automatically
+- `intoRaw()`: Returns raw object that YOU must free
 
 ### Rule 4: Free World/Controller Resources
 
@@ -148,8 +149,8 @@ For hot paths, use the optional `target` parameter to avoid allocations:
 const pos = body.translation();
 
 // Zero-allocation (reuses existing object)
-const _pos = { x: 0, y: 0, z: 0 };
-body.translation(_pos);  // writes into _pos
+const _pos = {x: 0, y: 0, z: 0};
+body.translation(_pos); // writes into _pos
 ```
 
 Supported methods: `translation()`, `rotation()`, `linvel()`, `angvel()`,

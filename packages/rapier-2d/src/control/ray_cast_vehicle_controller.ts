@@ -1,14 +1,8 @@
-import {RawDynamicRayCastVehicleController} from "../raw";
-import {Vector, VectorOps} from "../math";
-import {
-    BroadPhase,
-    Collider,
-    ColliderSet,
-    InteractionGroups,
-    NarrowPhase,
-} from "../geometry";
-import {QueryFilterFlags} from "../pipeline";
 import {RigidBody, RigidBodyHandle, RigidBodySet} from "../dynamics";
+import {BroadPhase, Collider, ColliderSet, InteractionGroups, NarrowPhase} from "../geometry";
+import {Vector, VectorOps} from "../math";
+import {QueryFilterFlags} from "../pipeline";
+import {RawDynamicRayCastVehicleController} from "../raw";
 
 /**
  * A character controller to simulate vehicles using ray-casting for the wheels.

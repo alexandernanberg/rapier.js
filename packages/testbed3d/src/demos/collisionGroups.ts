@@ -47,18 +47,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
                 // Alternate between the green and blue groups.
                 let group = k % 2 == 0 ? group1 : group2;
-                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(
-                    x,
-                    y,
-                    z,
-                );
+                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
                 let body = world.createRigidBody(bodyDesc);
 
-                colliderDesc = RAPIER.ColliderDesc.cuboid(
-                    rad,
-                    rad,
-                    rad,
-                ).setCollisionGroups(group);
+                colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad, rad).setCollisionGroups(group);
                 world.createCollider(colliderDesc, body);
             }
         }

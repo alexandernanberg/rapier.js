@@ -1,5 +1,3 @@
-import {RawPhysicsPipeline} from "../raw";
-import {Vector, VectorOps} from "../math";
 import {
     IntegrationParameters,
     ImpulseJointSet,
@@ -9,12 +7,9 @@ import {
     CCDSolver,
     IslandManager,
 } from "../dynamics";
-import {
-    BroadPhase,
-    ColliderHandle,
-    ColliderSet,
-    NarrowPhase,
-} from "../geometry";
+import {BroadPhase, ColliderHandle, ColliderSet, NarrowPhase} from "../geometry";
+import {Vector, VectorOps} from "../math";
+import {RawPhysicsPipeline} from "../raw";
 import {EventQueue} from "./event_queue";
 import {PhysicsHooks} from "./physics_hooks";
 
