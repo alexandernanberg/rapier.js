@@ -14,18 +14,18 @@ impl RawShapeContact {
     }
 
     pub fn point1(&self) -> RawVector {
-        self.contact.point1.coords.into()
+        self.contact.point1.into()
     }
 
     pub fn point2(&self) -> RawVector {
-        self.contact.point2.coords.into()
+        self.contact.point2.into()
     }
 
     pub fn normal1(&self) -> RawVector {
-        self.contact.normal1.into_inner().into()
+        self.contact.normal1.into()
     }
 
     pub fn normal2(&self) -> RawVector {
-        self.contact.normal2.into_inner().into()
+        self.contact.normal2.into()
     }
 }

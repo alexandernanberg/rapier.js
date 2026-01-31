@@ -91,7 +91,7 @@ pub struct RawContactModificationContext {
     pub rigid_body2: Option<u32>,
     pub manifold: *const ContactManifold,
     pub solver_contacts: *mut Vec<SolverContact>,
-    normal: *mut Vector<Real>,
+    normal: *mut Vector,
     user_data: *mut u32,
 }
 
@@ -149,7 +149,7 @@ impl RawContactModificationContext {
         unsafe {
             (*self.solver_contacts)
                 .get(i)
-                .map(|c| c.point.coords.into())
+                .map(|c| c.point.into())
         }
     }
 

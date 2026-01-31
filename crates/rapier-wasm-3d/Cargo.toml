@@ -16,8 +16,7 @@ simd = ["rapier3d/simd-stable"]
 deterministic = ["rapier3d/enhanced-determinism"]
 
 [dependencies]
-rapier3d = { version = "0.30", features = ["debug-render", "serde-serialize"] }
-nalgebra = "0.34"
+rapier3d = { version = "0.32", features = ["debug-render", "serde-serialize"] }
 wasm-bindgen = "0.2"
 js-sys = "0.3"
 serde = { version = "1", features = ["derive"] }

@@ -2,13 +2,12 @@ use crate::dynamics::RawRigidBodySet;
 use crate::geometry::{RawBroadPhase, RawColliderSet, RawNarrowPhase};
 use crate::math::RawVector;
 use crate::utils::{self, FlatHandle};
-use na::{Isometry, Unit};
 use rapier::control::{
     CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
     KinematicCharacterController,
 };
 use rapier::geometry::{ColliderHandle, ShapeCastHit};
-use rapier::math::{Point, Real, Vector};
+use rapier::math::{Pose, Real, Vector};
 use rapier::parry::query::ShapeCastStatus;
 use rapier::pipeline::{QueryFilter, QueryFilterFlags};
 use wasm_bindgen::prelude::*;
@@ -40,7 +39,7 @@ impl RawKinematicCharacterController {
         Self {
             controller,
             result: EffectiveCharacterMovement {
-                translation: Vector::zeros(),
+                translation: Vector::ZERO,
                 grounded: false,
                 is_sliding_down_slope: false,
             },
@@ -49,11 +48,11 @@ impl RawKinematicCharacterController {
     }
 
     pub fn up(&self) -> RawVector {
-        self.controller.up.into_inner().into()
+        self.controller.up.into()
     }
 
     pub fn setUp(&mut self, vector: &RawVector) {
-        self.controller.up = Unit::new_normalize(vector.0);
+        self.controller.up = vector.0.normalize();
     }
 
     pub fn normalNudgeFactor(&self) -> Real {
@@ -208,7 +207,7 @@ impl RawKinematicCharacterController {
                 }
             });
         } else {
-            self.result.translation.fill(0.0);
+            self.result.translation = Vector::ZERO;
         }
     }
 
@@ -242,15 +241,15 @@ impl RawCharacterCollision {
     pub fn new() -> Self {
         Self(CharacterCollision {
             handle: ColliderHandle::invalid(),
-            character_pos: Isometry::identity(),
-            translation_applied: Vector::zeros(),
-            translation_remaining: Vector::zeros(),
+            character_pos: Pose::IDENTITY,
+            translation_applied: Vector::ZERO,
+            translation_remaining: Vector::ZERO,
             hit: ShapeCastHit {
                 time_of_impact: 0.0,
-                witness1: Point::origin(),
-                witness2: Point::origin(),
-                normal1: Vector::y_axis(),
-                normal2: Vector::y_axis(),
+                witness1: Vector::ZERO,
+                witness2: Vector::ZERO,
+                normal1: Vector::Y,
+                normal2: Vector::Y,
                 status: ShapeCastStatus::Failed,
             },
         })
@@ -273,18 +272,18 @@ impl RawCharacterCollision {
     }
 
     pub fn worldWitness1(&self) -> RawVector {
-        self.0.hit.witness1.coords.into() // Already in world-space.
+        self.0.hit.witness1.into() // Already in world-space.
     }
 
     pub fn worldWitness2(&self) -> RawVector {
-        (self.0.character_pos * self.0.hit.witness2).coords.into()
+        (self.0.character_pos * self.0.hit.witness2).into()
     }
 
     pub fn worldNormal1(&self) -> RawVector {
-        self.0.hit.normal1.into_inner().into() // Already in world-space.
+        self.0.hit.normal1.into() // Already in world-space.
     }
 
     pub fn worldNormal2(&self) -> RawVector {
-        (self.0.character_pos * self.0.hit.normal2.into_inner()).into()
+        (self.0.character_pos.rotation * self.0.hit.normal2).into()
     }
 }

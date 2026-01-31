@@ -122,11 +122,11 @@ impl RawContactManifold {
     }
 
     pub fn contact_local_p1(&self, i: usize) -> Option<RawVector> {
-        unsafe { (&(*self.0).points).get(i).map(|c| c.local_p1.coords.into()) }
+        unsafe { (&(*self.0).points).get(i).map(|c| c.local_p1.into()) }
     }
 
     pub fn contact_local_p2(&self, i: usize) -> Option<RawVector> {
-        unsafe { (&(*self.0).points).get(i).map(|c| c.local_p2.coords.into()) }
+        unsafe { (&(*self.0).points).get(i).map(|c| c.local_p2.into()) }
     }
 
     pub fn contact_dist(&self, i: usize) -> Real {
@@ -189,7 +189,7 @@ impl RawContactManifold {
             (&(*self.0).data)
                 .solver_contacts
                 .get(i)
-                .map(|c| c.point.coords.into())
+                .map(|c| c.point.into())
         }
     }
 

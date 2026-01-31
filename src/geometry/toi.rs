@@ -15,19 +15,19 @@ impl RawShapeCastHit {
     }
 
     pub fn witness1(&self) -> RawVector {
-        self.hit.witness1.coords.into()
+        self.hit.witness1.into()
     }
 
     pub fn witness2(&self) -> RawVector {
-        self.hit.witness2.coords.into()
+        self.hit.witness2.into()
     }
 
     pub fn normal1(&self) -> RawVector {
-        self.hit.normal1.into_inner().into()
+        self.hit.normal1.into()
     }
 
     pub fn normal2(&self) -> RawVector {
-        self.hit.normal2.into_inner().into()
+        self.hit.normal2.into()
     }
 }
 
@@ -48,18 +48,18 @@ impl RawColliderShapeCastHit {
     }
 
     pub fn witness1(&self) -> RawVector {
-        self.hit.witness1.coords.into()
+        self.hit.witness1.into()
     }
 
     pub fn witness2(&self) -> RawVector {
-        self.hit.witness2.coords.into()
+        self.hit.witness2.into()
     }
 
     pub fn normal1(&self) -> RawVector {
-        self.hit.normal1.into_inner().into()
+        self.hit.normal1.into()
     }
 
     pub fn normal2(&self) -> RawVector {
-        self.hit.normal2.into_inner().into()
+        self.hit.normal2.into()
     }
 }

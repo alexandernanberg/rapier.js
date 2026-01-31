@@ -14,7 +14,7 @@ pub struct RawPointProjection(pub(crate) PointProjection);
 #[wasm_bindgen]
 impl RawPointProjection {
     pub fn point(&self) -> RawVector {
-        self.0.point.coords.into()
+        self.0.point.into()
     }
 
     pub fn isInside(&self) -> bool {
@@ -36,7 +36,7 @@ impl RawPointColliderProjection {
     }
 
     pub fn point(&self) -> RawVector {
-        self.proj.point.coords.into()
+        self.proj.point.into()
     }
 
     pub fn isInside(&self) -> bool {
