@@ -381,6 +381,54 @@ export class RigidBody {
     }
 
     /**
+     * Sets both the translation and rotation of this rigid-body in a single WASM call.
+     *
+     * This is more efficient than calling `setTranslation` and `setRotation` separately
+     * when both need to be updated.
+     *
+     * @param tra - The world-space position of the rigid-body.
+     * @param rot - The rotation to set.
+     * @param wakeUp - Forces the rigid-body to wake-up so it is properly affected by forces if it
+     *                 wasn't moving before modifying its position.
+     */
+    public setTransform(tra: Vector, rot: Rotation, wakeUp: boolean) {
+        this.rawSet.rbSetTransform(
+            this.handle,
+            tra.x,
+            tra.y,
+            tra.z,
+            rot.x,
+            rot.y,
+            rot.z,
+            rot.w,
+            wakeUp,
+        );
+    }
+
+    /**
+     * If this rigid body is kinematic, sets its future translation and rotation after the next
+     * timestep integration in a single WASM call.
+     *
+     * This is more efficient than calling `setNextKinematicTranslation` and `setNextKinematicRotation`
+     * separately when both need to be updated.
+     *
+     * @param tra - The kinematic translation to set.
+     * @param rot - The kinematic rotation to set.
+     */
+    public setNextKinematicTransform(tra: Vector, rot: Rotation) {
+        this.rawSet.rbSetNextKinematicTransform(
+            this.handle,
+            tra.x,
+            tra.y,
+            tra.z,
+            rot.x,
+            rot.y,
+            rot.z,
+            rot.w,
+        );
+    }
+
+    /**
      * The linear velocity of this rigid-body.
      *
      * @param target - Optional target object to write the result to (avoids allocation).

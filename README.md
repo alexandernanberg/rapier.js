@@ -31,25 +31,29 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 - Rapier 0.32 with glam math library
 - pnpm monorepo with tsdown bundler
 - Zero-allocation getters (optional target parameter)
+- Batch transform setters (`setTransform`, `setNextKinematicTransform`)
 - Built-in benchmarks
 - Simplified package variants (4 per dimension)
 
 ### Benchmarks vs Official
 
-Comparison against `@dimforge/rapier3d@0.19.3` (3D, 3000 bodies):
+Comparison against `@dimforge/rapier3d-compat@0.19.3` (3D, 1000 bodies):
 
-| Benchmark          | Fork       | Fork SIMD  | Official | Official SIMD |
-| ------------------ | ---------- | ---------- | -------- | ------------- |
-| world.step()       | 1.18ms     | **0.69ms** | 1.14ms   | 0.72ms        |
-| create 1000 bodies | **3.15ms** | 3.15ms     | 3.47ms   | 3.41ms        |
-| body.translation() | **62µs**   | 62µs       | 210µs    | 209µs         |
-| body.rotation()    | **68µs**   | 68µs       | 223µs    | 220µs         |
+| Benchmark                      | Fork       | Official   | Improvement |
+| ------------------------------ | ---------- | ---------- | ----------- |
+| world.step() [500 bodies]      | 540µs      | 620µs      | **13%**     |
+| create 1000 bodies             | 3.4ms      | 3.8ms      | **11%**     |
+| body.translation()             | 68µs       | 280µs      | **4.1x**    |
+| body.rotation()                | 67µs       | 250µs      | **3.7x**    |
+| body.setTransform()            | 23µs       | 33µs       | **30%**     |
+| body.setNextKinematicTransform | 21µs       | 30µs       | **30%**     |
 
 Key improvements:
 
-- **world.step() SIMD**: 4% faster than official
-- **Getters**: 3.4x faster (zero-allocation optimization)
-- **Body creation**: 9% faster
+- **Getters**: 3-4x faster (zero-allocation optimization)
+- **Batch setters**: ~30% faster (single WASM call for translation + rotation)
+- **Body creation**: 11% faster
+- **Simulation step**: 13% faster
 
 Run `pnpm bench --official` to compare on your machine.
 

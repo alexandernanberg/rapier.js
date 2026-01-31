@@ -10,6 +10,7 @@ import {printTable, printComparisonTable, saveResults} from "./results.js";
 import {benchGetters} from "./scenarios/getters.js";
 import {benchLifecycle} from "./scenarios/lifecycle.js";
 import {benchQueries} from "./scenarios/queries.js";
+import {benchSetters} from "./scenarios/setters.js";
 import {benchSimulation} from "./scenarios/simulation.js";
 
 async function importRapier(dim: "2d" | "3d", simd: boolean, official: boolean) {
@@ -117,6 +118,9 @@ async function main() {
 
     console.log("Running getter benchmarks...");
     results.push(...(await benchGetters(RAPIER, is3D, quick)));
+
+    console.log("Running setter benchmarks...");
+    results.push(...(await benchSetters(RAPIER, is3D, quick)));
 
     console.log("");
 

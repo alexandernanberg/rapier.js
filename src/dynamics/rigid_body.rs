@@ -300,6 +300,89 @@ impl RawRigidBodySet {
         })
     }
 
+    /// Sets both the translation and rotation of this rigid-body in a single WASM call.
+    ///
+    /// # Parameters
+    /// - `tx`, `ty`, `tz`: the world-space position of the rigid-body.
+    /// - `rx`, `ry`, `rz`, `rw`: the rotation quaternion components.
+    /// - `wakeUp`: forces the rigid-body to wake-up so it is properly affected by forces.
+    #[cfg(feature = "dim3")]
+    pub fn rbSetTransform(
+        &mut self,
+        handle: FlatHandle,
+        tx: f32,
+        ty: f32,
+        tz: f32,
+        rx: f32,
+        ry: f32,
+        rz: f32,
+        rw: f32,
+        wakeUp: bool,
+    ) {
+        let q = Rotation::from_xyzw(rx, ry, rz, rw);
+        self.map_mut(handle, |rb| {
+            rb.set_translation(Vector::new(tx, ty, tz), false);
+            if q.is_normalized() {
+                rb.set_rotation(q, wakeUp);
+            }
+        })
+    }
+
+    /// Sets both the translation and rotation of this rigid-body in a single WASM call.
+    ///
+    /// # Parameters
+    /// - `tx`, `ty`: the world-space position of the rigid-body.
+    /// - `angle`: the rotation angle, in radians.
+    /// - `wakeUp`: forces the rigid-body to wake-up so it is properly affected by forces.
+    #[cfg(feature = "dim2")]
+    pub fn rbSetTransform(&mut self, handle: FlatHandle, tx: f32, ty: f32, angle: f32, wakeUp: bool) {
+        self.map_mut(handle, |rb| {
+            rb.set_translation(Vector::new(tx, ty), false);
+            rb.set_rotation(Rotation::new(angle), wakeUp);
+        })
+    }
+
+    /// If this rigid body is kinematic, sets its future translation and rotation after the next
+    /// timestep integration in a single WASM call.
+    ///
+    /// # Parameters
+    /// - `tx`, `ty`, `tz`: the world-space position of the rigid-body.
+    /// - `rx`, `ry`, `rz`, `rw`: the rotation quaternion components.
+    #[cfg(feature = "dim3")]
+    pub fn rbSetNextKinematicTransform(
+        &mut self,
+        handle: FlatHandle,
+        tx: f32,
+        ty: f32,
+        tz: f32,
+        rx: f32,
+        ry: f32,
+        rz: f32,
+        rw: f32,
+    ) {
+        let q = Rotation::from_xyzw(rx, ry, rz, rw);
+        self.map_mut(handle, |rb| {
+            rb.set_next_kinematic_translation(Vector::new(tx, ty, tz));
+            if q.is_normalized() {
+                rb.set_next_kinematic_rotation(q);
+            }
+        })
+    }
+
+    /// If this rigid body is kinematic, sets its future translation and rotation after the next
+    /// timestep integration in a single WASM call.
+    ///
+    /// # Parameters
+    /// - `tx`, `ty`: the world-space position of the rigid-body.
+    /// - `angle`: the rotation angle, in radians.
+    #[cfg(feature = "dim2")]
+    pub fn rbSetNextKinematicTransform(&mut self, handle: FlatHandle, tx: f32, ty: f32, angle: f32) {
+        self.map_mut(handle, |rb| {
+            rb.set_next_kinematic_translation(Vector::new(tx, ty));
+            rb.set_next_kinematic_rotation(Rotation::new(angle));
+        })
+    }
+
     pub fn rbRecomputeMassPropertiesFromColliders(
         &mut self,
         handle: FlatHandle,
