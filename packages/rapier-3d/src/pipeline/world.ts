@@ -704,8 +704,8 @@ export class World {
             solid,
             filterFlags,
             filterGroups,
-            filterExcludeCollider?.handle ,
-            filterExcludeRigidBody?.handle ,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -911,8 +911,8 @@ export class World {
             this.colliders.castClosure(callback)!,
             filterFlags,
             filterGroups,
-             filterExcludeCollider?.handle ,
-             filterExcludeRigidBody?.handle ,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -963,8 +963,8 @@ export class World {
             stopAtPenetration,
             filterFlags,
             filterGroups,
-            filterExcludeCollider?.handle ,
-            filterExcludeRigidBody?.handle ,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -1000,8 +1000,8 @@ export class World {
             this.colliders.castClosure(callback)!,
             filterFlags,
             filterGroups,
-            filterExcludeCollider?.handle ,
-            filterExcludeRigidBody?.handle ,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
     }
