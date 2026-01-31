@@ -1,5 +1,5 @@
 {
-    "name": "@alexandernanberg/rapier-3d",
+    "name": "@alexandernanberg/rapier3d",
     "version": "0.0.1",
     "description": "3-dimensional physics engine - official JS bindings",
     "keywords": [
