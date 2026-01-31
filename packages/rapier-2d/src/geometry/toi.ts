@@ -46,15 +46,18 @@ export class ShapeCastHit {
         this.normal2 = normal2;
     }
 
-    public static fromRaw(colliderSet: ColliderSet, raw: RawShapeCastHit): ShapeCastHit {
+    public static fromRaw(
+        colliderSet: ColliderSet | null,
+        raw: RawShapeCastHit,
+    ): ShapeCastHit | null {
         if (!raw) return null;
 
         const result = new ShapeCastHit(
             raw.time_of_impact(),
-            VectorOps.fromRaw(raw.witness1()),
-            VectorOps.fromRaw(raw.witness2()),
-            VectorOps.fromRaw(raw.normal1()),
-            VectorOps.fromRaw(raw.normal2()),
+            VectorOps.fromRaw(raw.witness1())!,
+            VectorOps.fromRaw(raw.witness2())!,
+            VectorOps.fromRaw(raw.normal1())!,
+            VectorOps.fromRaw(raw.normal2())!,
         );
         raw.free();
         return result;
@@ -85,16 +88,16 @@ export class ColliderShapeCastHit extends ShapeCastHit {
     public static fromRaw(
         colliderSet: ColliderSet,
         raw: RawColliderShapeCastHit,
-    ): ColliderShapeCastHit {
+    ): ColliderShapeCastHit | null {
         if (!raw) return null;
 
         const result = new ColliderShapeCastHit(
-            colliderSet.get(raw.colliderHandle()),
+            colliderSet.get(raw.colliderHandle())!,
             raw.time_of_impact(),
-            VectorOps.fromRaw(raw.witness1()),
-            VectorOps.fromRaw(raw.witness2()),
-            VectorOps.fromRaw(raw.normal1()),
-            VectorOps.fromRaw(raw.normal2()),
+            VectorOps.fromRaw(raw.witness1())!,
+            VectorOps.fromRaw(raw.witness2())!,
+            VectorOps.fromRaw(raw.normal1())!,
+            VectorOps.fromRaw(raw.normal2())!,
         );
         raw.free();
         return result;

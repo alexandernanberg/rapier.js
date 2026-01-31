@@ -17,7 +17,7 @@ export class IslandManager {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     constructor(raw?: RawIslandManager) {

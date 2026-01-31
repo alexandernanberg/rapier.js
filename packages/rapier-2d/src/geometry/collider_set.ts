@@ -22,12 +22,12 @@ export class ColliderSet {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
 
         if (!!this.map) {
             this.map.clear();
         }
-        this.map = undefined;
+        this.map = undefined!;
     }
 
     constructor(raw?: RawColliderSet) {
@@ -44,13 +44,10 @@ export class ColliderSet {
     /** @internal */
     public castClosure<Res>(
         f?: (collider: Collider) => Res,
-    ): (handle: ColliderHandle) => Res | undefined {
+    ): ((handle: ColliderHandle) => Res) | undefined {
+        if (!f) return undefined;
         return (handle) => {
-            if (!!f) {
-                return f(this.get(handle));
-            } else {
-                return undefined;
-            }
+            return f(this.get(handle)!);
         };
     }
 
@@ -115,9 +112,9 @@ export class ColliderSet {
         rawRot.free();
         rawCom.free();
 
-        let parent = hasParent ? bodies.get(parentHandle) : null;
-        let collider = new Collider(this, handle, parent, desc.shape);
-        this.map.set(handle, collider);
+        let parent = hasParent ? bodies.get(parentHandle!) : null;
+        let collider = new Collider(this, handle!, parent, desc.shape);
+        this.map.set(handle!, collider);
         return collider;
     }
 

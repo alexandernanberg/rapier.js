@@ -128,7 +128,9 @@ export class UnitMultibodyJoint extends MultibodyJoint {
     /**
      * The axis left free by this joint.
      */
-    protected rawAxis?(): RawJointAxis;
+    protected rawAxis(): RawJointAxis {
+        throw new Error("rawAxis must be implemented by subclasses");
+    }
 
     // /**
     //  * Are the limits enabled for this joint?

@@ -62,7 +62,7 @@ export class PidController {
             this.raw.free();
         }
 
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     public setKp(kp: number, axes: PidAxesMask) {
@@ -126,7 +126,7 @@ export class PidController {
         rawPos.free();
         rawVel.free();
 
-        return VectorOps.fromRaw(correction);
+        return VectorOps.fromRaw(correction)!;
     }
 
     public angularCorrection(
@@ -146,6 +146,6 @@ export class PidController {
         rawPos.free();
         rawVel.free();
 
-        return VectorOps.fromRaw(correction);
+        return VectorOps.fromRaw(correction)!;
     }
 }

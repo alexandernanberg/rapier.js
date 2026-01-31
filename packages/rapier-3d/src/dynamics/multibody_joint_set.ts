@@ -31,12 +31,12 @@ export class MultibodyJointSet {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
 
         if (!!this.map) {
             this.map.clear();
         }
-        this.map = undefined;
+        this.map = undefined!;
     }
 
     constructor(raw?: RawMultibodyJointSet) {

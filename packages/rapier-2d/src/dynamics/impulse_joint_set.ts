@@ -31,12 +31,12 @@ export class ImpulseJointSet {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
 
         if (!!this.map) {
             this.map.clear();
         }
-        this.map = undefined;
+        this.map = undefined!;
     }
 
     constructor(raw?: RawImpulseJointSet) {
@@ -45,7 +45,7 @@ export class ImpulseJointSet {
         // Initialize the map with the existing elements, if any.
         if (raw) {
             raw.forEachJointHandle((handle: ImpulseJointHandle) => {
-                this.map.set(handle, ImpulseJoint.newTyped(raw, null, handle));
+                this.map.set(handle, ImpulseJoint.newTyped(raw, null!, handle));
             });
         }
     }

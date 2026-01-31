@@ -30,32 +30,32 @@ export abstract class Shape {
 
         switch (rawType) {
             case RawShapeType.Ball:
-                return new Ball(rawSet.coRadius(handle));
+                return new Ball(rawSet.coRadius(handle)!);
             case RawShapeType.Cuboid:
-                extents = rawSet.coHalfExtents(handle);
+                extents = rawSet.coHalfExtents(handle)!;
                 return new Cuboid(extents.x, extents.y);
 
             case RawShapeType.RoundCuboid:
-                extents = rawSet.coHalfExtents(handle);
-                borderRadius = rawSet.coRoundRadius(handle);
+                extents = rawSet.coHalfExtents(handle)!;
+                borderRadius = rawSet.coRoundRadius(handle)!;
 
                 return new RoundCuboid(extents.x, extents.y, borderRadius);
 
             case RawShapeType.Capsule:
-                halfHeight = rawSet.coHalfHeight(handle);
-                radius = rawSet.coRadius(handle);
+                halfHeight = rawSet.coHalfHeight(handle)!;
+                radius = rawSet.coRadius(handle)!;
                 return new Capsule(halfHeight, radius);
             case RawShapeType.Segment:
-                vs = rawSet.coVertices(handle);
+                vs = rawSet.coVertices(handle)!;
 
                 return new Segment(VectorOps.new(vs[0], vs[1]), VectorOps.new(vs[2], vs[3]));
 
             case RawShapeType.Polyline:
-                vs = rawSet.coVertices(handle);
-                indices = rawSet.coIndices(handle);
+                vs = rawSet.coVertices(handle)!;
+                indices = rawSet.coIndices(handle)!;
                 return new Polyline(vs, indices);
             case RawShapeType.Triangle:
-                vs = rawSet.coVertices(handle);
+                vs = rawSet.coVertices(handle)!;
 
                 return new Triangle(
                     VectorOps.new(vs[0], vs[1]),
@@ -64,8 +64,8 @@ export abstract class Shape {
                 );
 
             case RawShapeType.RoundTriangle:
-                vs = rawSet.coVertices(handle);
-                borderRadius = rawSet.coRoundRadius(handle);
+                vs = rawSet.coVertices(handle)!;
+                borderRadius = rawSet.coRoundRadius(handle)!;
 
                 return new RoundTriangle(
                     VectorOps.new(vs[0], vs[1]),
@@ -75,32 +75,32 @@ export abstract class Shape {
                 );
 
             case RawShapeType.HalfSpace:
-                normal = VectorOps.fromRaw(rawSet.coHalfspaceNormal(handle));
+                normal = VectorOps.fromRaw(rawSet.coHalfspaceNormal(handle)!)!;
                 return new HalfSpace(normal);
 
             case RawShapeType.Voxels:
-                const vox_data = rawSet.coVoxelData(handle);
-                const vox_size = rawSet.coVoxelSize(handle);
+                const vox_data = rawSet.coVoxelData(handle)!;
+                const vox_size = rawSet.coVoxelSize(handle)!;
                 return new Voxels(vox_data, vox_size);
 
             case RawShapeType.TriMesh:
-                vs = rawSet.coVertices(handle);
-                indices = rawSet.coIndices(handle);
-                const tri_flags = rawSet.coTriMeshFlags(handle);
+                vs = rawSet.coVertices(handle)!;
+                indices = rawSet.coIndices(handle)!;
+                const tri_flags = rawSet.coTriMeshFlags(handle)!;
                 return new TriMesh(vs, indices, tri_flags);
 
             case RawShapeType.HeightField:
-                const scale = rawSet.coHeightfieldScale(handle);
-                const heights = rawSet.coHeightfieldHeights(handle);
+                const scale = rawSet.coHeightfieldScale(handle)!;
+                const heights = rawSet.coHeightfieldHeights(handle)!;
 
                 return new Heightfield(heights, scale);
 
             case RawShapeType.ConvexPolygon:
-                vs = rawSet.coVertices(handle);
+                vs = rawSet.coVertices(handle)!;
                 return new ConvexPolygon(vs, false);
             case RawShapeType.RoundConvexPolygon:
-                vs = rawSet.coVertices(handle);
-                borderRadius = rawSet.coRoundRadius(handle);
+                vs = rawSet.coVertices(handle)!;
+                borderRadius = rawSet.coRoundRadius(handle)!;
                 return new RoundConvexPolygon(vs, borderRadius, false);
 
             default:
@@ -150,7 +150,7 @@ export abstract class Shape {
         let rawShape2 = shape2.intoRaw();
 
         let result = ShapeCastHit.fromRaw(
-            null,
+            null!,
             rawShape1.castShape(
                 rawPos1,
                 rawRot1,
@@ -162,7 +162,7 @@ export abstract class Shape {
                 targetDistance,
                 maxToi,
                 stopAtPenetration,
-            ),
+            )!,
         );
 
         rawPos1.free();
@@ -244,7 +244,7 @@ export abstract class Shape {
         let rawShape2 = shape2.intoRaw();
 
         let result = ShapeContact.fromRaw(
-            rawShape1.contactShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2, prediction),
+            rawShape1.contactShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2, prediction)!,
         );
 
         rawPos1.free();
@@ -286,8 +286,8 @@ export abstract class Shape {
         let rawShape = this.intoRaw();
 
         let result = PointProjection.fromRaw(
-            rawShape.projectPoint(rawPos, rawRot, rawPoint, solid),
-        );
+            rawShape.projectPoint(rawPos, rawRot, rawPoint, solid)!,
+        )!;
 
         rawPos.free();
         rawRot.free();
@@ -353,8 +353,8 @@ export abstract class Shape {
         let rawShape = this.intoRaw();
 
         let result = RayIntersection.fromRaw(
-            rawShape.castRayAndGetNormal(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid),
-        );
+            rawShape.castRayAndGetNormal(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid)!,
+        )!;
 
         rawPos.free();
         rawRot.free();
@@ -838,7 +838,7 @@ export class TriMesh extends Shape {
     /**
      * The triangle mesh flags.
      */
-    flags: TriMeshFlags;
+    flags!: TriMeshFlags;
 
     /**
      * Creates a new triangle mesh shape.
@@ -850,11 +850,11 @@ export class TriMesh extends Shape {
         super();
         this.vertices = vertices;
         this.indices = indices;
-        this.flags = flags;
+        this.flags = flags!;
     }
 
     public intoRaw(): RawShape {
-        return RawShape.trimesh(this.vertices, this.indices, this.flags);
+        return RawShape.trimesh(this.vertices, this.indices, this.flags)!;
     }
 }
 
@@ -890,9 +890,9 @@ export class ConvexPolygon extends Shape {
 
     public intoRaw(): RawShape {
         if (this.skipConvexHullComputation) {
-            return RawShape.convexPolyline(this.vertices);
+            return RawShape.convexPolyline(this.vertices)!;
         } else {
-            return RawShape.convexHull(this.vertices);
+            return RawShape.convexHull(this.vertices)!;
         }
     }
 }
@@ -936,9 +936,9 @@ export class RoundConvexPolygon extends Shape {
 
     public intoRaw(): RawShape {
         if (this.skipConvexHullComputation) {
-            return RawShape.roundConvexPolyline(this.vertices, this.borderRadius);
+            return RawShape.roundConvexPolyline(this.vertices, this.borderRadius)!;
         } else {
-            return RawShape.roundConvexHull(this.vertices, this.borderRadius);
+            return RawShape.roundConvexHull(this.vertices, this.borderRadius)!;
         }
     }
 }

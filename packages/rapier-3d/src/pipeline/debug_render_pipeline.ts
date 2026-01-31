@@ -42,8 +42,8 @@ export class DebugRenderBuffers {
  */
 export class DebugRenderPipeline {
     raw: RawDebugRenderPipeline;
-    public vertices: Float32Array;
-    public colors: Float32Array;
+    public vertices!: Float32Array;
+    public colors!: Float32Array;
 
     /**
      * Release the WASM memory occupied by this serialization pipeline.
@@ -52,9 +52,9 @@ export class DebugRenderPipeline {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
-        this.vertices = undefined;
-        this.colors = undefined;
+        this.raw = undefined!;
+        this.vertices = undefined!;
+        this.colors = undefined!;
     }
 
     constructor(raw?: RawDebugRenderPipeline) {
@@ -76,8 +76,8 @@ export class DebugRenderPipeline {
             impulse_joints.raw,
             multibody_joints.raw,
             narrow_phase.raw,
-            filterFlags,
-            colliders.castClosure(filterPredicate),
+            filterFlags ?? 0,
+            colliders.castClosure(filterPredicate) as unknown as Function,
         );
         this.vertices = this.raw.vertices();
         this.colors = this.raw.colors();

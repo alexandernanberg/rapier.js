@@ -19,12 +19,12 @@ export class NarrowPhase {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     constructor(raw?: RawNarrowPhase) {
         this.raw = raw || new RawNarrowPhase();
-        this.tempManifold = new TempContactManifold(null);
+        this.tempManifold = new TempContactManifold(null!);
     }
 
     /**
@@ -69,7 +69,7 @@ export class NarrowPhase {
 
             let i;
             for (i = 0; i < rawPair.numContactManifolds(); ++i) {
-                this.tempManifold.raw = rawPair.contactManifold(i);
+                this.tempManifold.raw = rawPair.contactManifold(i)!;
                 if (!!this.tempManifold.raw) {
                     f(this.tempManifold, flipped);
                 }
@@ -100,7 +100,7 @@ export class TempContactManifold {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     constructor(raw: RawContactManifold) {
@@ -108,15 +108,15 @@ export class TempContactManifold {
     }
 
     public normal(): Vector {
-        return VectorOps.fromRaw(this.raw.normal());
+        return VectorOps.fromRaw(this.raw.normal()!)!;
     }
 
     public localNormal1(): Vector {
-        return VectorOps.fromRaw(this.raw.local_n1());
+        return VectorOps.fromRaw(this.raw.local_n1()!)!;
     }
 
     public localNormal2(): Vector {
-        return VectorOps.fromRaw(this.raw.local_n2());
+        return VectorOps.fromRaw(this.raw.local_n2()!)!;
     }
 
     public subshape1(): number {
@@ -132,11 +132,13 @@ export class TempContactManifold {
     }
 
     public localContactPoint1(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.contact_local_p1(i));
+        const raw = this.raw.contact_local_p1(i);
+        return raw ? VectorOps.fromRaw(raw) : null;
     }
 
     public localContactPoint2(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.contact_local_p2(i));
+        const raw = this.raw.contact_local_p2(i);
+        return raw ? VectorOps.fromRaw(raw) : null;
     }
 
     public contactDist(i: number): number {
@@ -164,7 +166,7 @@ export class TempContactManifold {
     }
 
     public solverContactPoint(i: number): Vector {
-        return VectorOps.fromRaw(this.raw.solver_contact_point(i));
+        return VectorOps.fromRaw(this.raw.solver_contact_point(i)!)!;
     }
 
     public solverContactDist(i: number): number {
@@ -180,6 +182,6 @@ export class TempContactManifold {
     }
 
     public solverContactTangentVelocity(i: number): Vector {
-        return VectorOps.fromRaw(this.raw.solver_contact_tangent_velocity(i));
+        return VectorOps.fromRaw(this.raw.solver_contact_tangent_velocity(i)!)!;
     }
 }
