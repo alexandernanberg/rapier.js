@@ -60,16 +60,18 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ): RayColliderHit | null {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = RayColliderHit.fromRaw(
+        return RayColliderHit.fromRaw(
             colliders,
             this.raw.castRay(
                 narrowPhase.raw,
                 bodies.raw,
                 colliders.raw,
-                rawOrig,
-                rawDir,
+                ray.origin.x,
+                ray.origin.y,
+                ray.origin.z,
+                ray.dir.x,
+                ray.dir.y,
+                ray.dir.z,
                 maxToi,
                 solid,
                 filterFlags ?? 0,
@@ -79,11 +81,6 @@ export class BroadPhase {
                 filterPredicate as unknown as Function,
             )!,
         );
-
-        rawOrig.free();
-        rawDir.free();
-
-        return result;
     }
 
     /**
@@ -112,16 +109,18 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ): RayColliderIntersection | null {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = RayColliderIntersection.fromRaw(
+        return RayColliderIntersection.fromRaw(
             colliders,
             this.raw.castRayAndGetNormal(
                 narrowPhase.raw,
                 bodies.raw,
                 colliders.raw,
-                rawOrig,
-                rawDir,
+                ray.origin.x,
+                ray.origin.y,
+                ray.origin.z,
+                ray.dir.x,
+                ray.dir.y,
+                ray.dir.z,
                 maxToi,
                 solid,
                 filterFlags ?? 0,
@@ -131,11 +130,6 @@ export class BroadPhase {
                 filterPredicate as unknown as Function,
             )!,
         );
-
-        rawOrig.free();
-        rawDir.free();
-
-        return result;
     }
 
     /**
@@ -166,8 +160,6 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ) {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
         let rawCallback = (rawInter: RawRayColliderIntersection) => {
             return callback(RayColliderIntersection.fromRaw(colliders, rawInter)!);
         };
@@ -176,8 +168,12 @@ export class BroadPhase {
             narrowPhase.raw,
             bodies.raw,
             colliders.raw,
-            rawOrig,
-            rawDir,
+            ray.origin.x,
+            ray.origin.y,
+            ray.origin.z,
+            ray.dir.x,
+            ray.dir.y,
+            ray.dir.z,
             maxToi,
             solid,
             rawCallback,
@@ -187,9 +183,6 @@ export class BroadPhase {
             filterExcludeRigidBody,
             filterPredicate as unknown as Function,
         );
-
-        rawOrig.free();
-        rawDir.free();
     }
 
     /**

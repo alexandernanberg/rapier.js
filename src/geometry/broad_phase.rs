@@ -23,13 +23,17 @@ impl RawBroadPhase {
         RawBroadPhase(DefaultBroadPhase::new())
     }
 
+    #[cfg(feature = "dim2")]
+    #[allow(clippy::too_many_arguments)]
     pub fn castRay(
         &self,
         narrow_phase: &RawNarrowPhase,
         bodies: &RawRigidBodySet,
         colliders: &RawColliderSet,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        ray_ox: f32,
+        ray_oy: f32,
+        ray_dx: f32,
+        ray_dy: f32,
         maxToi: f32,
         solid: bool,
         filter_flags: u32,
@@ -55,7 +59,7 @@ impl RawBroadPhase {
                 query_filter,
             );
 
-            let ray = Ray::new(rayOrig.0.into(), rayDir.0);
+            let ray = Ray::new([ray_ox, ray_oy].into(), [ray_dx, ray_dy].into());
             query_pipeline.cast_ray(&ray, maxToi, solid)
         })?;
 
@@ -65,13 +69,68 @@ impl RawBroadPhase {
         })
     }
 
+    #[cfg(feature = "dim3")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn castRay(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        ray_ox: f32,
+        ray_oy: f32,
+        ray_oz: f32,
+        ray_dx: f32,
+        ray_dy: f32,
+        ray_dz: f32,
+        maxToi: f32,
+        solid: bool,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) -> Option<RawRayColliderHit> {
+        let (handle, timeOfImpact) = utils::with_filter(filter_predicate, |predicate| {
+            let query_filter = QueryFilter {
+                flags: QueryFilterFlags::from_bits(filter_flags)
+                    .unwrap_or(QueryFilterFlags::empty()),
+                groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
+                exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
+                exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
+                predicate,
+            };
+
+            let query_pipeline = self.0.as_query_pipeline(
+                narrow_phase.0.query_dispatcher(),
+                &bodies.0,
+                &colliders.0,
+                query_filter,
+            );
+
+            let ray = Ray::new(
+                [ray_ox, ray_oy, ray_oz].into(),
+                [ray_dx, ray_dy, ray_dz].into(),
+            );
+            query_pipeline.cast_ray(&ray, maxToi, solid)
+        })?;
+
+        Some(RawRayColliderHit {
+            handle,
+            timeOfImpact,
+        })
+    }
+
+    #[cfg(feature = "dim2")]
+    #[allow(clippy::too_many_arguments)]
     pub fn castRayAndGetNormal(
         &self,
         narrow_phase: &RawNarrowPhase,
         bodies: &RawRigidBodySet,
         colliders: &RawColliderSet,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        ray_ox: f32,
+        ray_oy: f32,
+        ray_dx: f32,
+        ray_dy: f32,
         maxToi: f32,
         solid: bool,
         filter_flags: u32,
@@ -97,7 +156,55 @@ impl RawBroadPhase {
                 query_filter,
             );
 
-            let ray = Ray::new(rayOrig.0.into(), rayDir.0);
+            let ray = Ray::new([ray_ox, ray_oy].into(), [ray_dx, ray_dy].into());
+            query_pipeline.cast_ray_and_get_normal(&ray, maxToi, solid)
+        })?;
+
+        Some(RawRayColliderIntersection { handle, inter })
+    }
+
+    #[cfg(feature = "dim3")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn castRayAndGetNormal(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        ray_ox: f32,
+        ray_oy: f32,
+        ray_oz: f32,
+        ray_dx: f32,
+        ray_dy: f32,
+        ray_dz: f32,
+        maxToi: f32,
+        solid: bool,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) -> Option<RawRayColliderIntersection> {
+        let (handle, inter) = utils::with_filter(filter_predicate, |predicate| {
+            let query_filter = QueryFilter {
+                flags: QueryFilterFlags::from_bits(filter_flags)
+                    .unwrap_or(QueryFilterFlags::empty()),
+                groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
+                exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
+                exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
+                predicate,
+            };
+
+            let query_pipeline = self.0.as_query_pipeline(
+                narrow_phase.0.query_dispatcher(),
+                &bodies.0,
+                &colliders.0,
+                query_filter,
+            );
+
+            let ray = Ray::new(
+                [ray_ox, ray_oy, ray_oz].into(),
+                [ray_dx, ray_dy, ray_dz].into(),
+            );
             query_pipeline.cast_ray_and_get_normal(&ray, maxToi, solid)
         })?;
 
@@ -105,13 +212,17 @@ impl RawBroadPhase {
     }
 
     // The callback is of type (RawRayColliderIntersection) => bool
+    #[cfg(feature = "dim2")]
+    #[allow(clippy::too_many_arguments)]
     pub fn intersectionsWithRay(
         &self,
         narrow_phase: &RawNarrowPhase,
         bodies: &RawRigidBodySet,
         colliders: &RawColliderSet,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        ray_ox: f32,
+        ray_oy: f32,
+        ray_dx: f32,
+        ray_dy: f32,
         maxToi: f32,
         solid: bool,
         callback: &js_sys::Function,
@@ -131,7 +242,67 @@ impl RawBroadPhase {
                 predicate,
             };
 
-            let ray = Ray::new(rayOrig.0.into(), rayDir.0);
+            let ray = Ray::new([ray_ox, ray_oy].into(), [ray_dx, ray_dy].into());
+            let rcallback = |handle, inter| {
+                let result = RawRayColliderIntersection { handle, inter };
+                match callback.call1(&JsValue::null(), &JsValue::from(result)) {
+                    Err(_) => true,
+                    Ok(val) => val.as_bool().unwrap_or(true),
+                }
+            };
+
+            let query_pipeline = self.0.as_query_pipeline(
+                narrow_phase.0.query_dispatcher(),
+                &bodies.0,
+                &colliders.0,
+                query_filter,
+            );
+
+            for (handle, _, inter) in query_pipeline.intersect_ray(ray, maxToi, solid) {
+                if !rcallback(handle, inter) {
+                    break;
+                }
+            }
+        });
+    }
+
+    // The callback is of type (RawRayColliderIntersection) => bool
+    #[cfg(feature = "dim3")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn intersectionsWithRay(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        ray_ox: f32,
+        ray_oy: f32,
+        ray_oz: f32,
+        ray_dx: f32,
+        ray_dy: f32,
+        ray_dz: f32,
+        maxToi: f32,
+        solid: bool,
+        callback: &js_sys::Function,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) {
+        utils::with_filter(filter_predicate, |predicate| {
+            let query_filter = QueryFilter {
+                flags: QueryFilterFlags::from_bits(filter_flags)
+                    .unwrap_or(QueryFilterFlags::empty()),
+                groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
+                exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
+                exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
+                predicate,
+            };
+
+            let ray = Ray::new(
+                [ray_ox, ray_oy, ray_oz].into(),
+                [ray_dx, ray_dy, ray_dz].into(),
+            );
             let rcallback = |handle, inter| {
                 let result = RawRayColliderIntersection { handle, inter };
                 match callback.call1(&JsValue::null(), &JsValue::from(result)) {
