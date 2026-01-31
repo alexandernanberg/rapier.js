@@ -7,7 +7,7 @@ import {
     BufferAttribute,
     TriangleStripDrawMode,
 } from "three";
-import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
