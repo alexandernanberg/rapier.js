@@ -9,6 +9,9 @@ const BALL_INSTANCE_INDEX = 1;
 
 var kk = 0;
 
+// Scratch object for zero-allocation getters
+const _translation = {x: 0, y: 0};
+
 export class Graphics {
     coll2gfx: Map<number, PIXI.Graphics>;
     colorIndex: number;
@@ -130,12 +133,12 @@ export class Graphics {
     updatePositions(world: RAPIER.World) {
         world.forEachCollider((elt) => {
             let gfx = this.coll2gfx.get(elt.handle);
-            let translation = elt.translation();
-            let rotation = elt.rotation();
+            elt.translation(_translation);
+            let rotation = elt.rotation(); // returns number, no allocation
 
             if (!!gfx) {
-                gfx.position.x = translation.x;
-                gfx.position.y = -translation.y;
+                gfx.position.x = _translation.x;
+                gfx.position.y = -_translation.y;
                 gfx.rotation = -rotation;
             }
         });
@@ -250,16 +253,10 @@ export class Graphics {
                 return;
         }
 
-        let t = collider.translation();
+        collider.translation(_translation);
         let r = collider.rotation();
-        //        dummy.position.set(t.x, t.y, t.z);
-        //        dummy.quaternion.set(r.x, r.y, r.z, r.w);
-        //        dummy.scale.set(instanceDesc.scale.x, instanceDesc.scale.y, instanceDesc.scale.z);
-        //        dummy.updateMatrix();
-        //        instance.setMatrixAt(instanceDesc.elementId, dummy.matrix);
-        //        instance.instanceMatrix.needsUpdate = true;
-        graphics.position.x = t.x;
-        graphics.position.y = -t.y;
+        graphics.position.x = _translation.x;
+        graphics.position.y = -_translation.y;
         graphics.rotation = r;
 
         this.coll2gfx.set(collider.handle, graphics);

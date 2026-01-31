@@ -50,6 +50,7 @@ export class RigidBody {
     private rawSet: RawRigidBodySet; // The RigidBody won't need to free this.
     private colliderSet: ColliderSet;
     readonly handle: RigidBodyHandle;
+    private scratchBuffer: Float32Array;
 
     /**
      * An arbitrary user-defined object associated with this rigid-body.
@@ -64,6 +65,7 @@ export class RigidBody {
         this.rawSet = rawSet;
         this.colliderSet = colliderSet;
         this.handle = handle;
+        this.scratchBuffer = new Float32Array(4);
     }
 
     /** @internal */
@@ -255,18 +257,22 @@ export class RigidBody {
 
     /**
      * The world-space translation of this rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public translation(): Vector {
-        let res = this.rawSet.rbTranslation(this.handle);
-        return VectorOps.fromRaw(res);
+    public translation(target?: Vector): Vector {
+        this.rawSet.rbTranslation(this.handle, this.scratchBuffer);
+        return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
     /**
      * The world-space orientation of this rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public rotation(): Rotation {
-        let res = this.rawSet.rbRotation(this.handle);
-        return RotationOps.fromRaw(res);
+    public rotation(target?: Rotation): Rotation {
+        this.rawSet.rbRotation(this.handle, this.scratchBuffer);
+        return RotationOps.fromBuffer(this.scratchBuffer, target);
     }
 
     /**
@@ -275,10 +281,12 @@ export class RigidBody {
      * If this rigid-body is kinematic this value is set by the `setNextKinematicTranslation`
      * method and is used for estimating the kinematic body velocity at the next timestep.
      * For non-kinematic bodies, this value is currently unspecified.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public nextTranslation(): Vector {
-        let res = this.rawSet.rbNextTranslation(this.handle);
-        return VectorOps.fromRaw(res);
+    public nextTranslation(target?: Vector): Vector {
+        this.rawSet.rbNextTranslation(this.handle, this.scratchBuffer);
+        return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
     /**
@@ -287,10 +295,12 @@ export class RigidBody {
      * If this rigid-body is kinematic this value is set by the `setNextKinematicRotation`
      * method and is used for estimating the kinematic body velocity at the next timestep.
      * For non-kinematic bodies, this value is currently unspecified.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public nextRotation(): Rotation {
-        let res = this.rawSet.rbNextRotation(this.handle);
-        return RotationOps.fromRaw(res);
+    public nextRotation(target?: Rotation): Rotation {
+        this.rawSet.rbNextRotation(this.handle, this.scratchBuffer);
+        return RotationOps.fromBuffer(this.scratchBuffer, target);
     }
 
     /**
@@ -418,9 +428,12 @@ export class RigidBody {
 
     /**
      * The linear velocity of this rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public linvel(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbLinvel(this.handle));
+    public linvel(target?: Vector): Vector {
+        this.rawSet.rbLinvel(this.handle, this.scratchBuffer);
+        return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
     /**
@@ -438,9 +451,12 @@ export class RigidBody {
     // #if DIM3
     /**
      * The angular velocity of this rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public angvel(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbAngvel(this.handle));
+    public angvel(target?: Vector): Vector {
+        this.rawSet.rbAngvel(this.handle, this.scratchBuffer);
+        return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
     // #endif
@@ -471,16 +487,22 @@ export class RigidBody {
 
     /**
      * The center of mass of a rigid-body expressed in its local-space.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public localCom(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbLocalCom(this.handle));
+    public localCom(target?: Vector): Vector {
+        this.rawSet.rbLocalCom(this.handle, this.scratchBuffer);
+        return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
     /**
      * The world-space center of mass of the rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public worldCom(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbWorldCom(this.handle));
+    public worldCom(target?: Vector): Vector {
+        this.rawSet.rbWorldCom(this.handle, this.scratchBuffer);
+        return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
 
 

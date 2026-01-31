@@ -47,6 +47,14 @@ export class VectorOps {
         out.y = input.y;
         out.z = input.z;
     }
+
+    public static fromBuffer(buffer: Float32Array, target?: Vector): Vector {
+        target ??= VectorOps.zeros();
+        target.x = buffer[0];
+        target.y = buffer[1];
+        target.z = buffer[2];
+        return target;
+    }
 }
 
 export interface Rotation {
@@ -95,6 +103,15 @@ export class RotationOps {
         out.y = input.y;
         out.z = input.z;
         out.w = input.w;
+    }
+
+    public static fromBuffer(buffer: Float32Array, target?: Rotation): Rotation {
+        target ??= RotationOps.identity();
+        target.x = buffer[0];
+        target.y = buffer[1];
+        target.z = buffer[2];
+        target.w = buffer[3];
+        return target;
     }
 }
 
