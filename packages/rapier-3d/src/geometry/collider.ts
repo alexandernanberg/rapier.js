@@ -1,7 +1,6 @@
-import {CoefficientCombineRule, RigidBody, RigidBodyHandle, RigidBodySet} from "../dynamics";
+import {CoefficientCombineRule, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
-import {RawColliderSet} from "../raw";
 import {ColliderSet} from "./collider_set";
 import {ShapeContact} from "./contact";
 import {InteractionGroups} from "./interaction_groups";
@@ -21,7 +20,6 @@ import {
     Triangle,
     RoundTriangle,
     RoundCuboid,
-    HalfSpace,
     TriMeshFlags,
     Cylinder,
     RoundCylinder,

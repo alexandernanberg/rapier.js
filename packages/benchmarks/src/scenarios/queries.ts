@@ -43,13 +43,13 @@ export async function benchQueries(
     );
 
     // All intersections with ray
-    let hitCount = 0;
+    let _hitCount = 0;
     results.push(
         bench(
             `intersectionsWithRay`,
             () => {
                 world.intersectionsWithRay(ray, 100, true, () => {
-                    hitCount++;
+                    _hitCount++;
                     return true;
                 });
             },

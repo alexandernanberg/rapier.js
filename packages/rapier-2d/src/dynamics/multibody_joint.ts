@@ -1,12 +1,4 @@
-import {RawImpulseJointSet, RawJointAxis, RawJointType, RawMultibodyJointSet} from "../raw";
-import {
-    FixedImpulseJoint,
-    ImpulseJointHandle,
-    JointType,
-    MotorModel,
-    PrismaticImpulseJoint,
-    RevoluteImpulseJoint,
-} from "./impulse_joint";
+import {RawJointAxis, RawJointType, RawMultibodyJointSet} from "../raw";
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.

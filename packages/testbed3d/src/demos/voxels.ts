@@ -1,4 +1,3 @@
-import seedrandom from "seedrandom";
 import type {Testbed} from "../Testbed";
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");

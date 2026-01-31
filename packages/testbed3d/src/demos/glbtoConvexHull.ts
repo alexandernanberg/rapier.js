@@ -1,11 +1,4 @@
-import {
-    Vector3,
-    Object3D,
-    Mesh,
-    BufferGeometry,
-    BufferAttribute,
-    TriangleStripDrawMode,
-} from "three";
+import {Vector3, Object3D, Mesh, BufferGeometry, BufferAttribute} from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import type {Testbed} from "../Testbed";
 type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");

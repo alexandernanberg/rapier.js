@@ -27,7 +27,7 @@ export class Gui {
         this.stats.showPanel(this.stats.dom.children.length - 1);
         document.body.appendChild(this.stats.dom);
 
-        var backends = simulationParameters.backends;
+        var _backends = simulationParameters.backends;
         var demos = Array.from(simulationParameters.builders.keys());
         var me = this;
 

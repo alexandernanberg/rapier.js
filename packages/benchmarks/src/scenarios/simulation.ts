@@ -1,5 +1,5 @@
 import type {BenchResult} from "../runner.js";
-import {bench, statsFrom} from "../runner.js";
+import {statsFrom} from "../runner.js";
 import {createPyramidWorld} from "../worlds/pyramid.js";
 
 export async function benchSimulation(

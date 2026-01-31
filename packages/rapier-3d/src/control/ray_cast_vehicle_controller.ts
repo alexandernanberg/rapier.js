@@ -1,4 +1,4 @@
-import {RigidBody, RigidBodyHandle, RigidBodySet} from "../dynamics";
+import {RigidBody, RigidBodySet} from "../dynamics";
 import {BroadPhase, Collider, ColliderSet, InteractionGroups, NarrowPhase} from "../geometry";
 import {Vector, VectorOps} from "../math";
 import {QueryFilterFlags} from "../pipeline";

@@ -1,7 +1,5 @@
 import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
-import {Collider, ColliderSet, InteractionGroups, Shape} from "../geometry";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {QueryFilterFlags, World} from "../pipeline";
 import {RawPidController} from "../raw";
 
 // TODO: unify with the JointAxesMask

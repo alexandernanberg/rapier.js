@@ -2,12 +2,11 @@ import {
     IntegrationParameters,
     ImpulseJointSet,
     MultibodyJointSet,
-    RigidBodyHandle,
     RigidBodySet,
     CCDSolver,
     IslandManager,
 } from "../dynamics";
-import {BroadPhase, ColliderHandle, ColliderSet, NarrowPhase} from "../geometry";
+import {BroadPhase, ColliderSet, NarrowPhase} from "../geometry";
 import {Vector, VectorOps} from "../math";
 import {RawPhysicsPipeline, RawVector} from "../raw";
 import {EventQueue} from "./event_queue";

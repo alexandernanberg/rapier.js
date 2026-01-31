@@ -59,7 +59,6 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     // These should only be set to odd values otherwise
     // the blocks won't align in the nicest way.
     let numyArr = [0, 3, 5, 5, 7, 9];
-    let numBlocksBuilt = 0;
     let i;
 
     for (i = 5; i >= 1; --i) {
@@ -77,7 +76,6 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             numz,
         );
         blockHeight += (numy + 1) * (halfExtents.x + halfExtents.y);
-        numBlocksBuilt += numx * numy;
     }
 
     testbed.setWorld(world);

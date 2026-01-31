@@ -1,0 +1,17 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": [],
+    "categories": {
+        "correctness": "off",
+        "suspicious": "off"
+    },
+    "rules": {
+        "no-unused-vars": "error"
+    },
+    "settings": {},
+    "env": {
+        "builtin": true
+    },
+    "globals": {},
+    "ignorePatterns": []
+}

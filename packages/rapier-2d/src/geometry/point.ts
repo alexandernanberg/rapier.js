@@ -1,6 +1,6 @@
 import {Vector, VectorOps} from "../math";
-import {RawFeatureType, RawPointColliderProjection, RawPointProjection} from "../raw";
-import {Collider, ColliderHandle} from "./collider";
+import {RawPointColliderProjection, RawPointProjection} from "../raw";
+import {Collider} from "./collider";
 import {ColliderSet} from "./collider_set";
 import {FeatureType} from "./feature";
 
