@@ -107,16 +107,16 @@ export class TempContactManifold {
         this.raw = raw;
     }
 
-    public normal(): Vector {
-        return VectorOps.fromRaw(this.raw.normal())!;
+    public normal(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.raw.normal(), target)!;
     }
 
-    public localNormal1(): Vector {
-        return VectorOps.fromRaw(this.raw.local_n1())!;
+    public localNormal1(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.raw.local_n1(), target)!;
     }
 
-    public localNormal2(): Vector {
-        return VectorOps.fromRaw(this.raw.local_n2())!;
+    public localNormal2(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.raw.local_n2(), target)!;
     }
 
     public subshape1(): number {
@@ -131,12 +131,12 @@ export class TempContactManifold {
         return this.raw.num_contacts();
     }
 
-    public localContactPoint1(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.contact_local_p1(i)!);
+    public localContactPoint1(i: number, target?: Vector): Vector | null {
+        return VectorOps.fromRaw(this.raw.contact_local_p1(i)!, target);
     }
 
-    public localContactPoint2(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.contact_local_p2(i)!);
+    public localContactPoint2(i: number, target?: Vector): Vector | null {
+        return VectorOps.fromRaw(this.raw.contact_local_p2(i)!, target);
     }
 
     public contactDist(i: number): number {
@@ -167,8 +167,8 @@ export class TempContactManifold {
         return this.raw.num_solver_contacts();
     }
 
-    public solverContactPoint(i: number): Vector {
-        return VectorOps.fromRaw(this.raw.solver_contact_point(i)!)!;
+    public solverContactPoint(i: number, target?: Vector): Vector {
+        return VectorOps.fromRaw(this.raw.solver_contact_point(i)!, target)!;
     }
 
     public solverContactDist(i: number): number {
@@ -183,7 +183,7 @@ export class TempContactManifold {
         return this.raw.solver_contact_restitution(i);
     }
 
-    public solverContactTangentVelocity(i: number): Vector {
-        return VectorOps.fromRaw(this.raw.solver_contact_tangent_velocity(i)!)!;
+    public solverContactTangentVelocity(i: number, target?: Vector): Vector {
+        return VectorOps.fromRaw(this.raw.solver_contact_tangent_velocity(i)!, target)!;
     }
 }
