@@ -9,14 +9,22 @@ import {
 } from "../dynamics";
 import {BroadPhase, ColliderHandle, ColliderSet, NarrowPhase} from "../geometry";
 import {Vector, VectorOps} from "../math";
-import {RawPhysicsPipeline} from "../raw";
+import {RawPhysicsPipeline, RawVector} from "../raw";
 import {EventQueue} from "./event_queue";
 import {PhysicsHooks} from "./physics_hooks";
 
 export class PhysicsPipeline {
     raw: RawPhysicsPipeline;
+    private cachedGravity: RawVector | null = null;
+    private lastGravityX = 0;
+    private lastGravityY = 0;
+    private lastGravityZ = 0;
 
     public free() {
+        if (this.cachedGravity) {
+            this.cachedGravity.free();
+            this.cachedGravity = null;
+        }
         if (!!this.raw) {
             this.raw.free();
         }
@@ -41,11 +49,22 @@ export class PhysicsPipeline {
         eventQueue?: EventQueue,
         hooks?: PhysicsHooks,
     ) {
-        let rawG = VectorOps.intoRaw(gravity);
+        if (
+            !this.cachedGravity ||
+            gravity.x !== this.lastGravityX ||
+            gravity.y !== this.lastGravityY ||
+            gravity.z !== this.lastGravityZ
+        ) {
+            this.cachedGravity?.free();
+            this.cachedGravity = VectorOps.intoRaw(gravity);
+            this.lastGravityX = gravity.x;
+            this.lastGravityY = gravity.y;
+            this.lastGravityZ = gravity.z;
+        }
 
         if (!!eventQueue) {
             this.raw.stepWithEvents(
-                rawG,
+                this.cachedGravity,
                 integrationParameters.raw,
                 islands.raw,
                 broadPhase.raw,
@@ -62,7 +81,7 @@ export class PhysicsPipeline {
             );
         } else {
             this.raw.step(
-                rawG,
+                this.cachedGravity,
                 integrationParameters.raw,
                 islands.raw,
                 broadPhase.raw,
@@ -74,7 +93,5 @@ export class PhysicsPipeline {
                 ccdSolver.raw,
             );
         }
-
-        rawG.free();
     }
 }

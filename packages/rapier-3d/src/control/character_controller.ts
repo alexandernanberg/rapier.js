@@ -91,7 +91,7 @@ export class KinematicCharacterController {
      */
     public setUp(vector: Vector) {
         let rawVect = VectorOps.intoRaw(vector);
-        return this.raw.setUp(rawVect);
+        this.raw.setUp(rawVect);
         rawVect.free();
     }
 
