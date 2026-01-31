@@ -40,15 +40,15 @@ export class ShapeContact {
         this.normal2 = normal2;
     }
 
-    public static fromRaw(raw: RawShapeContact): ShapeContact {
+    public static fromRaw(raw: RawShapeContact): ShapeContact | null {
         if (!raw) return null;
 
         const result = new ShapeContact(
             raw.distance(),
-            VectorOps.fromRaw(raw.point1()),
-            VectorOps.fromRaw(raw.point2()),
-            VectorOps.fromRaw(raw.normal1()),
-            VectorOps.fromRaw(raw.normal2()),
+            VectorOps.fromRaw(raw.point1())!,
+            VectorOps.fromRaw(raw.point2())!,
+            VectorOps.fromRaw(raw.normal1())!,
+            VectorOps.fromRaw(raw.normal2())!,
         );
         raw.free();
         return result;

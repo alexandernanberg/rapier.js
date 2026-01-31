@@ -24,12 +24,12 @@ export class RigidBodySet {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
 
         if (!!this.map) {
             this.map.clear();
         }
-        this.map = undefined;
+        this.map = undefined!;
     }
 
     constructor(raw?: RawRigidBodySet) {
@@ -38,7 +38,7 @@ export class RigidBodySet {
         // deserialize
         if (raw) {
             raw.forEachRigidBodyHandle((handle: RigidBodyHandle) => {
-                this.map.set(handle, new RigidBody(raw, null, handle));
+                this.map.set(handle, new RigidBody(raw, null!, handle));
             });
         }
     }
@@ -176,7 +176,7 @@ export class RigidBodySet {
      */
     public forEachActiveRigidBody(islands: IslandManager, f: (body: RigidBody) => void) {
         islands.forEachActiveRigidBodyHandle((handle) => {
-            f(this.get(handle));
+            f(this.get(handle)!);
         });
     }
 

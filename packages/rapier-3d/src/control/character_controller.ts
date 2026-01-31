@@ -16,21 +16,21 @@ import {RawKinematicCharacterController, RawCharacterCollision} from "../raw";
  */
 export class CharacterCollision {
     /** The collider involved in the collision. Null if the collider no longer exists in the physics world. */
-    public collider: Collider | null;
+    public collider: Collider | null = null;
     /** The translation delta applied to the character before this collision took place. */
-    public translationDeltaApplied: Vector;
+    public translationDeltaApplied!: Vector;
     /** The translation delta the character would move after this collision if there is no other obstacles. */
-    public translationDeltaRemaining: Vector;
+    public translationDeltaRemaining!: Vector;
     /** The time-of-impact between the character and the obstacles. */
-    public toi: number;
+    public toi!: number;
     /** The world-space contact point on the collider when the collision happens. */
-    public witness1: Vector;
+    public witness1!: Vector;
     /** The local-space contact point on the character when the collision happens. */
-    public witness2: Vector;
+    public witness2!: Vector;
     /** The world-space outward contact normal on the collider when the collision happens. */
-    public normal1: Vector;
+    public normal1!: Vector;
     /** The local-space outward contact normal on the character when the collision happens. */
-    public normal2: Vector;
+    public normal2!: Vector;
 }
 
 /**
@@ -75,8 +75,8 @@ export class KinematicCharacterController {
             this.rawCharacterCollision.free();
         }
 
-        this.raw = undefined;
-        this.rawCharacterCollision = undefined;
+        this.raw = undefined!;
+        this.rawCharacterCollision = undefined!;
     }
 
     /**
@@ -186,21 +186,21 @@ export class KinematicCharacterController {
      * The maximum step height a character can automatically step over.
      */
     public autostepMaxHeight(): number | null {
-        return this.raw.autostepMaxHeight();
+        return this.raw.autostepMaxHeight() ?? null;
     }
 
     /**
      * The minimum width of free space that must be available after stepping on a stair.
      */
     public autostepMinWidth(): number | null {
-        return this.raw.autostepMinWidth();
+        return this.raw.autostepMinWidth() ?? null;
     }
 
     /**
      * Can the character automatically step over dynamic bodies too?
      */
     public autostepIncludesDynamicBodies(): boolean | null {
-        return this.raw.autostepIncludesDynamicBodies();
+        return this.raw.autostepIncludesDynamicBodies() ?? null;
     }
 
     /**
@@ -265,7 +265,7 @@ export class KinematicCharacterController {
      * the distance between the ground and its feet are smaller than the specified threshold?
      */
     public snapToGroundDistance(): number | null {
-        return this.raw.snapToGroundDistance();
+        return this.raw.snapToGroundDistance() ?? null;
     }
 
     /**
@@ -319,9 +319,9 @@ export class KinematicCharacterController {
             rawTranslationDelta,
             this._applyImpulsesToDynamicBodies,
             this._characterMass,
-            filterFlags,
+            filterFlags ?? 0,
             filterGroups,
-            this.colliders.castClosure(filterPredicate),
+            this.colliders.castClosure(filterPredicate) as unknown as Function,
         );
         rawTranslationDelta.free();
     }
@@ -330,7 +330,7 @@ export class KinematicCharacterController {
      * The movement computed by the last call to `this.computeColliderMovement`.
      */
     public computedMovement(): Vector {
-        return VectorOps.fromRaw(this.raw.computedMovement());
+        return VectorOps.fromRaw(this.raw.computedMovement())!;
     }
 
     /**
@@ -361,13 +361,13 @@ export class KinematicCharacterController {
         } else {
             let c = this.rawCharacterCollision;
             out = out ?? new CharacterCollision();
-            out.translationDeltaApplied = VectorOps.fromRaw(c.translationDeltaApplied());
-            out.translationDeltaRemaining = VectorOps.fromRaw(c.translationDeltaRemaining());
+            out.translationDeltaApplied = VectorOps.fromRaw(c.translationDeltaApplied())!;
+            out.translationDeltaRemaining = VectorOps.fromRaw(c.translationDeltaRemaining())!;
             out.toi = c.toi();
-            out.witness1 = VectorOps.fromRaw(c.worldWitness1());
-            out.witness2 = VectorOps.fromRaw(c.worldWitness2());
-            out.normal1 = VectorOps.fromRaw(c.worldNormal1());
-            out.normal2 = VectorOps.fromRaw(c.worldNormal2());
+            out.witness1 = VectorOps.fromRaw(c.worldWitness1())!;
+            out.witness2 = VectorOps.fromRaw(c.worldWitness2())!;
+            out.normal1 = VectorOps.fromRaw(c.worldNormal1())!;
+            out.normal2 = VectorOps.fromRaw(c.worldNormal2())!;
             out.collider = this.colliders.get(c.handle());
             return out;
         }

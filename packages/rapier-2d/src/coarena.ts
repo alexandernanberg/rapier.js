@@ -1,13 +1,13 @@
 export class Coarena<T> {
     fconv: Float64Array;
     uconv: Uint32Array;
-    data: Array<T>;
+    data: Array<T | null>;
     size: number;
 
     public constructor() {
         this.fconv = new Float64Array(1);
         this.uconv = new Uint32Array(this.fconv.buffer);
-        this.data = new Array<T>();
+        this.data = new Array<T | null>();
         this.size = 0;
     }
 
@@ -34,7 +34,7 @@ export class Coarena<T> {
     }
 
     public clear() {
-        this.data = new Array<T>();
+        this.data = new Array<T | null>();
     }
 
     public get(handle: number): T | null {

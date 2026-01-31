@@ -112,14 +112,14 @@ export class Collider {
         this.colliderSet = colliderSet;
         this.handle = handle;
         this._parent = parent;
-        this._shape = shape;
+        this._shape = shape!;
         this.scratchBuffer = new Float32Array(4);
     }
 
     /** @internal */
     public finalizeDeserialization(bodies: RigidBodySet) {
         if (this.handle != null) {
-            this._parent = bodies.get(this.colliderSet.raw.coParent(this.handle));
+            this._parent = bodies.get(this.colliderSet.raw.coParent(this.handle)!);
         }
     }
 
@@ -144,7 +144,7 @@ export class Collider {
      * accessed) from the WASM source of truth.
      */
     public clearShapeCache() {
-        this._shape = null;
+        this._shape = null!;
     }
 
     /**
@@ -529,7 +529,7 @@ export class Collider {
      * The half-extents of this collider if it is a cuboid shape.
      */
     public halfExtents(): Vector {
-        return VectorOps.fromRaw(this.colliderSet.raw.coHalfExtents(this.handle));
+        return VectorOps.fromRaw(this.colliderSet.raw.coHalfExtents(this.handle)!)!;
     }
 
     /**
@@ -546,7 +546,7 @@ export class Collider {
      * The radius of this collider if it is a ball, cylinder, capsule, or cone shape.
      */
     public radius(): number {
-        return this.colliderSet.raw.coRadius(this.handle);
+        return this.colliderSet.raw.coRadius(this.handle)!;
     }
 
     /**
@@ -562,7 +562,7 @@ export class Collider {
      * The radius of the round edges of this collider if it is a round cylinder.
      */
     public roundRadius(): number {
-        return this.colliderSet.raw.coRoundRadius(this.handle);
+        return this.colliderSet.raw.coRoundRadius(this.handle)!;
     }
 
     /**
@@ -578,7 +578,7 @@ export class Collider {
      * The half height of this collider if it is a cylinder, capsule, or cone shape.
      */
     public halfHeight(): number {
-        return this.colliderSet.raw.coHalfHeight(this.handle);
+        return this.colliderSet.raw.coHalfHeight(this.handle)!;
     }
 
     /**
@@ -607,7 +607,7 @@ export class Collider {
         // up-to-date the next time the user requests the shape data.
         // PERF: this isn’t ideal for performances as this adds a
         //       hidden, non-constant, cost.
-        this._shape = null;
+        this._shape = null!;
     }
 
     /**
@@ -651,7 +651,7 @@ export class Collider {
         // up-to-date the next time the user requests the shape data.
         // PERF: this isn’t ideal for performances as this adds a
         //       hidden, non-constant, cost.
-        this._shape = null;
+        this._shape = null!;
     }
 
     /**
@@ -687,7 +687,7 @@ export class Collider {
         // up-to-date the next time the user requests the shape data.
         // PERF: this isn’t ideal for performances as this adds a
         //       hidden, non-constant, cost.
-        this._shape = null;
+        this._shape = null!;
     }
 
     /**
@@ -695,7 +695,7 @@ export class Collider {
      * this returns the vertex buffer of said shape.
      */
     public vertices(): Float32Array {
-        return this.colliderSet.raw.coVertices(this.handle);
+        return this.colliderSet.raw.coVertices(this.handle)!;
     }
 
     /**
@@ -712,7 +712,7 @@ export class Collider {
      * In 3D, the returned height matrix is provided in column-major order.
      */
     public heightfieldHeights(): Float32Array {
-        return this.colliderSet.raw.coHeightfieldHeights(this.handle);
+        return this.colliderSet.raw.coHeightfieldHeights(this.handle)!;
     }
 
     /**
@@ -720,8 +720,8 @@ export class Collider {
      * applied to it.
      */
     public heightfieldScale(): Vector {
-        let scale = this.colliderSet.raw.coHeightfieldScale(this.handle);
-        return VectorOps.fromRaw(scale);
+        let scale = this.colliderSet.raw.coHeightfieldScale(this.handle)!;
+        return VectorOps.fromRaw(scale)!;
     }
 
     /**
@@ -729,7 +729,7 @@ export class Collider {
      * rows of its height matrix.
      */
     public heightfieldNRows(): number {
-        return this.colliderSet.raw.coHeightfieldNRows(this.handle);
+        return this.colliderSet.raw.coHeightfieldNRows(this.handle)!;
     }
 
     /**
@@ -737,7 +737,7 @@ export class Collider {
      * columns of its height matrix.
      */
     public heightfieldNCols(): number {
-        return this.colliderSet.raw.coHeightfieldNCols(this.handle);
+        return this.colliderSet.raw.coHeightfieldNCols(this.handle)!;
     }
 
     /**
@@ -893,7 +893,7 @@ export class Collider {
                 targetDistance,
                 maxToi,
                 stopAtPenetration,
-            ),
+            )!,
         );
 
         rawCollider1Vel.free();
@@ -940,7 +940,7 @@ export class Collider {
                 targetDistance,
                 maxToi,
                 stopAtPenetration,
-            ),
+            )!,
         );
 
         rawCollider1Vel.free();
@@ -994,7 +994,7 @@ export class Collider {
                 rawPos2,
                 rawRot2,
                 prediction,
-            ),
+            )!,
         );
 
         rawPos2.free();
@@ -1013,7 +1013,7 @@ export class Collider {
      */
     contactCollider(collider2: Collider, prediction: number): ShapeContact | null {
         let result = ShapeContact.fromRaw(
-            this.colliderSet.raw.coContactCollider(this.handle, collider2.handle, prediction),
+            this.colliderSet.raw.coContactCollider(this.handle, collider2.handle, prediction)!,
         );
 
         return result;
@@ -1057,7 +1057,13 @@ export class Collider {
         let rawOrig = VectorOps.intoRaw(ray.origin);
         let rawDir = VectorOps.intoRaw(ray.dir);
         let result = RayIntersection.fromRaw(
-            this.colliderSet.raw.coCastRayAndGetNormal(this.handle, rawOrig, rawDir, maxToi, solid),
+            this.colliderSet.raw.coCastRayAndGetNormal(
+                this.handle,
+                rawOrig,
+                rawDir,
+                maxToi,
+                solid,
+            )!,
         );
 
         rawOrig.free();
@@ -1199,7 +1205,7 @@ export class ColliderDesc {
      *    the vertices are assumed to describe a line strip.
      */
     public static polyline(vertices: Float32Array, indices?: Uint32Array | null): ColliderDesc {
-        const shape = new Polyline(vertices, indices);
+        const shape = new Polyline(vertices, indices ?? undefined);
         return new ColliderDesc(shape);
     }
 

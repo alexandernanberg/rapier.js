@@ -20,7 +20,7 @@ export class PhysicsPipeline {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     constructor(raw?: RawPhysicsPipeline) {
@@ -56,9 +56,9 @@ export class PhysicsPipeline {
                 multibodyJoints.raw,
                 ccdSolver.raw,
                 eventQueue.raw,
-                hooks,
-                !!hooks ? hooks.filterContactPair : null,
-                !!hooks ? hooks.filterIntersectionPair : null,
+                hooks as object,
+                hooks?.filterContactPair as Function,
+                hooks?.filterIntersectionPair as Function,
             );
         } else {
             this.raw.step(

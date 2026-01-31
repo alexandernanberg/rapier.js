@@ -22,10 +22,10 @@ export class PointProjection {
         this.isInside = isInside;
     }
 
-    public static fromRaw(raw: RawPointProjection): PointProjection {
+    public static fromRaw(raw: RawPointProjection): PointProjection | null {
         if (!raw) return null;
 
-        const result = new PointProjection(VectorOps.fromRaw(raw.point()), raw.isInside());
+        const result = new PointProjection(VectorOps.fromRaw(raw.point())!, raw.isInside());
         raw.free();
         return result;
     }
@@ -75,12 +75,12 @@ export class PointColliderProjection {
     public static fromRaw(
         colliderSet: ColliderSet,
         raw: RawPointColliderProjection,
-    ): PointColliderProjection {
+    ): PointColliderProjection | null {
         if (!raw) return null;
 
         const result = new PointColliderProjection(
-            colliderSet.get(raw.colliderHandle()),
-            VectorOps.fromRaw(raw.point()),
+            colliderSet.get(raw.colliderHandle())!,
+            VectorOps.fromRaw(raw.point())!,
             raw.isInside(),
             raw.featureType() as number as FeatureType,
             raw.featureId(),

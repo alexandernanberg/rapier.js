@@ -22,12 +22,12 @@ export class ColliderSet {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
 
         if (!!this.map) {
             this.map.clear();
         }
-        this.map = undefined;
+        this.map = undefined!;
     }
 
     constructor(raw?: RawColliderSet) {
@@ -44,13 +44,10 @@ export class ColliderSet {
     /** @internal */
     public castClosure<Res>(
         f?: (collider: Collider) => Res,
-    ): (handle: ColliderHandle) => Res | undefined {
+    ): ((handle: ColliderHandle) => Res) | undefined {
+        if (!f) return undefined;
         return (handle) => {
-            if (!!f) {
-                return f(this.get(handle));
-            } else {
-                return undefined;
-            }
+            return f(this.get(handle)!);
         };
     }
 
@@ -69,11 +66,11 @@ export class ColliderSet {
     public createCollider(
         bodies: RigidBodySet,
         desc: ColliderDesc,
-        parentHandle: RigidBodyHandle,
+        parentHandle?: RigidBodyHandle,
     ): Collider {
         let hasParent = parentHandle != undefined && parentHandle != null;
 
-        if (hasParent && isNaN(parentHandle))
+        if (hasParent && isNaN(parentHandle!))
             throw Error(
                 "Cannot create a collider with a parent rigid-body handle that is not a number.",
             );
@@ -110,7 +107,7 @@ export class ColliderSet {
             desc.contactForceEventThreshold,
             desc.contactSkin,
             hasParent,
-            hasParent ? parentHandle : 0,
+            hasParent ? parentHandle! : 0,
             bodies.raw,
         );
 
@@ -122,9 +119,9 @@ export class ColliderSet {
         rawPrincipalInertia.free();
         rawInertiaFrame.free();
 
-        let parent = hasParent ? bodies.get(parentHandle) : null;
-        let collider = new Collider(this, handle, parent, desc.shape);
-        this.map.set(handle, collider);
+        let parent = hasParent ? bodies.get(parentHandle!) : null;
+        let collider = new Collider(this, handle!, parent, desc.shape);
+        this.map.set(handle!, collider);
         return collider;
     }
 

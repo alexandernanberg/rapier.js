@@ -26,7 +26,7 @@ export class SerializationPipeline {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     constructor(raw?: RawSerializationPipeline) {
@@ -70,7 +70,7 @@ export class SerializationPipeline {
         );
         rawGra.free();
 
-        return res;
+        return res!;
     }
 
     /**
@@ -78,7 +78,7 @@ export class SerializationPipeline {
      *
      * @param data - The byte array to deserialize.
      */
-    public deserializeAll(data: Uint8Array): World {
-        return World.fromRaw(this.raw.deserializeAll(data));
+    public deserializeAll(data: Uint8Array): World | null {
+        return World.fromRaw(this.raw.deserializeAll(data)!);
     }
 }

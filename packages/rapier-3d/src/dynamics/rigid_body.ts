@@ -397,7 +397,7 @@ export class RigidBody {
         const rawPoint = VectorOps.intoRaw(point);
         let result = VectorOps.fromRaw(this.rawSet.rbVelocityAtPoint(this.handle, rawPoint));
         rawPoint.free();
-        return result;
+        return result!;
     }
 
     /**
@@ -421,7 +421,7 @@ export class RigidBody {
      * The inverse mass taking into account translation locking.
      */
     public effectiveInvMass(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle));
+        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle))!;
     }
 
     /**
@@ -459,21 +459,21 @@ export class RigidBody {
      * Components set to zero are assumed to be infinite along the corresponding principal axis.
      */
     public invPrincipalInertia(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbInvPrincipalInertia(this.handle));
+        return VectorOps.fromRaw(this.rawSet.rbInvPrincipalInertia(this.handle))!;
     }
 
     /**
      * The angular inertia along the principal inertia axes of the rigid-body.
      */
     public principalInertia(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbPrincipalInertia(this.handle));
+        return VectorOps.fromRaw(this.rawSet.rbPrincipalInertia(this.handle))!;
     }
 
     /**
      * The principal vectors of the local angular inertia tensor of the rigid-body.
      */
     public principalInertiaLocalFrame(): Rotation {
-        return RotationOps.fromRaw(this.rawSet.rbPrincipalInertiaLocalFrame(this.handle));
+        return RotationOps.fromRaw(this.rawSet.rbPrincipalInertiaLocalFrame(this.handle))!;
     }
 
     /**
@@ -537,7 +537,7 @@ export class RigidBody {
      *         This index is **not** the same as the unique identifier of the collider.
      */
     public collider(i: number): Collider {
-        return this.colliderSet.get(this.rawSet.rbCollider(this.handle, i));
+        return this.colliderSet.get(this.rawSet.rbCollider(this.handle, i))!;
     }
 
     /**
@@ -809,7 +809,7 @@ export class RigidBody {
      * Returns zero if the rigid-body is not dynamic.
      */
     public userForce(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle));
+        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle))!;
     }
 
     /**
@@ -817,7 +817,7 @@ export class RigidBody {
      * Returns zero if the rigid-body is not dynamic.
      */
     public userTorque(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserTorque(this.handle));
+        return VectorOps.fromRaw(this.rawSet.rbUserTorque(this.handle))!;
     }
 }
 

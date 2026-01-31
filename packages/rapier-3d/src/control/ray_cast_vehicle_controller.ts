@@ -36,7 +36,7 @@ export class DynamicRayCastVehicleController {
             this.raw.free();
         }
 
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     /**
@@ -61,9 +61,9 @@ export class DynamicRayCastVehicleController {
             this.narrowPhase.raw,
             this.bodies.raw,
             this.colliders.raw,
-            filterFlags,
+            filterFlags ?? 0,
             filterGroups,
-            this.colliders.castClosure(filterPredicate),
+            this.colliders.castClosure(filterPredicate) as unknown as Function,
         );
     }
 
@@ -161,7 +161,7 @@ export class DynamicRayCastVehicleController {
      * The position of the i-th wheel, relative to the chassis.
      */
     public wheelChassisConnectionPointCs(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_chassis_connection_point_cs(i));
+        return VectorOps.fromRaw(this.raw.wheel_chassis_connection_point_cs(i)!);
     }
 
     /**
@@ -177,7 +177,7 @@ export class DynamicRayCastVehicleController {
      * The rest length of the i-th wheel’s suspension spring.
      */
     public wheelSuspensionRestLength(i: number): number | null {
-        return this.raw.wheel_suspension_rest_length(i);
+        return this.raw.wheel_suspension_rest_length(i) ?? null;
     }
 
     /**
@@ -191,7 +191,7 @@ export class DynamicRayCastVehicleController {
      * The maximum distance the i-th wheel suspension can travel before and after its resting length.
      */
     public wheelMaxSuspensionTravel(i: number): number | null {
-        return this.raw.wheel_max_suspension_travel(i);
+        return this.raw.wheel_max_suspension_travel(i) ?? null;
     }
 
     /**
@@ -205,7 +205,7 @@ export class DynamicRayCastVehicleController {
      * The i-th wheel’s radius.
      */
     public wheelRadius(i: number): number | null {
-        return this.raw.wheel_radius(i);
+        return this.raw.wheel_radius(i) ?? null;
     }
 
     /**
@@ -221,7 +221,7 @@ export class DynamicRayCastVehicleController {
      * Increase this value if the suspension appears to not push the vehicle strong enough.
      */
     public wheelSuspensionStiffness(i: number): number | null {
-        return this.raw.wheel_suspension_stiffness(i);
+        return this.raw.wheel_suspension_stiffness(i) ?? null;
     }
 
     /**
@@ -237,7 +237,7 @@ export class DynamicRayCastVehicleController {
      * The i-th wheel’s suspension’s damping when it is being compressed.
      */
     public wheelSuspensionCompression(i: number): number | null {
-        return this.raw.wheel_suspension_compression(i);
+        return this.raw.wheel_suspension_compression(i) ?? null;
     }
 
     /**
@@ -253,7 +253,7 @@ export class DynamicRayCastVehicleController {
      * Increase this value if the suspension appears to overshoot.
      */
     public wheelSuspensionRelaxation(i: number): number | null {
-        return this.raw.wheel_suspension_relaxation(i);
+        return this.raw.wheel_suspension_relaxation(i) ?? null;
     }
 
     /**
@@ -269,7 +269,7 @@ export class DynamicRayCastVehicleController {
      * The maximum force applied by the i-th wheel’s suspension.
      */
     public wheelMaxSuspensionForce(i: number): number | null {
-        return this.raw.wheel_max_suspension_force(i);
+        return this.raw.wheel_max_suspension_force(i) ?? null;
     }
 
     /**
@@ -283,7 +283,7 @@ export class DynamicRayCastVehicleController {
      * The maximum amount of braking impulse applied on the i-th wheel to slow down the vehicle.
      */
     public wheelBrake(i: number): number | null {
-        return this.raw.wheel_brake(i);
+        return this.raw.wheel_brake(i) ?? null;
     }
 
     /**
@@ -297,7 +297,7 @@ export class DynamicRayCastVehicleController {
      * The steering angle (radians) for the i-th wheel.
      */
     public wheelSteering(i: number): number | null {
-        return this.raw.wheel_steering(i);
+        return this.raw.wheel_steering(i) ?? null;
     }
 
     /**
@@ -311,7 +311,7 @@ export class DynamicRayCastVehicleController {
      * The forward force applied by the i-th wheel on the chassis.
      */
     public wheelEngineForce(i: number): number | null {
-        return this.raw.wheel_engine_force(i);
+        return this.raw.wheel_engine_force(i) ?? null;
     }
 
     /**
@@ -327,7 +327,7 @@ export class DynamicRayCastVehicleController {
      * The ray-casting will happen following this direction to detect the ground.
      */
     public wheelDirectionCs(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_direction_cs(i));
+        return VectorOps.fromRaw(this.raw.wheel_direction_cs(i)!);
     }
 
     /**
@@ -347,7 +347,7 @@ export class DynamicRayCastVehicleController {
      * The axis index defined as 0 = X, 1 = Y, 2 = Z.
      */
     public wheelAxleCs(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_axle_cs(i));
+        return VectorOps.fromRaw(this.raw.wheel_axle_cs(i)!);
     }
 
     /**
@@ -368,7 +368,7 @@ export class DynamicRayCastVehicleController {
      * causing the vehicle to flip if it’s too strong).
      */
     public wheelFrictionSlip(i: number): number | null {
-        return this.raw.wheel_friction_slip(i);
+        return this.raw.wheel_friction_slip(i) ?? null;
     }
 
     /**
@@ -387,7 +387,7 @@ export class DynamicRayCastVehicleController {
      * The larger the value, the stronger side friction will be.
      */
     public wheelSideFrictionStiffness(i: number): number | null {
-        return this.raw.wheel_side_friction_stiffness(i);
+        return this.raw.wheel_side_friction_stiffness(i) ?? null;
     }
 
     /**
@@ -407,56 +407,56 @@ export class DynamicRayCastVehicleController {
      *  The i-th wheel’s current rotation angle (radians) on its axle.
      */
     public wheelRotation(i: number): number | null {
-        return this.raw.wheel_rotation(i);
+        return this.raw.wheel_rotation(i) ?? null;
     }
 
     /**
      *  The forward impulses applied by the i-th wheel on the chassis.
      */
     public wheelForwardImpulse(i: number): number | null {
-        return this.raw.wheel_forward_impulse(i);
+        return this.raw.wheel_forward_impulse(i) ?? null;
     }
 
     /**
      *  The side impulses applied by the i-th wheel on the chassis.
      */
     public wheelSideImpulse(i: number): number | null {
-        return this.raw.wheel_side_impulse(i);
+        return this.raw.wheel_side_impulse(i) ?? null;
     }
 
     /**
      *  The force applied by the i-th wheel suspension.
      */
     public wheelSuspensionForce(i: number): number | null {
-        return this.raw.wheel_suspension_force(i);
+        return this.raw.wheel_suspension_force(i) ?? null;
     }
 
     /**
      *  The (world-space) contact normal between the i-th wheel and the floor.
      */
     public wheelContactNormal(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_contact_normal_ws(i));
+        return VectorOps.fromRaw(this.raw.wheel_contact_normal_ws(i)!);
     }
 
     /**
      *  The (world-space) point hit by the wheel’s ray-cast for the i-th wheel.
      */
     public wheelContactPoint(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_contact_point_ws(i));
+        return VectorOps.fromRaw(this.raw.wheel_contact_point_ws(i)!);
     }
 
     /**
      *  The suspension length for the i-th wheel.
      */
     public wheelSuspensionLength(i: number): number | null {
-        return this.raw.wheel_suspension_length(i);
+        return this.raw.wheel_suspension_length(i) ?? null;
     }
 
     /**
      *  The (world-space) starting point of the ray-cast for the i-th wheel.
      */
     public wheelHardPoint(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_hard_point_ws(i));
+        return VectorOps.fromRaw(this.raw.wheel_hard_point_ws(i)!);
     }
 
     /**
@@ -470,6 +470,6 @@ export class DynamicRayCastVehicleController {
      *  The collider hit by the ray-cast for the i-th wheel.
      */
     public wheelGroundObject(i: number): Collider | null {
-        return this.colliders.get(this.raw.wheel_ground_object(i));
+        return this.colliders.get(this.raw.wheel_ground_object(i)!);
     }
 }

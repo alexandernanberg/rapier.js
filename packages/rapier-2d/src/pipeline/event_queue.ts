@@ -26,13 +26,13 @@ export enum ActiveEvents {
  * read from within the closure given to `EventHandler.drainContactForceEvents`.
  */
 export class TempContactForceEvent {
-    raw: RawContactForceEvent;
+    raw!: RawContactForceEvent;
 
     public free() {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     /**
@@ -53,7 +53,7 @@ export class TempContactForceEvent {
      * The sum of all the forces between the two colliders.
      */
     public totalForce(): Vector {
-        return VectorOps.fromRaw(this.raw.total_force());
+        return VectorOps.fromRaw(this.raw.total_force()!)!;
     }
 
     /**
@@ -71,7 +71,7 @@ export class TempContactForceEvent {
      * The world-space (unit) direction of the force with strongest magnitude.
      */
     public maxForceDirection(): Vector {
-        return VectorOps.fromRaw(this.raw.max_force_direction());
+        return VectorOps.fromRaw(this.raw.max_force_direction()!)!;
     }
 
     /**
@@ -90,7 +90,7 @@ export class TempContactForceEvent {
  * once you are done using it.
  */
 export class EventQueue {
-    raw: RawEventQueue;
+    raw!: RawEventQueue;
 
     /**
      * Creates a new event collector.
@@ -111,7 +111,7 @@ export class EventQueue {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     /**

@@ -27,7 +27,7 @@ export class BroadPhase {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined;
+        this.raw = undefined!;
     }
 
     constructor(raw?: RawBroadPhase) {
@@ -72,12 +72,12 @@ export class BroadPhase {
                 rawDir,
                 maxToi,
                 solid,
-                filterFlags,
+                filterFlags ?? 0,
                 filterGroups,
                 filterExcludeCollider,
                 filterExcludeRigidBody,
-                filterPredicate,
-            ),
+                filterPredicate as unknown as Function,
+            )!,
         );
 
         rawOrig.free();
@@ -124,12 +124,12 @@ export class BroadPhase {
                 rawDir,
                 maxToi,
                 solid,
-                filterFlags,
+                filterFlags ?? 0,
                 filterGroups,
                 filterExcludeCollider,
                 filterExcludeRigidBody,
-                filterPredicate,
-            ),
+                filterPredicate as unknown as Function,
+            )!,
         );
 
         rawOrig.free();
@@ -169,7 +169,7 @@ export class BroadPhase {
         let rawOrig = VectorOps.intoRaw(ray.origin);
         let rawDir = VectorOps.intoRaw(ray.dir);
         let rawCallback = (rawInter: RawRayColliderIntersection) => {
-            return callback(RayColliderIntersection.fromRaw(colliders, rawInter));
+            return callback(RayColliderIntersection.fromRaw(colliders, rawInter)!);
         };
 
         this.raw.intersectionsWithRay(
@@ -181,11 +181,11 @@ export class BroadPhase {
             maxToi,
             solid,
             rawCallback,
-            filterFlags,
+            filterFlags ?? 0,
             filterGroups,
             filterExcludeCollider,
             filterExcludeRigidBody,
-            filterPredicate,
+            filterPredicate as unknown as Function,
         );
 
         rawOrig.free();
@@ -225,18 +225,18 @@ export class BroadPhase {
             rawPos,
             rawRot,
             rawShape,
-            filterFlags,
+            filterFlags ?? 0,
             filterGroups,
             filterExcludeCollider,
             filterExcludeRigidBody,
-            filterPredicate,
+            filterPredicate as unknown as Function,
         );
 
         rawPos.free();
         rawRot.free();
         rawShape.free();
 
-        return result;
+        return result ?? null;
     }
 
     /**
@@ -273,12 +273,12 @@ export class BroadPhase {
                 colliders.raw,
                 rawPoint,
                 solid,
-                filterFlags,
+                filterFlags ?? 0,
                 filterGroups,
                 filterExcludeCollider,
                 filterExcludeRigidBody,
-                filterPredicate,
-            ),
+                filterPredicate as unknown as Function,
+            )!,
         );
 
         rawPoint.free();
@@ -313,12 +313,12 @@ export class BroadPhase {
                 bodies.raw,
                 colliders.raw,
                 rawPoint,
-                filterFlags,
+                filterFlags ?? 0,
                 filterGroups,
                 filterExcludeCollider,
                 filterExcludeRigidBody,
-                filterPredicate,
-            ),
+                filterPredicate as unknown as Function,
+            )!,
         );
 
         rawPoint.free();
@@ -356,11 +356,11 @@ export class BroadPhase {
             colliders.raw,
             rawPoint,
             callback,
-            filterFlags,
+            filterFlags ?? 0,
             filterGroups,
             filterExcludeCollider,
             filterExcludeRigidBody,
-            filterPredicate,
+            filterPredicate as unknown as Function,
         );
 
         rawPoint.free();
@@ -421,12 +421,12 @@ export class BroadPhase {
                 targetDistance,
                 maxToi,
                 stopAtPenetration,
-                filterFlags,
+                filterFlags ?? 0,
                 filterGroups,
                 filterExcludeCollider,
                 filterExcludeRigidBody,
-                filterPredicate,
-            ),
+                filterPredicate as unknown as Function,
+            )!,
         );
 
         rawPos.free();
@@ -474,11 +474,11 @@ export class BroadPhase {
             rawRot,
             rawShape,
             callback,
-            filterFlags,
+            filterFlags ?? 0,
             filterGroups,
             filterExcludeCollider,
             filterExcludeRigidBody,
-            filterPredicate,
+            filterPredicate as unknown as Function,
         );
 
         rawPos.free();

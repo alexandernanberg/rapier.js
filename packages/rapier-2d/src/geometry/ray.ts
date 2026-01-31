@@ -78,12 +78,12 @@ export class RayIntersection {
         if (featureType !== undefined) this.featureType = featureType;
     }
 
-    public static fromRaw(raw: RawRayIntersection): RayIntersection {
+    public static fromRaw(raw: RawRayIntersection): RayIntersection | null {
         if (!raw) return null;
 
         const result = new RayIntersection(
             raw.time_of_impact(),
-            VectorOps.fromRaw(raw.normal()),
+            VectorOps.fromRaw(raw.normal())!,
             raw.featureType() as number as FeatureType,
             raw.featureId(),
         );
@@ -138,13 +138,13 @@ export class RayColliderIntersection {
     public static fromRaw(
         colliderSet: ColliderSet,
         raw: RawRayColliderIntersection,
-    ): RayColliderIntersection {
+    ): RayColliderIntersection | null {
         if (!raw) return null;
 
         const result = new RayColliderIntersection(
-            colliderSet.get(raw.colliderHandle()),
+            colliderSet.get(raw.colliderHandle())!,
             raw.time_of_impact(),
-            VectorOps.fromRaw(raw.normal()),
+            VectorOps.fromRaw(raw.normal())!,
             raw.featureType() as number as FeatureType,
             raw.featureId(),
         );
@@ -173,11 +173,11 @@ export class RayColliderHit {
         this.timeOfImpact = timeOfImpact;
     }
 
-    public static fromRaw(colliderSet: ColliderSet, raw: RawRayColliderHit): RayColliderHit {
+    public static fromRaw(colliderSet: ColliderSet, raw: RawRayColliderHit): RayColliderHit | null {
         if (!raw) return null;
 
         const result = new RayColliderHit(
-            colliderSet.get(raw.colliderHandle()),
+            colliderSet.get(raw.colliderHandle())!,
             raw.timeOfImpact(),
         );
         raw.free();

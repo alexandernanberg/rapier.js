@@ -112,14 +112,14 @@ export class ImpulseJoint {
      * The first rigid-body this joint it attached to.
      */
     public body1(): RigidBody {
-        return this.bodySet.get(this.rawSet.jointBodyHandle1(this.handle));
+        return this.bodySet.get(this.rawSet.jointBodyHandle1(this.handle))!;
     }
 
     /**
      * The second rigid-body this joint is attached to.
      */
     public body2(): RigidBody {
-        return this.bodySet.get(this.rawSet.jointBodyHandle2(this.handle));
+        return this.bodySet.get(this.rawSet.jointBodyHandle2(this.handle))!;
     }
 
     /**
@@ -136,7 +136,7 @@ export class ImpulseJoint {
      * local frame of the first rigid-body it is attached to.
      */
     public anchor1(): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle));
+        return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle))!;
     }
 
     /**
@@ -146,7 +146,7 @@ export class ImpulseJoint {
      * local frame of the second rigid-body it is attached to.
      */
     public anchor2(): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle));
+        return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle))!;
     }
 
     /**
@@ -194,7 +194,9 @@ export class UnitImpulseJoint extends ImpulseJoint {
     /**
      * The axis left free by this joint.
      */
-    protected rawAxis?(): RawJointAxis;
+    protected rawAxis(): RawJointAxis {
+        throw new Error("rawAxis must be implemented by subclass");
+    }
 
     /**
      * Are the limits enabled for this joint?
@@ -285,18 +287,18 @@ export class RevoluteImpulseJoint extends UnitImpulseJoint {
 }
 
 export class JointData {
-    anchor1: Vector;
-    anchor2: Vector;
-    axis: Vector;
-    frame1: Rotation;
-    frame2: Rotation;
-    jointType: JointType;
-    limitsEnabled: boolean;
-    limits: Array<number>;
-    axesMask: JointAxesMask;
-    stiffness: number;
-    damping: number;
-    length: number;
+    anchor1!: Vector;
+    anchor2!: Vector;
+    axis!: Vector;
+    frame1!: Rotation;
+    frame2!: Rotation;
+    jointType!: JointType;
+    limitsEnabled!: boolean;
+    limits!: Array<number>;
+    axesMask!: JointAxesMask;
+    stiffness!: number;
+    damping!: number;
+    length!: number;
 
     private constructor() {}
 
@@ -452,6 +454,6 @@ export class JointData {
         rawA1.free();
         rawA2.free();
 
-        return result;
+        return result!;
     }
 }

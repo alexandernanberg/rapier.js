@@ -105,22 +105,22 @@ export class World {
 
         this.vehicleControllers.forEach((controller) => controller.free());
 
-        this.integrationParameters = undefined;
-        this.islands = undefined;
-        this.broadPhase = undefined;
-        this.narrowPhase = undefined;
-        this.bodies = undefined;
-        this.colliders = undefined;
-        this.ccdSolver = undefined;
-        this.impulseJoints = undefined;
-        this.multibodyJoints = undefined;
-        this.physicsPipeline = undefined;
-        this.serializationPipeline = undefined;
-        this.debugRenderPipeline = undefined;
-        this.characterControllers = undefined;
-        this.pidControllers = undefined;
+        this.integrationParameters = undefined!;
+        this.islands = undefined!;
+        this.broadPhase = undefined!;
+        this.narrowPhase = undefined!;
+        this.bodies = undefined!;
+        this.colliders = undefined!;
+        this.ccdSolver = undefined!;
+        this.impulseJoints = undefined!;
+        this.multibodyJoints = undefined!;
+        this.physicsPipeline = undefined!;
+        this.serializationPipeline = undefined!;
+        this.debugRenderPipeline = undefined!;
+        this.characterControllers = undefined!;
+        this.pidControllers = undefined!;
 
-        this.vehicleControllers = undefined;
+        this.vehicleControllers = undefined!;
     }
 
     constructor(
@@ -161,11 +161,11 @@ export class World {
         this.colliders.finalizeDeserialization(this.bodies);
     }
 
-    public static fromRaw(raw: RawDeserializedWorld): World {
+    public static fromRaw(raw: RawDeserializedWorld): World | null {
         if (!raw) return null;
 
         return new World(
-            VectorOps.fromRaw(raw.takeGravity()),
+            VectorOps.fromRaw(raw.takeGravity()!)!,
             raw.takeIntegrationParameters(),
             raw.takeIslandManager(),
             raw.takeBroadPhase(),
@@ -202,7 +202,7 @@ export class World {
      *
      * This new physics world will be an identical copy of the snapshoted physics world.
      */
-    public static restoreSnapshot(data: Uint8Array): World {
+    public static restoreSnapshot(data: Uint8Array): World | null {
         let deser = new SerializationPipeline();
         return deser.deserializeAll(data);
     }
@@ -555,7 +555,7 @@ export class World {
      *
      * @param handle - The integer handle of the rigid-body to retrieve.
      */
-    public getRigidBody(handle: RigidBodyHandle): RigidBody {
+    public getRigidBody(handle: RigidBodyHandle): RigidBody | null {
         return this.bodies.get(handle);
     }
 
@@ -564,7 +564,7 @@ export class World {
      *
      * @param handle - The integer handle of the collider to retrieve.
      */
-    public getCollider(handle: ColliderHandle): Collider {
+    public getCollider(handle: ColliderHandle): Collider | null {
         return this.colliders.get(handle);
     }
 
@@ -573,7 +573,7 @@ export class World {
      *
      * @param handle - The integer handle of the impulse joint to retrieve.
      */
-    public getImpulseJoint(handle: ImpulseJointHandle): ImpulseJoint {
+    public getImpulseJoint(handle: ImpulseJointHandle): ImpulseJoint | null {
         return this.impulseJoints.get(handle);
     }
 
@@ -582,7 +582,7 @@ export class World {
      *
      * @param handle - The integer handle of the multibody joint to retrieve.
      */
-    public getMultibodyJoint(handle: MultibodyJointHandle): MultibodyJoint {
+    public getMultibodyJoint(handle: MultibodyJointHandle): MultibodyJoint | null {
         return this.multibodyJoints.get(handle);
     }
 
@@ -704,8 +704,8 @@ export class World {
             solid,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+            filterExcludeCollider?.handle ,
+            filterExcludeRigidBody?.handle ,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -741,8 +741,8 @@ export class World {
             solid,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -781,8 +781,8 @@ export class World {
             callback,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -815,8 +815,8 @@ export class World {
             shape,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
         return handle != null ? this.colliders.get(handle) : null;
@@ -851,8 +851,8 @@ export class World {
             solid,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -879,8 +879,8 @@ export class World {
             point,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+            filterExcludeCollider?.handle,
+            filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -908,11 +908,11 @@ export class World {
             this.bodies,
             this.colliders,
             point,
-            this.colliders.castClosure(callback),
+            this.colliders.castClosure(callback)!,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+             filterExcludeCollider?.handle ,
+             filterExcludeRigidBody?.handle ,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -963,8 +963,8 @@ export class World {
             stopAtPenetration,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+            filterExcludeCollider?.handle ,
+            filterExcludeRigidBody?.handle ,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -997,11 +997,11 @@ export class World {
             shapePos,
             shapeRot,
             shape,
-            this.colliders.castClosure(callback),
+            this.colliders.castClosure(callback)!,
             filterFlags,
             filterGroups,
-            filterExcludeCollider ? filterExcludeCollider.handle : null,
-            filterExcludeRigidBody ? filterExcludeRigidBody.handle : null,
+            filterExcludeCollider?.handle ,
+            filterExcludeRigidBody?.handle ,
             this.colliders.castClosure(filterPredicate),
         );
     }
@@ -1025,7 +1025,7 @@ export class World {
             this.colliders,
             aabbCenter,
             aabbHalfExtents,
-            this.colliders.castClosure(callback),
+            this.colliders.castClosure(callback)!,
         );
     }
 
@@ -1036,7 +1036,7 @@ export class World {
      * @param f - Closure that will be called on each collider that is in contact with `collider1`.
      */
     public contactPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
-        this.narrowPhase.contactPairsWith(collider1.handle, this.colliders.castClosure(f));
+        this.narrowPhase.contactPairsWith(collider1.handle, this.colliders.castClosure(f)!);
     }
 
     /**
@@ -1044,7 +1044,7 @@ export class World {
      * is a sensor.
      */
     public intersectionPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
-        this.narrowPhase.intersectionPairsWith(collider1.handle, this.colliders.castClosure(f));
+        this.narrowPhase.intersectionPairsWith(collider1.handle, this.colliders.castClosure(f)!);
     }
 
     /**
