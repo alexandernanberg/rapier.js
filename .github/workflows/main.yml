@@ -206,6 +206,15 @@ jobs:
             github.event_name == 'push' &&
             github.ref == 'refs/heads/master' &&
             needs.changes.outputs.src == 'true'
+        strategy:
+            matrix:
+                include:
+                    - name: testbed2d
+                      package: rapier-testbed2d
+                      project-id: VERCEL_PROJECT_ID_TESTBED2D
+                    - name: testbed3d
+                      package: rapier-testbed3d
+                      project-id: VERCEL_PROJECT_ID_TESTBED3D
         steps:
             - uses: actions/checkout@v6
             - uses: pnpm/action-setup@v4
@@ -222,12 +231,12 @@ jobs:
                   name: build-artifacts
                   path: packages
             - name: Build testbed
-              run: pnpm --filter rapier-testbed3d build
+              run: pnpm --filter ${{ matrix.package }} build
             - name: Deploy to Vercel
               uses: amondnet/vercel-action@v25
               with:
                   vercel-token: ${{ secrets.VERCEL_TOKEN }}
                   vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-                  vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+                  vercel-project-id: ${{ secrets[matrix.project-id] }}
                   vercel-args: "--prod"
-                  working-directory: packages/testbed3d
+                  working-directory: packages/${{ matrix.name }}
