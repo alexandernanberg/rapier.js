@@ -61,13 +61,13 @@ jobs:
               run: sudo apt-get install -y wabt
             - name: Check 2D SIMD build contains SIMD instructions
               run: |
-                  if ! wasm-objdump -d packages/rapier-2d/wasm/release-simd/rapier_wasm2d_bg.wasm | grep ':\sfd' ; then
+                  if ! wasm-objdump -d packages/rapier-2d/wasm/release-simd/rapier_wasm_2d_bg.wasm | grep ':\sfd' ; then
                     echo "ERROR: 2D SIMD build does not include SIMD opcode prefix." >&2
                     exit 1
                   fi
             - name: Check 3D SIMD build contains SIMD instructions
               run: |
-                  if ! wasm-objdump -d packages/rapier-3d/wasm/release-simd/rapier_wasm3d_bg.wasm | grep ':\sfd' ; then
+                  if ! wasm-objdump -d packages/rapier-3d/wasm/release-simd/rapier_wasm_3d_bg.wasm | grep ':\sfd' ; then
                     echo "ERROR: 3D SIMD build does not include SIMD opcode prefix." >&2
                     exit 1
                   fi
