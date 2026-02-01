@@ -250,9 +250,7 @@ impl RawColliderSet {
 
     pub fn coHalfspaceNormal(&self, handle: FlatHandle) -> Option<RawVector> {
         self.map(handle, |co| {
-            co.shape()
-                .as_halfspace()
-                .map(|h| h.normal.into())
+            co.shape().as_halfspace().map(|h| h.normal.into())
         })
     }
 
@@ -564,8 +562,13 @@ impl RawColliderSet {
 
     /// The vertices of this triangle mesh, polyline, convex polyhedron, segment, triangle or convex polyhedron, if it is one.
     pub fn coVertices(&self, handle: FlatHandle) -> Option<Vec<f32>> {
-        let flatten =
-            |vertices: &[Vector]| vertices.iter().flat_map(|p| p.as_ref().iter()).copied().collect();
+        let flatten = |vertices: &[Vector]| {
+            vertices
+                .iter()
+                .flat_map(|p| p.as_ref().iter())
+                .copied()
+                .collect()
+        };
         self.map(handle, |co| match co.shape().shape_type() {
             ShapeType::TriMesh => co.shape().as_trimesh().map(|t| flatten(t.vertices())),
             #[cfg(feature = "dim2")]
@@ -652,10 +655,7 @@ impl RawColliderSet {
     #[cfg(feature = "dim2")]
     pub fn coHeightfieldHeights(&self, handle: FlatHandle) -> Option<Vec<f32>> {
         self.map(handle, |co| match co.shape().shape_type() {
-            ShapeType::HeightField => co
-                .shape()
-                .as_heightfield()
-                .map(|h| h.heights().to_vec()),
+            ShapeType::HeightField => co.shape().as_heightfield().map(|h| h.heights().to_vec()),
             _ => None,
         })
     }
@@ -779,8 +779,7 @@ impl RawColliderSet {
 
     pub fn coContainsPoint(&self, handle: FlatHandle, point: &RawVector) -> bool {
         self.map(handle, |co| {
-            co.shared_shape()
-                .containsPoint(co.position(), point.0)
+            co.shared_shape().containsPoint(co.position(), point.0)
         })
     }
 
@@ -930,12 +929,8 @@ impl RawColliderSet {
         maxToi: f32,
     ) -> bool {
         self.map(handle, |co| {
-            co.shared_shape().intersectsRay(
-                co.position(),
-                rayOrig.0,
-                rayDir.0,
-                maxToi,
-            )
+            co.shared_shape()
+                .intersectsRay(co.position(), rayOrig.0, rayDir.0, maxToi)
         })
     }
 

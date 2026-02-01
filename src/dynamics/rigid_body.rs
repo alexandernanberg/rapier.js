@@ -1,8 +1,8 @@
 use crate::dynamics::{RawRigidBodySet, RawRigidBodyType};
 use crate::geometry::RawColliderSet;
+use crate::math::RawVector;
 #[cfg(feature = "dim3")]
 use crate::math::{RawRotation, RawSdpMatrix3};
-use crate::math::RawVector;
 use crate::utils::{self, FlatHandle};
 use js_sys::Float32Array;
 use rapier::dynamics::MassProperties;
@@ -188,9 +188,7 @@ impl RawRigidBodySet {
     /// wasn't moving before modifying its position.
     #[cfg(feature = "dim2")]
     pub fn rbSetRotation(&mut self, handle: FlatHandle, angle: f32, wakeUp: bool) {
-        self.map_mut(handle, |rb| {
-            rb.set_rotation(Rotation::new(angle), wakeUp)
-        })
+        self.map_mut(handle, |rb| rb.set_rotation(Rotation::new(angle), wakeUp))
     }
 
     /// Sets the linear velocity of this rigid-body.
