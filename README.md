@@ -84,16 +84,16 @@ Run `pnpm bench --official` to compare on your machine.
 
 ```bash
 # 2D physics
-npm install @alexandernanberg/rapier-2d
+npm install @alexandernanberg/rapier2d
 
 # 3D physics
-npm install @alexandernanberg/rapier-3d
+npm install @alexandernanberg/rapier3d
 ```
 
 ## Usage
 
 ```typescript
-import RAPIER from "@alexandernanberg/rapier-2d";
+import RAPIER from "@alexandernanberg/rapier2d";
 
 await RAPIER.init();
 
@@ -117,12 +117,12 @@ console.log(body.translation()); // { x: 0, y: ~9.99 }
 
 Each package ships 4 variants via subpath exports:
 
-| Import Path                               | WASM Loading         | SIMD |
-| ----------------------------------------- | -------------------- | ---- |
-| `@alexandernanberg/rapier-2d`             | `fetch()` at runtime | No   |
-| `@alexandernanberg/rapier-2d/simd`        | `fetch()` at runtime | Yes  |
-| `@alexandernanberg/rapier-2d/compat`      | Embedded base64      | No   |
-| `@alexandernanberg/rapier-2d/compat-simd` | Embedded base64      | Yes  |
+| Import Path                              | WASM Loading         | SIMD |
+| ---------------------------------------- | -------------------- | ---- |
+| `@alexandernanberg/rapier2d`             | `fetch()` at runtime | No   |
+| `@alexandernanberg/rapier2d/simd`        | `fetch()` at runtime | Yes  |
+| `@alexandernanberg/rapier2d/compat`      | Embedded base64      | No   |
+| `@alexandernanberg/rapier2d/compat-simd` | Embedded base64      | Yes  |
 
 **When to use which:**
 

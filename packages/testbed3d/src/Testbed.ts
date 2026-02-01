@@ -1,10 +1,10 @@
-import type * as RAPIER from "@alexandernanberg/rapier-3d";
+import type * as RAPIER from "@alexandernanberg/rapier3d";
 import {xxhash128} from "hash-wasm";
 import type {DebugInfos} from "./Gui";
 import {Graphics} from "./Graphics";
 import {Gui} from "./Gui";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");
+type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
 
 type Builders = Map<string, (RAPIER: RAPIER_API, testbed: Testbed) => void>;
 

@@ -12,7 +12,7 @@ importers:
         specifier: 0.27.0
         version: 0.27.0
       oxlint:
-        specifier: ^1.42.0
+        specifier: 1.42.0
         version: 1.42.0
       typedoc:
         specifier: 0.28.16
@@ -26,10 +26,10 @@ importers:
 
   packages/benchmarks:
     dependencies:
-      '@alexandernanberg/rapier-2d':
+      '@alexandernanberg/rapier2d':
         specifier: workspace:*
         version: link:../rapier-2d
-      '@alexandernanberg/rapier-3d':
+      '@alexandernanberg/rapier3d':
         specifier: workspace:*
         version: link:../rapier-3d
       '@dimforge/rapier2d-compat':
@@ -80,7 +80,7 @@ importers:
 
   packages/testbed2d:
     dependencies:
-      '@alexandernanberg/rapier-2d':
+      '@alexandernanberg/rapier2d':
         specifier: workspace:*
         version: link:../rapier-2d
       hash-wasm:
@@ -120,7 +120,7 @@ importers:
 
   packages/testbed3d:
     dependencies:
-      '@alexandernanberg/rapier-3d':
+      '@alexandernanberg/rapier3d':
         specifier: workspace:*
         version: link:../rapier-3d
       hash-wasm:

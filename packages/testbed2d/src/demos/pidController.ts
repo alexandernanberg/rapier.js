@@ -1,6 +1,6 @@
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier-2d");
+type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let gravity = new RAPIER.Vector2(0.0, -9.81);

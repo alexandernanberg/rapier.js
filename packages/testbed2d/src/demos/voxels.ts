@@ -1,6 +1,6 @@
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier-2d");
+type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
 
 function generateVoxels(n: number) {
     let points = [];

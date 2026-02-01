@@ -89,7 +89,7 @@ Results are saved to `packages/benchmarks/results/` as timestamped JSON files.
 ### Rule 1: Always `init()` Before API Use
 
 ```typescript
-import RAPIER from "@alexandernanberg/rapier-2d";
+import RAPIER from "@alexandernanberg/rapier2d";
 
 await RAPIER.init(); // REQUIRED before any API calls
 const world = new RAPIER.World({x: 0, y: -9.81});
