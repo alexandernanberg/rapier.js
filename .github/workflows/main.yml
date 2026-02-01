@@ -11,6 +11,24 @@ env:
     CARGO_TERM_COLOR: always
 
 jobs:
+    changes:
+        runs-on: ubuntu-latest
+        outputs:
+            src: ${{ steps.filter.outputs.src }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: dorny/paths-filter@v3
+              id: filter
+              with:
+                  filters: |
+                      src:
+                        - 'crates/**'
+                        - 'packages/rapier-2d/**'
+                        - 'packages/rapier-3d/**'
+                        - 'Cargo.toml'
+                        - 'Cargo.lock'
+                        - 'pnpm-lock.yaml'
+
     lint:
         runs-on: ubuntu-latest
         steps:
@@ -32,6 +50,8 @@ jobs:
 
     build:
         runs-on: ubuntu-latest
+        needs: [changes]
+        if: needs.changes.outputs.src == 'true'
         env:
             RUSTFLAGS: -D warnings
         steps:
@@ -84,8 +104,8 @@ jobs:
 
     benchmark:
         runs-on: ubuntu-latest
-        if: github.event_name == 'pull_request'
-        needs: [build]
+        needs: [changes, build]
+        if: github.event_name == 'pull_request' && needs.changes.outputs.src == 'true'
         permissions:
             pull-requests: write
         steps:
@@ -177,8 +197,11 @@ jobs:
 
     deploy-testbed:
         runs-on: ubuntu-latest
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        needs: [build]
+        needs: [changes, build]
+        if: |
+            github.event_name == 'push' &&
+            github.ref == 'refs/heads/master' &&
+            needs.changes.outputs.src == 'true'
         steps:
             - uses: actions/checkout@v6
             - uses: pnpm/action-setup@v4
