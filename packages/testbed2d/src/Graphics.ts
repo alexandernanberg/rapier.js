@@ -1,9 +1,9 @@
-import type * as RAPIER from "@alexandernanberg/rapier-2d";
+import type * as RAPIER from "@alexandernanberg/rapier2d";
 import {Viewport} from "pixi-viewport";
 import * as PIXI from "pixi.js";
 import {Color} from "pixi.js";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier-2d");
+type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
 
 const BOX_INSTANCE_INDEX = 0;
 const BALL_INSTANCE_INDEX = 1;

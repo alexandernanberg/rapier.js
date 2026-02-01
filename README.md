@@ -26,7 +26,7 @@
 
 ## Fork Differences
 
-This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) with:
+This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) with performance improvements and modernized tooling.
 
 - Rapier 0.32 with glam math library
 - pnpm monorepo with tsdown bundler
@@ -39,21 +39,42 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 
 Comparison against `@dimforge/rapier3d-compat@0.19.3` (3D, 1000 bodies):
 
-| Benchmark                      | Fork       | Official   | Improvement |
-| ------------------------------ | ---------- | ---------- | ----------- |
-| world.step() [500 bodies]      | 540µs      | 620µs      | **13%**     |
-| create 1000 bodies             | 3.4ms      | 3.8ms      | **11%**     |
-| body.translation()             | 68µs       | 280µs      | **4.1x**    |
-| body.rotation()                | 67µs       | 250µs      | **3.7x**    |
-| body.setTransform()            | 23µs       | 33µs       | **30%**     |
-| body.setNextKinematicTransform | 21µs       | 30µs       | **30%**     |
+| Benchmark          | Fork   | Official | Improvement |
+| ------------------ | ------ | -------- | ----------- |
+| world.step()       | 1.37ms | 1.40ms   | ~same       |
+| create 1000 bodies | 3.8ms  | 4.1ms    | **7%**      |
+| castRay            | 2.6µs  | 4.0µs    | **35%**     |
+| body.translation() | 73µs   | 210µs    | **2.9x**    |
+| body.rotation()    | 70µs   | 223µs    | **3.2x**    |
 
-Key improvements:
+### What Makes It Faster
 
-- **Getters**: 3-4x faster (zero-allocation optimization)
-- **Batch setters**: ~30% faster (single WASM call for translation + rotation)
-- **Body creation**: 11% faster
-- **Simulation step**: 13% faster
+**Zero-allocation getters (3x faster)**
+
+The official package allocates a new object every call:
+
+```typescript
+// Official: allocates {x, y, z} every call
+for (const body of bodies) {
+    const pos = body.translation(); // new object
+}
+```
+
+This fork accepts an optional target to reuse:
+
+```typescript
+// Fork: zero allocations
+const pos = {x: 0, y: 0, z: 0};
+for (const body of bodies) {
+    body.translation(pos); // writes into existing object
+}
+```
+
+Supported: `translation()`, `rotation()`, `linvel()`, `angvel()`, `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`
+
+**Optimized ray casting (35% faster)**
+
+Ray origin/direction passed as primitives directly to WASM, avoiding temporary `RawVector` allocations.
 
 Run `pnpm bench --official` to compare on your machine.
 
@@ -63,16 +84,16 @@ Run `pnpm bench --official` to compare on your machine.
 
 ```bash
 # 2D physics
-npm install @alexandernanberg/rapier-2d
+npm install @alexandernanberg/rapier2d
 
 # 3D physics
-npm install @alexandernanberg/rapier-3d
+npm install @alexandernanberg/rapier3d
 ```
 
 ## Usage
 
 ```typescript
-import RAPIER from "@alexandernanberg/rapier-2d";
+import RAPIER from "@alexandernanberg/rapier2d";
 
 await RAPIER.init();
 
@@ -96,12 +117,12 @@ console.log(body.translation()); // { x: 0, y: ~9.99 }
 
 Each package ships 4 variants via subpath exports:
 
-| Import Path                               | WASM Loading         | SIMD |
-| ----------------------------------------- | -------------------- | ---- |
-| `@alexandernanberg/rapier-2d`             | `fetch()` at runtime | No   |
-| `@alexandernanberg/rapier-2d/simd`        | `fetch()` at runtime | Yes  |
-| `@alexandernanberg/rapier-2d/compat`      | Embedded base64      | No   |
-| `@alexandernanberg/rapier-2d/compat-simd` | Embedded base64      | Yes  |
+| Import Path                              | WASM Loading         | SIMD |
+| ---------------------------------------- | -------------------- | ---- |
+| `@alexandernanberg/rapier2d`             | `fetch()` at runtime | No   |
+| `@alexandernanberg/rapier2d/simd`        | `fetch()` at runtime | Yes  |
+| `@alexandernanberg/rapier2d/compat`      | Embedded base64      | No   |
+| `@alexandernanberg/rapier2d/compat-simd` | Embedded base64      | Yes  |
 
 **When to use which:**
 

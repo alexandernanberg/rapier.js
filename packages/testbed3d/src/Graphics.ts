@@ -1,4 +1,4 @@
-import RAPIER from "@alexandernanberg/rapier-3d";
+import RAPIER from "@alexandernanberg/rapier3d";
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 
@@ -22,7 +22,7 @@ interface InstanceDesc {
     scale?: THREE.Vector3;
 }
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier-3d");
+type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
 
 // NOTE: this is a very naive voxels -> mesh conversion. Proper
 //       conversions should use something like greedy meshing instead.

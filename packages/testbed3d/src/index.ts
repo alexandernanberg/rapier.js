@@ -17,7 +17,7 @@ import * as Trimesh from "./demos/trimesh";
 import * as Voxels from "./demos/voxels";
 import {Testbed} from "./Testbed";
 
-import("@alexandernanberg/rapier-3d/compat-simd").then(async (RAPIER) => {
+import("@alexandernanberg/rapier3d/compat-simd").then(async (RAPIER) => {
     await RAPIER.init();
     let builders = new Map([
         ["collision groups", CollisionGroups.initWorld],

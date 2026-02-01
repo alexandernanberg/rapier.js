@@ -19,12 +19,7 @@ pub trait SharedShapeUtility {
         stop_at_penetration: bool,
     ) -> Option<RawShapeCastHit>;
 
-    fn intersectsShape(
-        &self,
-        shapePos1: &Pose,
-        shape2: &dyn Shape,
-        shapePos2: &Pose,
-    ) -> bool;
+    fn intersectsShape(&self, shapePos1: &Pose, shape2: &dyn Shape, shapePos2: &Pose) -> bool;
 
     fn contactShape(
         &self,
@@ -36,20 +31,9 @@ pub trait SharedShapeUtility {
 
     fn containsPoint(&self, shapePos: &Pose, point: Vector) -> bool;
 
-    fn projectPoint(
-        &self,
-        shapePos: &Pose,
-        point: Vector,
-        solid: bool,
-    ) -> RawPointProjection;
+    fn projectPoint(&self, shapePos: &Pose, point: Vector, solid: bool) -> RawPointProjection;
 
-    fn intersectsRay(
-        &self,
-        shapePos: &Pose,
-        rayOrig: Vector,
-        rayDir: Vector,
-        maxToi: f32,
-    ) -> bool;
+    fn intersectsRay(&self, shapePos: &Pose, rayOrig: Vector, rayDir: Vector, maxToi: f32) -> bool;
 
     fn castRay(
         &self,
@@ -102,12 +86,7 @@ impl SharedShapeUtility for SharedShape {
         .map(|hit| RawShapeCastHit { hit })
     }
 
-    fn intersectsShape(
-        &self,
-        shapePos1: &Pose,
-        shape2: &dyn Shape,
-        shapePos2: &Pose,
-    ) -> bool {
+    fn intersectsShape(&self, shapePos1: &Pose, shape2: &dyn Shape, shapePos2: &Pose) -> bool {
         query::intersection_test(shapePos1, &*self.0, shapePos2, shape2).unwrap_or(false)
     }
 
@@ -128,22 +107,11 @@ impl SharedShapeUtility for SharedShape {
         self.as_ref().contains_point(shapePos, point)
     }
 
-    fn projectPoint(
-        &self,
-        shapePos: &Pose,
-        point: Vector,
-        solid: bool,
-    ) -> RawPointProjection {
+    fn projectPoint(&self, shapePos: &Pose, point: Vector, solid: bool) -> RawPointProjection {
         RawPointProjection(self.as_ref().project_point(shapePos, point, solid))
     }
 
-    fn intersectsRay(
-        &self,
-        shapePos: &Pose,
-        rayOrig: Vector,
-        rayDir: Vector,
-        maxToi: f32,
-    ) -> bool {
+    fn intersectsRay(&self, shapePos: &Pose, rayOrig: Vector, rayDir: Vector, maxToi: f32) -> bool {
         self.as_ref()
             .intersects_ray(shapePos, &Ray::new(rayOrig, rayDir), maxToi)
     }
@@ -296,7 +264,10 @@ impl RawShape {
     }
 
     pub fn polyline(vertices: Vec<f32>, indices: Vec<u32>) -> Self {
-        let vertices = vertices.chunks(DIM).map(|v| Vector::from_slice(v)).collect();
+        let vertices = vertices
+            .chunks(DIM)
+            .map(|v| Vector::from_slice(v))
+            .collect();
         let indices: Vec<_> = indices.chunks(2).map(|v| [v[0], v[1]]).collect();
         if indices.is_empty() {
             Self(SharedShape::polyline(vertices, None))
@@ -307,7 +278,10 @@ impl RawShape {
 
     pub fn trimesh(vertices: Vec<f32>, indices: Vec<u32>, flags: u32) -> Option<RawShape> {
         let flags = TriMeshFlags::from_bits(flags as u16).unwrap_or_default();
-        let vertices = vertices.chunks(DIM).map(|v| Vector::from_slice(v)).collect();
+        let vertices = vertices
+            .chunks(DIM)
+            .map(|v| Vector::from_slice(v))
+            .collect();
         let indices = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
         SharedShape::trimesh_with_flags(vertices, indices, flags)
             .ok()
@@ -368,19 +342,28 @@ impl RawShape {
 
     #[cfg(feature = "dim2")]
     pub fn convexPolyline(vertices: Vec<f32>) -> Option<RawShape> {
-        let vertices = vertices.chunks(DIM).map(|v| Vector::from_slice(v)).collect();
+        let vertices = vertices
+            .chunks(DIM)
+            .map(|v| Vector::from_slice(v))
+            .collect();
         SharedShape::convex_polyline(vertices).map(|s| Self(s))
     }
 
     #[cfg(feature = "dim2")]
     pub fn roundConvexPolyline(vertices: Vec<f32>, borderRadius: f32) -> Option<RawShape> {
-        let vertices = vertices.chunks(DIM).map(|v| Vector::from_slice(v)).collect();
+        let vertices = vertices
+            .chunks(DIM)
+            .map(|v| Vector::from_slice(v))
+            .collect();
         SharedShape::round_convex_polyline(vertices, borderRadius).map(|s| Self(s))
     }
 
     #[cfg(feature = "dim3")]
     pub fn convexMesh(vertices: Vec<f32>, indices: Vec<u32>) -> Option<RawShape> {
-        let vertices = vertices.chunks(DIM).map(|v| Vector::from_slice(v)).collect();
+        let vertices = vertices
+            .chunks(DIM)
+            .map(|v| Vector::from_slice(v))
+            .collect();
         let indices: Vec<_> = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
         SharedShape::convex_mesh(vertices, &indices).map(|s| Self(s))
     }
@@ -391,7 +374,10 @@ impl RawShape {
         indices: Vec<u32>,
         borderRadius: f32,
     ) -> Option<RawShape> {
-        let vertices = vertices.chunks(DIM).map(|v| Vector::from_slice(v)).collect();
+        let vertices = vertices
+            .chunks(DIM)
+            .map(|v| Vector::from_slice(v))
+            .collect();
         let indices: Vec<_> = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
         SharedShape::round_convex_mesh(vertices, &indices, borderRadius).map(|s| Self(s))
     }
@@ -486,8 +472,7 @@ impl RawShape {
     ) -> bool {
         let pos = Pose::from_parts(shapePos.0, shapeRot.0);
 
-        self.0
-            .intersectsRay(&pos, rayOrig.0, rayDir.0, maxToi)
+        self.0.intersectsRay(&pos, rayOrig.0, rayDir.0, maxToi)
     }
 
     pub fn castRay(
@@ -501,8 +486,7 @@ impl RawShape {
     ) -> f32 {
         let pos = Pose::from_parts(shapePos.0, shapeRot.0);
 
-        self.0
-            .castRay(&pos, rayOrig.0, rayDir.0, maxToi, solid)
+        self.0.castRay(&pos, rayOrig.0, rayDir.0, maxToi, solid)
     }
 
     pub fn castRayAndGetNormal(

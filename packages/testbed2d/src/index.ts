@@ -11,7 +11,7 @@ import * as RevoluteJoints from "./demos/revoluteJoints";
 import * as Voxels from "./demos/voxels";
 import {Testbed} from "./Testbed";
 
-import("@alexandernanberg/rapier-2d/compat").then(async (RAPIER) => {
+import("@alexandernanberg/rapier2d/compat").then(async (RAPIER) => {
     await RAPIER.init();
     let builders = new Map([
         ["collision groups", CollisionGroups.initWorld],

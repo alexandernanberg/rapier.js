@@ -1,11 +1,5 @@
 import {IntegrationParameters, RigidBodySet} from "../dynamics";
-import {
-    BroadPhase,
-    Collider,
-    ColliderSet,
-    InteractionGroups,
-    NarrowPhase,
-} from "../geometry";
+import {BroadPhase, Collider, ColliderSet, InteractionGroups, NarrowPhase} from "../geometry";
 import {Vector, VectorOps} from "../math";
 import {QueryFilterFlags} from "../pipeline";
 import {RawKinematicCharacterController, RawCharacterCollision} from "../raw";

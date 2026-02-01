@@ -1,7 +1,7 @@
-import type * as RAPIER from "@alexandernanberg/rapier-2d";
+import type * as RAPIER from "@alexandernanberg/rapier2d";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier-2d");
+type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
 
 function buildBlock(
     RAPIER: RAPIER_API,

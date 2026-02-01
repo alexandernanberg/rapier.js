@@ -1,4 +1,4 @@
-import type {World} from "@alexandernanberg/rapier-3d";
+import type {World} from "@alexandernanberg/rapier3d";
 
 export function createSparseWorld(RAPIER: any, is3D: boolean, bodyCount: number): World {
     const gravity = is3D ? {x: 0, y: -9.81, z: 0} : {x: 0, y: -9.81};

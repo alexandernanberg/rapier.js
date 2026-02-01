@@ -28,12 +28,12 @@ async function importRapier(dim: "2d" | "3d", simd: boolean, official: boolean) 
     // Our fork
     if (dim === "2d") {
         return simd
-            ? await import("@alexandernanberg/rapier-2d/compat-simd")
-            : await import("@alexandernanberg/rapier-2d/compat");
+            ? await import("@alexandernanberg/rapier2d/compat-simd")
+            : await import("@alexandernanberg/rapier2d/compat");
     } else {
         return simd
-            ? await import("@alexandernanberg/rapier-3d/compat-simd")
-            : await import("@alexandernanberg/rapier-3d/compat");
+            ? await import("@alexandernanberg/rapier3d/compat-simd")
+            : await import("@alexandernanberg/rapier3d/compat");
     }
 }
 
