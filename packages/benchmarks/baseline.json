@@ -1,105 +1,105 @@
 {
-    "version": 1,
-    "created": "2026-01-31T12:20:02.070Z",
-    "thresholds": {
-        "warning": 0.15,
-        "regression": 0.3
+  "version": 1,
+  "created": "2026-02-01T06:17:15.413Z",
+  "thresholds": {
+    "warning": 0.15,
+    "regression": 0.3
+  },
+  "2d": {
+    "world.step() [200 bodies]": {
+      "mean": 0.1876775099999989
     },
-    "2d": {
-        "world.step() [200 bodies]": {
-            "mean": 0.1876775099999989
-        },
-        "create 1000 bodies+colliders": {
-            "mean": 2.366777049999996
-        },
-        "spawn+despawn 100 bodies": {
-            "mean": 0.3505709499999995
-        },
-        "castRay (100 bodies)": {
-            "mean": 0.002138975000000869
-        },
-        "castRayAndGetNormal": {
-            "mean": 0.003557924999999784
-        },
-        "intersectionsWithRay": {
-            "mean": 0.008877730000000384
-        },
-        "projectPoint": {
-            "mean": 0.002038750000000107
-        },
-        "intersectionsWithPoint": {
-            "mean": 0.0008520750000005251
-        },
-        "body.translation() [alloc]": {
-            "mean": 0.06057476000000435
-        },
-        "body.translation() [reuse]": {
-            "mean": 0.058471040000003145
-        },
-        "body.rotation() [alloc]": {
-            "mean": 0.05259673499999877
-        },
-        "body.linvel() [alloc]": {
-            "mean": 0.05967851499999796
-        },
-        "body.linvel() [reuse]": {
-            "mean": 0.05824997999999937
-        },
-        "collider.translation() [alloc]": {
-            "mean": 0.059001835000002244
-        },
-        "collider.translation() [reuse]": {
-            "mean": 0.05813357499999853
-        }
+    "create 1000 bodies+colliders": {
+      "mean": 2.366777049999996
     },
-    "3d": {
-        "world.step() [3000 bodies]": {
-            "mean": 1.1999565033333317
-        },
-        "create 1000 bodies+colliders": {
-            "mean": 3.4874599700000033
-        },
-        "spawn+despawn 100 bodies": {
-            "mean": 0.40320171000001437
-        },
-        "castRay (2000 bodies)": {
-            "mean": 0.0031806240000044
-        },
-        "castRayAndGetNormal": {
-            "mean": 0.0026139960000045905
-        },
-        "intersectionsWithRay": {
-            "mean": 0.0031269599999973253
-        },
-        "projectPoint": {
-            "mean": 0.002855966000001672
-        },
-        "intersectionsWithPoint": {
-            "mean": 0.0011189680000034058
-        },
-        "body.translation() [alloc]": {
-            "mean": 0.06811367400000108
-        },
-        "body.translation() [reuse]": {
-            "mean": 0.0669233970000007
-        },
-        "body.rotation() [alloc]": {
-            "mean": 0.07456889600000227
-        },
-        "body.rotation() [reuse]": {
-            "mean": 0.07378238099999566
-        },
-        "body.linvel() [alloc]": {
-            "mean": 0.065974090999998
-        },
-        "body.linvel() [reuse]": {
-            "mean": 0.06588438300000757
-        },
-        "collider.translation() [alloc]": {
-            "mean": 0.06773607499999912
-        },
-        "collider.translation() [reuse]": {
-            "mean": 0.06714595899999745
-        }
+    "spawn+despawn 100 bodies": {
+      "mean": 0.3505709499999995
+    },
+    "castRay (100 bodies)": {
+      "mean": 0.002138975000000869
+    },
+    "castRayAndGetNormal": {
+      "mean": 0.003557924999999784
+    },
+    "intersectionsWithRay": {
+      "mean": 0.008877730000000384
+    },
+    "projectPoint": {
+      "mean": 0.002038750000000107
+    },
+    "intersectionsWithPoint": {
+      "mean": 0.0008520750000005251
+    },
+    "body.translation() [alloc]": {
+      "mean": 0.06057476000000435
+    },
+    "body.translation() [reuse]": {
+      "mean": 0.058471040000003145
+    },
+    "body.rotation() [alloc]": {
+      "mean": 0.05259673499999877
+    },
+    "body.linvel() [alloc]": {
+      "mean": 0.05967851499999796
+    },
+    "body.linvel() [reuse]": {
+      "mean": 0.05824997999999937
+    },
+    "collider.translation() [alloc]": {
+      "mean": 0.059001835000002244
+    },
+    "collider.translation() [reuse]": {
+      "mean": 0.05813357499999853
     }
+  },
+  "3d": {
+    "world.step() [3000 bodies]": {
+      "mean": 1.3654188766666686
+    },
+    "create 1000 bodies+colliders": {
+      "mean": 3.834613380000012
+    },
+    "spawn+despawn 100 bodies": {
+      "mean": 0.5087609000000112
+    },
+    "castRay (2000 bodies)": {
+      "mean": 0.0026443299999964437
+    },
+    "castRayAndGetNormal": {
+      "mean": 0.002499390000000403
+    },
+    "intersectionsWithRay": {
+      "mean": 0.003971961999995756
+    },
+    "projectPoint": {
+      "mean": 0.004458305999998175
+    },
+    "intersectionsWithPoint": {
+      "mean": 0.0013663500000000112
+    },
+    "body.translation() [alloc]": {
+      "mean": 0.07256511899999828
+    },
+    "body.translation() [reuse]": {
+      "mean": 0.06424841400000286
+    },
+    "body.rotation() [alloc]": {
+      "mean": 0.06953922599999987
+    },
+    "body.rotation() [reuse]": {
+      "mean": 0.07181327700000384
+    },
+    "body.linvel() [alloc]": {
+      "mean": 0.06906284799999934
+    },
+    "body.linvel() [reuse]": {
+      "mean": 0.09025221000001375
+    },
+    "collider.translation() [alloc]": {
+      "mean": 0.07162367899999618
+    },
+    "collider.translation() [reuse]": {
+      "mean": 0.06758227600000145
+    }
+  }
 }

@@ -36,20 +36,21 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 
 ### Benchmarks vs Official
 
-Comparison against `@dimforge/rapier3d@0.19.3` (3D, 3000 bodies):
+Comparison against `@dimforge/rapier3d-compat@0.19.3` (3D, 1000 bodies):
 
-| Benchmark          | Fork       | Fork SIMD  | Official | Official SIMD |
-| ------------------ | ---------- | ---------- | -------- | ------------- |
-| world.step()       | 1.18ms     | **0.69ms** | 1.14ms   | 0.72ms        |
-| create 1000 bodies | **3.15ms** | 3.15ms     | 3.47ms   | 3.41ms        |
-| body.translation() | **62µs**   | 62µs       | 210µs    | 209µs         |
-| body.rotation()    | **68µs**   | 68µs       | 223µs    | 220µs         |
+| Benchmark            | Fork     | Official | Improvement |
+| -------------------- | -------- | -------- | ----------- |
+| world.step()         | 1.37ms   | 1.40ms   | ~same       |
+| create 1000 bodies   | 3.8ms    | 4.1ms    | **7%**      |
+| castRay              | 2.6µs    | 4.0µs    | **35%**     |
+| body.translation()   | 73µs     | 210µs    | **2.9x**    |
+| body.rotation()      | 70µs     | 223µs    | **3.2x**    |
 
 Key improvements:
 
-- **world.step() SIMD**: 4% faster than official
-- **Getters**: 3.4x faster (zero-allocation optimization)
-- **Body creation**: 9% faster
+- **Getters**: 3x faster (zero-allocation optimization)
+- **Ray casting**: 35% faster (primitives passed directly to WASM)
+- **Body creation**: 7% faster
 
 Run `pnpm bench --official` to compare on your machine.
 
