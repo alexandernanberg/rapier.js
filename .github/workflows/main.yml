@@ -71,3 +71,102 @@ jobs:
                     echo "ERROR: 3D SIMD build does not include SIMD opcode prefix." >&2
                     exit 1
                   fi
+
+    benchmark:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'pull_request'
+        needs: [build]
+        permissions:
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@v6
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  cache: "pnpm"
+            - uses: actions/cache@v5
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      target/
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            - run: pnpm install --frozen-lockfile
+            - name: Build WASM and TypeScript
+              run: pnpm build
+            - name: Run benchmarks
+              id: bench
+              run: |
+                  pnpm bench:quick --no-compare 2>&1 | tee bench-output.txt
+
+                  # Find the latest results file
+                  RESULTS_FILE=$(ls -t packages/benchmarks/results/3d-*.json | head -1)
+                  echo "results_file=$RESULTS_FILE" >> $GITHUB_OUTPUT
+
+                  # Generate markdown table from results
+                  node -e "
+                  const fs = require('fs');
+                  const data = JSON.parse(fs.readFileSync('$RESULTS_FILE', 'utf-8'));
+
+                  function formatTime(ms) {
+                    if (ms < 0.001) return (ms * 1000000).toFixed(0) + 'ns';
+                    if (ms < 1) return (ms * 1000).toFixed(1) + 'µs';
+                    return ms.toFixed(3) + 'ms';
+                  }
+
+                  let md = '## ⚡ Benchmark Results\n\n';
+                  md += '| Benchmark | Mean | Min | Max |\n';
+                  md += '|-----------|------|-----|-----|\n';
+
+                  for (const r of data.results) {
+                    md += '| ' + r.name + ' | ' + formatTime(r.mean) + ' | ' + formatTime(r.min) + ' | ' + formatTime(r.max) + ' |\n';
+                  }
+
+                  md += '\n<details>\n<summary>Environment</summary>\n\n';
+                  md += '- **Node:** ' + data.node + '\n';
+                  md += '- **Platform:** ' + data.platform + '/' + data.arch + '\n';
+                  md += '- **Runner:** ubuntu-latest\n';
+                  md += '- **Timestamp:** ' + data.timestamp + '\n';
+                  md += '</details>\n';
+
+                  fs.writeFileSync('benchmark-comment.md', md);
+                  "
+            - name: Post or update PR comment
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const fs = require('fs');
+                      const body = fs.readFileSync('benchmark-comment.md', 'utf-8');
+                      const marker = '<!-- rapier-benchmark-comment -->';
+                      const fullBody = marker + '\n' + body;
+
+                      const { data: comments } = await github.rest.issues.listComments({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: context.issue.number,
+                      });
+
+                      const existing = comments.find(c => c.body.includes(marker));
+
+                      if (existing) {
+                        await github.rest.issues.updateComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          comment_id: existing.id,
+                          body: fullBody,
+                        });
+                        console.log('Updated existing benchmark comment');
+                      } else {
+                        await github.rest.issues.createComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: context.issue.number,
+                          body: fullBody,
+                        });
+                        console.log('Created new benchmark comment');
+                      }
