@@ -7,10 +7,32 @@ on:
         branches: [master]
     workflow_dispatch:
 
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
 env:
     CARGO_TERM_COLOR: always
 
 jobs:
+    changes:
+        runs-on: ubuntu-latest
+        outputs:
+            src: ${{ steps.filter.outputs.src }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: dorny/paths-filter@v3
+              id: filter
+              with:
+                  filters: |
+                      src:
+                        - 'crates/**'
+                        - 'packages/rapier-2d/**'
+                        - 'packages/rapier-3d/**'
+                        - 'Cargo.toml'
+                        - 'Cargo.lock'
+                        - 'pnpm-lock.yaml'
+
     lint:
         runs-on: ubuntu-latest
         steps:
@@ -32,6 +54,8 @@ jobs:
 
     build:
         runs-on: ubuntu-latest
+        needs: [changes]
+        if: needs.changes.outputs.src == 'true'
         env:
             RUSTFLAGS: -D warnings
         steps:
@@ -71,11 +95,21 @@ jobs:
                     echo "ERROR: 3D SIMD build does not include SIMD opcode prefix." >&2
                     exit 1
                   fi
+            - name: Upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: build-artifacts
+                  path: |
+                      packages/rapier-2d/dist
+                      packages/rapier-2d/wasm
+                      packages/rapier-3d/dist
+                      packages/rapier-3d/wasm
+                  retention-days: 1
 
     benchmark:
         runs-on: ubuntu-latest
-        if: github.event_name == 'pull_request'
-        needs: [build]
+        needs: [changes, build]
+        if: github.event_name == 'pull_request' && needs.changes.outputs.src == 'true'
         permissions:
             pull-requests: write
         steps:
@@ -87,18 +121,12 @@ jobs:
               with:
                   node-version: "24"
                   cache: "pnpm"
-            - uses: actions/cache@v5
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
             - run: pnpm install --frozen-lockfile
-            - name: Build WASM and TypeScript
-              run: pnpm build
+            - name: Download build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: build-artifacts
+                  path: packages
             - name: Run benchmarks
               id: bench
               run: |
@@ -170,3 +198,36 @@ jobs:
                         });
                         console.log('Created new benchmark comment');
                       }
+
+    deploy-testbed:
+        runs-on: ubuntu-latest
+        needs: [changes, build]
+        if: |
+            github.event_name == 'push' &&
+            github.ref == 'refs/heads/master' &&
+            needs.changes.outputs.src == 'true'
+        steps:
+            - uses: actions/checkout@v6
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  cache: "pnpm"
+            - run: pnpm install --frozen-lockfile
+            - name: Download build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: build-artifacts
+                  path: packages
+            - name: Build testbed
+              run: pnpm --filter rapier-testbed3d build
+            - name: Deploy to Vercel
+              uses: amondnet/vercel-action@v25
+              with:
+                  vercel-token: ${{ secrets.VERCEL_TOKEN }}
+                  vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+                  vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+                  vercel-args: "--prod"
+                  working-directory: packages/testbed3d
