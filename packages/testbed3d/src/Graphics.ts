@@ -578,7 +578,11 @@ export class Graphics {
         instance.instanceMatrix.needsUpdate = true;
 
         // Initialize previous transform for interpolation
-        instanceDesc.prevPosition = new THREE.Vector3(_translation.x, _translation.y, _translation.z);
+        instanceDesc.prevPosition = new THREE.Vector3(
+            _translation.x,
+            _translation.y,
+            _translation.z,
+        );
         instanceDesc.prevQuaternion = new THREE.Quaternion(
             _rotation.x,
             _rotation.y,
