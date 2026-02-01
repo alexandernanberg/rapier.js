@@ -26,7 +26,7 @@
 
 ## Fork Differences
 
-This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) with:
+This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) with performance improvements and modernized tooling.
 
 - Rapier 0.32 with glam math library
 - pnpm monorepo with tsdown bundler
@@ -47,11 +47,34 @@ Comparison against `@dimforge/rapier3d-compat@0.19.3` (3D, 1000 bodies):
 | body.translation() | 73µs   | 210µs    | **2.9x**    |
 | body.rotation()    | 70µs   | 223µs    | **3.2x**    |
 
-Key improvements:
+### What Makes It Faster
 
-- **Getters**: 3x faster (zero-allocation optimization)
-- **Ray casting**: 35% faster (primitives passed directly to WASM)
-- **Body creation**: 7% faster
+**Zero-allocation getters (3x faster)**
+
+The official package allocates a new object every call:
+
+```typescript
+// Official: allocates {x, y, z} every call
+for (const body of bodies) {
+    const pos = body.translation(); // new object
+}
+```
+
+This fork accepts an optional target to reuse:
+
+```typescript
+// Fork: zero allocations
+const pos = {x: 0, y: 0, z: 0};
+for (const body of bodies) {
+    body.translation(pos); // writes into existing object
+}
+```
+
+Supported: `translation()`, `rotation()`, `linvel()`, `angvel()`, `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`
+
+**Optimized ray casting (35% faster)**
+
+Ray origin/direction passed as primitives directly to WASM, avoiding temporary `RawVector` allocations.
 
 Run `pnpm bench --official` to compare on your machine.
 
