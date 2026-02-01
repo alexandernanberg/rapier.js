@@ -42,7 +42,6 @@ impl RawMultibodyJointSet {
         parent2: FlatHandle,
         wakeUp: bool,
     ) -> FlatHandle {
-        // TODO: avoid the unwrap?
         let parent1 = utils::body_handle(parent1);
         let parent2 = utils::body_handle(parent2);
 

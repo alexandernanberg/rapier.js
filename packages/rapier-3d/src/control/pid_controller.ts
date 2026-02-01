@@ -1,35 +1,15 @@
-import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
+import {IntegrationParameters, JointAxesMask, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {RawPidController} from "../raw";
 
-// TODO: unify with the JointAxesMask
 /**
- * An enum representing the possible joint axes controlled by a PidController.
- * They can be ORed together, like:
- * PidAxesMask.LinX || PidAxesMask.LinY
- * to get a pid controller that only constraints the translational X and Y axes.
- *
- * Possible axes are:
- *
- * - `X`: X translation axis
- * - `Y`: Y translation axis
- * - `Z`: Z translation axis
- * - `AngX`: X angular rotation axis (3D only)
- * - `AngY`: Y angular rotation axis (3D only)
- * - `AngZ`: Z angular rotation axis
+ * @deprecated Use `JointAxesMask` instead. This is an alias for backwards compatibility.
  */
-export enum PidAxesMask {
-    None = 0,
-    LinX = 1 << 0,
-    LinY = 1 << 1,
-    LinZ = 1 << 2,
-    AngX = 1 << 3,
-    AngY = 1 << 4,
-    AngZ = 1 << 5,
-    AllLin = PidAxesMask.LinX | PidAxesMask.LinY | PidAxesMask.LinZ,
-    AllAng = PidAxesMask.AngX | PidAxesMask.AngY | PidAxesMask.AngZ,
-    All = PidAxesMask.AllLin | PidAxesMask.AllAng,
-}
+export const PidAxesMask = JointAxesMask;
+/**
+ * @deprecated Use `JointAxesMask` instead. This is an alias for backwards compatibility.
+ */
+export type PidAxesMask = JointAxesMask;
 
 /**
  * A controller for controlling dynamic bodies using the

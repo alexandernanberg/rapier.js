@@ -10,7 +10,6 @@ export type RigidBodyHandle = number;
 /**
  * The simulation status of a rigid-body.
  */
-// TODO: rename this to RigidBodyType
 export enum RigidBodyType {
     /**
      * A `RigidBodyType::Dynamic` body can be affected by all external forces.

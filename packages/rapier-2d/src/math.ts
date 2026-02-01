@@ -27,7 +27,6 @@ export class VectorOps {
         return VectorOps.new(0.0, 0.0);
     }
 
-    // FIXME: type ram: RawVector?
     public static fromRaw(raw: RawVector, target?: Vector): Vector | null {
         if (!raw) return null;
 

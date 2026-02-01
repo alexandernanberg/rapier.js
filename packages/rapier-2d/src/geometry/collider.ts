@@ -93,7 +93,7 @@ export type ColliderHandle = number;
 export class Collider {
     private colliderSet: ColliderSet; // The Collider won't need to free this.
     readonly handle: ColliderHandle;
-    private _shape: Shape; // TODO: deprecate/remove this since it isn't a reliable way of getting the latest shape properties.
+    private _shape: Shape;
     private _parent: RigidBody | null;
     private scratchBuffer: Float32Array;
 
@@ -123,6 +123,12 @@ export class Collider {
 
     /**
      * The shape of this collider.
+     *
+     * @deprecated This getter returns a cached shape that may become stale if the
+     * collider's shape is modified. Prefer using specific property methods like
+     * `shapeType()`, `halfExtents()`, `radius()`, `halfHeight()`, `vertices()`,
+     * `indices()`, etc. If you must use this getter, call `clearShapeCache()`
+     * first to ensure the shape is up-to-date.
      */
     public get shape(): Shape {
         this.ensureShapeIsCached();

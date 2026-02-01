@@ -44,8 +44,8 @@ impl PhysicsHooks for RawPhysicsHooks {
             .call4(&self.this, &collider1, &collider2, &rb1, &rb2)
             .ok()?;
         let flags = result.as_f64()?;
-        // TODO: not sure exactly why we have to do `flags as u32` instead
-        //       of `flags.to_bits() as u32`.
+        // NOTE: We use `flags as u32` to truncate the f64 to get the integer value.
+        // `to_bits()` would return the IEEE 754 bit representation which is incorrect.
         SolverFlags::from_bits(flags as u32)
     }
 
