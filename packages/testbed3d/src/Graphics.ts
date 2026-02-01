@@ -14,12 +14,22 @@ var kk = 0;
 const _translation = {x: 0, y: 0, z: 0};
 const _rotation = {x: 0, y: 0, z: 0, w: 1};
 
+// Scratch objects for interpolation
+const _position = new THREE.Vector3();
+const _quaternion = new THREE.Quaternion();
+const _prevPosition = new THREE.Vector3();
+const _prevQuaternion = new THREE.Quaternion();
+const _matrix = new THREE.Matrix4();
+
 interface InstanceDesc {
     groupId: number;
     instanceId: number;
     elementId: number;
     highlighted: boolean;
     scale?: THREE.Vector3;
+    // Previous frame transform for interpolation
+    prevPosition?: THREE.Vector3;
+    prevQuaternion?: THREE.Quaternion;
 }
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
@@ -248,7 +258,7 @@ export class Graphics {
         });
     }
 
-    render(world: RAPIER.World, debugRender: boolean) {
+    render(world: RAPIER.World, debugRender: boolean, alpha: number = 1) {
         kk += 1;
         this.controls.update();
         // if (kk % 100 == 0) {
@@ -274,7 +284,7 @@ export class Graphics {
             this.lines.visible = false;
         }
 
-        this.updatePositions(world);
+        this.updatePositions(world, alpha);
         this.renderer.render(this.scene, this.camera);
     }
 
@@ -321,17 +331,34 @@ export class Graphics {
         this.highlightedCollider = handle;
     }
 
-    updatePositions(world: RAPIER.World) {
+    updatePositions(world: RAPIER.World, alpha: number = 1) {
         world.forEachCollider((elt) => {
             let gfx = this.coll2instance.get(elt.handle);
             elt.translation(_translation);
             elt.rotation(_rotation);
 
+            // Current physics state
+            _position.set(_translation.x, _translation.y, _translation.z);
+            _quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
+
             if (!!gfx) {
                 let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
+
+                // Initialize previous state if not set
+                if (!gfx.prevPosition) {
+                    gfx.prevPosition = _position.clone();
+                    gfx.prevQuaternion = _quaternion.clone();
+                }
+
+                // Interpolate between previous and current state
+                _prevPosition.copy(gfx.prevPosition);
+                _prevQuaternion.copy(gfx.prevQuaternion);
+                _prevPosition.lerp(_position, alpha);
+                _prevQuaternion.slerp(_quaternion, alpha);
+
                 dummy.scale.set(gfx.scale.x, gfx.scale.y, gfx.scale.z);
-                dummy.position.set(_translation.x, _translation.y, _translation.z);
-                dummy.quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
+                dummy.position.copy(_prevPosition);
+                dummy.quaternion.copy(_prevQuaternion);
                 dummy.updateMatrix();
                 instance.setMatrixAt(gfx.elementId, dummy.matrix);
 
@@ -344,14 +371,33 @@ export class Graphics {
 
                 instance.instanceMatrix.needsUpdate = true;
                 highlightInstance.instanceMatrix.needsUpdate = true;
+
+                // Store current state for next frame's interpolation
+                gfx.prevPosition.copy(_position);
+                gfx.prevQuaternion.copy(_quaternion);
             }
 
             let mesh = this.coll2mesh.get(elt.handle);
 
             if (!!mesh) {
-                mesh.position.set(_translation.x, _translation.y, _translation.z);
-                mesh.quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
+                // For meshes, also interpolate
+                if (!mesh.userData.prevPosition) {
+                    mesh.userData.prevPosition = _position.clone();
+                    mesh.userData.prevQuaternion = _quaternion.clone();
+                }
+
+                _prevPosition.copy(mesh.userData.prevPosition);
+                _prevQuaternion.copy(mesh.userData.prevQuaternion);
+                _prevPosition.lerp(_position, alpha);
+                _prevQuaternion.slerp(_quaternion, alpha);
+
+                mesh.position.copy(_prevPosition);
+                mesh.quaternion.copy(_prevQuaternion);
                 mesh.updateMatrix();
+
+                // Store current state for next frame
+                mesh.userData.prevPosition.copy(_position);
+                mesh.userData.prevQuaternion.copy(_quaternion);
             }
         });
     }
@@ -490,6 +536,20 @@ export class Graphics {
                 });
 
                 let mesh = new THREE.Mesh(geometry, material);
+                // Initialize previous transform for interpolation
+                collider.translation(_translation);
+                collider.rotation(_rotation);
+                mesh.userData.prevPosition = new THREE.Vector3(
+                    _translation.x,
+                    _translation.y,
+                    _translation.z,
+                );
+                mesh.userData.prevQuaternion = new THREE.Quaternion(
+                    _rotation.x,
+                    _rotation.y,
+                    _rotation.z,
+                    _rotation.w,
+                );
                 this.scene.add(mesh);
                 this.coll2mesh.set(collider.handle, mesh);
                 return;
@@ -516,6 +576,15 @@ export class Graphics {
         dummy.updateMatrix();
         instance.setMatrixAt(instanceDesc.elementId, dummy.matrix);
         instance.instanceMatrix.needsUpdate = true;
+
+        // Initialize previous transform for interpolation
+        instanceDesc.prevPosition = new THREE.Vector3(_translation.x, _translation.y, _translation.z);
+        instanceDesc.prevQuaternion = new THREE.Quaternion(
+            _rotation.x,
+            _rotation.y,
+            _rotation.z,
+            _rotation.w,
+        );
 
         this.coll2instance.set(collider.handle, instanceDesc);
     }

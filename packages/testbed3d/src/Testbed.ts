@@ -58,6 +58,10 @@ export class Testbed {
     lastMessageTime: number;
     snap: Uint8Array;
     snapStepId: number;
+    // Fixed timestep state
+    lastFrameTime: number;
+    accumulator: number;
+    maxSubsteps: number;
 
     constructor(RAPIER: RAPIER_API, builders: Builders) {
         let backends = ["rapier"];
@@ -70,6 +74,11 @@ export class Testbed {
         this.demoToken = 0;
         this.mouse = {x: 0, y: 0};
         this.events = new RAPIER.EventQueue(true);
+
+        // Fixed timestep initialization
+        this.lastFrameTime = 0;
+        this.accumulator = 0;
+        this.maxSubsteps = 6;
 
         this.switchToDemo(builders.keys().next().value);
 
@@ -139,17 +148,49 @@ export class Testbed {
     }
 
     run() {
+        const currentTime = performance.now() / 1000; // Convert to seconds
+        let deltaTime = currentTime - this.lastFrameTime;
+        this.lastFrameTime = currentTime;
+
+        // Clamp delta time to prevent spiral of death on long frames
+        const maxDeltaTime = this.world.timestep * this.maxSubsteps;
+        if (deltaTime > maxDeltaTime) {
+            deltaTime = maxDeltaTime;
+        }
+
+        let alpha = 1; // Interpolation factor for rendering
+
         if (this.parameters.running || this.parameters.stepping) {
             this.world.numSolverIterations = this.parameters.numSolverIters;
 
-            if (!!this.preTimestepAction) {
-                this.preTimestepAction(this.graphics);
+            const fixedStep = this.world.timestep;
+            this.accumulator += deltaTime;
+
+            let totalStepTime = 0;
+            let stepCount = 0;
+
+            // Run physics in fixed timestep increments
+            while (this.accumulator >= fixedStep) {
+                if (!!this.preTimestepAction) {
+                    this.preTimestepAction(this.graphics);
+                }
+
+                let t0 = performance.now();
+                this.world.step(this.events);
+                totalStepTime += performance.now() - t0;
+                stepCount += 1;
+
+                this.stepId += 1;
+                this.accumulator -= fixedStep;
             }
 
-            let t0 = new Date().getTime();
-            this.world.step(this.events);
-            this.gui.setTiming(new Date().getTime() - t0);
-            this.stepId += 1;
+            // Report average step time if any steps were taken
+            if (stepCount > 0) {
+                this.gui.setTiming(totalStepTime / stepCount);
+            }
+
+            // Calculate interpolation factor for smooth rendering
+            alpha = this.accumulator / fixedStep;
 
             if (!!this.parameters.debugInfos) {
                 let t0 = performance.now();
@@ -198,7 +239,7 @@ export class Testbed {
         }
 
         this.gui.stats.begin();
-        this.graphics.render(this.world, this.parameters.debugRender);
+        this.graphics.render(this.world, this.parameters.debugRender, alpha);
         this.gui.stats.end();
 
         requestAnimationFrame(() => this.run());
