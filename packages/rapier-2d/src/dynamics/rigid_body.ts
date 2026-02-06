@@ -1,6 +1,8 @@
 import {Collider, ColliderSet} from "../geometry";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {BODY_TRANSFORM_STRIDE, handleToIndex} from "./transform_buffer";
+import type {TransformBufferRef} from "./transform_buffer";
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -48,17 +50,28 @@ export class RigidBody {
     private colliderSet: ColliderSet;
     readonly handle: RigidBodyHandle;
     private scratchBuffer: Float32Array;
+    /** @internal */
+    _bufferRef: TransformBufferRef;
+    /** @internal */
+    _bufferOffset: number;
 
     /**
      * An arbitrary user-defined object associated with this rigid-body.
      */
     public userData?: unknown;
 
-    constructor(rawSet: RawRigidBodySet, colliderSet: ColliderSet, handle: RigidBodyHandle) {
+    constructor(
+        rawSet: RawRigidBodySet,
+        bufferRef: TransformBufferRef,
+        colliderSet: ColliderSet,
+        handle: RigidBodyHandle,
+    ) {
         this.rawSet = rawSet;
+        this._bufferRef = bufferRef;
         this.colliderSet = colliderSet;
         this.handle = handle;
         this.scratchBuffer = new Float32Array(4);
+        this._bufferOffset = handleToIndex(handle) * BODY_TRANSFORM_STRIDE;
     }
 
     /** @internal */
@@ -192,6 +205,14 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public translation(target?: Vector): Vector {
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset;
+            target ??= VectorOps.zeros();
+            target.x = buf[o];
+            target.y = buf[o + 1];
+            return target;
+        }
         this.rawSet.rbTranslation(this.handle, this.scratchBuffer);
         return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
@@ -200,6 +221,10 @@ export class RigidBody {
      * The world-space orientation of this rigid-body.
      */
     public rotation(): Rotation {
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            return buf[this._bufferOffset + 2];
+        }
         this.rawSet.rbRotation(this.handle, this.scratchBuffer);
         return RotationOps.fromBuffer(this.scratchBuffer);
     }
@@ -239,6 +264,12 @@ export class RigidBody {
      */
     public setTranslation(tra: Vector, wakeUp: boolean) {
         this.rawSet.rbSetTranslation(this.handle, tra.x, tra.y, wakeUp);
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset;
+            buf[o] = tra.x;
+            buf[o + 1] = tra.y;
+        }
     }
 
     /**
@@ -251,6 +282,12 @@ export class RigidBody {
         let rawVel = VectorOps.intoRaw(vel);
         this.rawSet.rbSetLinvel(this.handle, rawVel, wakeUp);
         rawVel.free();
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset + 3;
+            buf[o] = vel.x;
+            buf[o + 1] = vel.y;
+        }
     }
 
     /**
@@ -282,6 +319,10 @@ export class RigidBody {
      */
     public setRotation(angle: number, wakeUp: boolean) {
         this.rawSet.rbSetRotation(this.handle, angle, wakeUp);
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            buf[this._bufferOffset + 2] = angle;
+        }
     }
 
     /**
@@ -292,6 +333,10 @@ export class RigidBody {
      */
     public setAngvel(vel: number, wakeUp: boolean) {
         this.rawSet.rbSetAngvel(this.handle, vel, wakeUp);
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            buf[this._bufferOffset + 5] = vel;
+        }
     }
 
     /**
@@ -337,6 +382,13 @@ export class RigidBody {
      */
     public setTransform(tra: Vector, rot: Rotation, wakeUp: boolean) {
         this.rawSet.rbSetTransform(this.handle, tra.x, tra.y, rot, wakeUp);
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset;
+            buf[o] = tra.x;
+            buf[o + 1] = tra.y;
+            buf[o + 2] = rot;
+        }
     }
 
     /**
@@ -359,6 +411,14 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public linvel(target?: Vector): Vector {
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset + 3;
+            target ??= VectorOps.zeros();
+            target.x = buf[o];
+            target.y = buf[o + 1];
+            return target;
+        }
         this.rawSet.rbLinvel(this.handle, this.scratchBuffer);
         return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
@@ -377,6 +437,10 @@ export class RigidBody {
      * The angular velocity of this rigid-body.
      */
     public angvel(): number {
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            return buf[this._bufferOffset + 5];
+        }
         return this.rawSet.rbAngvel(this.handle);
     }
 

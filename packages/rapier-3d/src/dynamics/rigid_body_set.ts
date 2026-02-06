@@ -1,11 +1,12 @@
 import {Coarena} from "../coarena";
 import {ColliderSet} from "../geometry";
 import {VectorOps, RotationOps} from "../math";
-import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {RawBodyTransformBuffer, RawRigidBodySet, RawRigidBodyType} from "../raw";
 import {ImpulseJointSet} from "./impulse_joint_set";
 import {IslandManager} from "./island_manager";
 import {MultibodyJointSet} from "./multibody_joint_set";
 import {RigidBody, RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
+import type {TransformBufferRef} from "./transform_buffer";
 
 /**
  * A set of rigid bodies that can be handled by a physics pipeline.
@@ -16,6 +17,9 @@ import {RigidBody, RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
 export class RigidBodySet {
     raw: RawRigidBodySet;
     private map: Coarena<RigidBody>;
+    /** @internal */
+    _bufferRef: TransformBufferRef = {buffer: null};
+    private _rawTransformBuffer: RawBodyTransformBuffer;
 
     /**
      * Release the WASM memory occupied by this rigid-body set.
@@ -26,6 +30,12 @@ export class RigidBodySet {
         }
         this.raw = undefined!;
 
+        if (!!this._rawTransformBuffer) {
+            this._rawTransformBuffer.free();
+        }
+        this._rawTransformBuffer = undefined!;
+        this._bufferRef = {buffer: null};
+
         if (!!this.map) {
             this.map.clear();
         }
@@ -35,10 +45,11 @@ export class RigidBodySet {
     constructor(raw?: RawRigidBodySet) {
         this.raw = raw || new RawRigidBodySet();
         this.map = new Coarena<RigidBody>();
+        this._rawTransformBuffer = new RawBodyTransformBuffer();
         // deserialize
         if (raw) {
             raw.forEachRigidBodyHandle((handle: RigidBodyHandle) => {
-                this.map.set(handle, new RigidBody(raw, null!, handle));
+                this.map.set(handle, new RigidBody(this.raw, this._bufferRef, null!, handle));
             });
         }
     }
@@ -48,6 +59,20 @@ export class RigidBodySet {
      */
     public finalizeDeserialization(colliderSet: ColliderSet) {
         this.map.forEach((rb) => rb.finalizeDeserialization(colliderSet));
+    }
+
+    /**
+     * Syncs all rigid body transforms into a contiguous buffer in WASM memory.
+     *
+     * After calling this, `RigidBody.translation()`, `.rotation()`, `.linvel()`, and `.angvel()`
+     * will read directly from this buffer without crossing the WASM boundary.
+     *
+     * This is called automatically by `World.step()`.
+     *
+     * @internal
+     */
+    public syncTransformBuffer() {
+        this._bufferRef.buffer = this._rawTransformBuffer.sync(this.raw);
     }
 
     /**
@@ -103,7 +128,10 @@ export class RigidBodySet {
         rawPrincipalInertia.free();
         rawInertiaFrame.free();
 
-        const body = new RigidBody(this.raw, colliderSet, handle);
+        // Invalidate the buffer since WASM memory may have grown
+        this._bufferRef.buffer = null;
+
+        const body = new RigidBody(this.raw, this._bufferRef, colliderSet, handle);
         body.userData = desc.userData;
 
         this.map.set(handle, body);

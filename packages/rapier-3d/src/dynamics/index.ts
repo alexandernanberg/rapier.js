@@ -1,5 +1,6 @@
 export * from "./rigid_body";
 export * from "./rigid_body_set";
+export * from "./transform_buffer";
 export * from "./integration_parameters";
 export * from "./impulse_joint";
 export * from "./impulse_joint_set";

@@ -2,6 +2,8 @@ import {Collider, ColliderSet} from "../geometry";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {SdpMatrix3, SdpMatrix3Ops} from "../math";
 import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {BODY_TRANSFORM_STRIDE, handleToIndex} from "./transform_buffer";
+import type {TransformBufferRef} from "./transform_buffer";
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -49,17 +51,28 @@ export class RigidBody {
     private colliderSet: ColliderSet;
     readonly handle: RigidBodyHandle;
     private scratchBuffer: Float32Array;
+    /** @internal */
+    _bufferRef: TransformBufferRef;
+    /** @internal */
+    _bufferOffset: number;
 
     /**
      * An arbitrary user-defined object associated with this rigid-body.
      */
     public userData?: unknown;
 
-    constructor(rawSet: RawRigidBodySet, colliderSet: ColliderSet, handle: RigidBodyHandle) {
+    constructor(
+        rawSet: RawRigidBodySet,
+        bufferRef: TransformBufferRef,
+        colliderSet: ColliderSet,
+        handle: RigidBodyHandle,
+    ) {
         this.rawSet = rawSet;
+        this._bufferRef = bufferRef;
         this.colliderSet = colliderSet;
         this.handle = handle;
         this.scratchBuffer = new Float32Array(4);
+        this._bufferOffset = handleToIndex(handle) * BODY_TRANSFORM_STRIDE;
     }
 
     /** @internal */
@@ -240,6 +253,15 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public translation(target?: Vector): Vector {
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset;
+            target ??= VectorOps.zeros();
+            target.x = buf[o];
+            target.y = buf[o + 1];
+            target.z = buf[o + 2];
+            return target;
+        }
         this.rawSet.rbTranslation(this.handle, this.scratchBuffer);
         return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
@@ -250,6 +272,16 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public rotation(target?: Rotation): Rotation {
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset + 3;
+            target ??= RotationOps.identity();
+            target.x = buf[o];
+            target.y = buf[o + 1];
+            target.z = buf[o + 2];
+            target.w = buf[o + 3];
+            return target;
+        }
         this.rawSet.rbRotation(this.handle, this.scratchBuffer);
         return RotationOps.fromBuffer(this.scratchBuffer, target);
     }
@@ -291,6 +323,13 @@ export class RigidBody {
      */
     public setTranslation(tra: Vector, wakeUp: boolean) {
         this.rawSet.rbSetTranslation(this.handle, tra.x, tra.y, tra.z, wakeUp);
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset;
+            buf[o] = tra.x;
+            buf[o + 1] = tra.y;
+            buf[o + 2] = tra.z;
+        }
     }
 
     /**
@@ -303,6 +342,13 @@ export class RigidBody {
         let rawVel = VectorOps.intoRaw(vel);
         this.rawSet.rbSetLinvel(this.handle, rawVel, wakeUp);
         rawVel.free();
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset + 7;
+            buf[o] = vel.x;
+            buf[o + 1] = vel.y;
+            buf[o + 2] = vel.z;
+        }
     }
 
     /**
@@ -336,6 +382,14 @@ export class RigidBody {
      */
     public setRotation(rot: Rotation, wakeUp: boolean) {
         this.rawSet.rbSetRotation(this.handle, rot.x, rot.y, rot.z, rot.w, wakeUp);
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset + 3;
+            buf[o] = rot.x;
+            buf[o + 1] = rot.y;
+            buf[o + 2] = rot.z;
+            buf[o + 3] = rot.w;
+        }
     }
 
     /**
@@ -348,6 +402,13 @@ export class RigidBody {
         let rawVel = VectorOps.intoRaw(vel);
         this.rawSet.rbSetAngvel(this.handle, rawVel, wakeUp);
         rawVel.free();
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset + 10;
+            buf[o] = vel.x;
+            buf[o + 1] = vel.y;
+            buf[o + 2] = vel.z;
+        }
     }
 
     /**
@@ -403,6 +464,17 @@ export class RigidBody {
             rot.w,
             wakeUp,
         );
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset;
+            buf[o] = tra.x;
+            buf[o + 1] = tra.y;
+            buf[o + 2] = tra.z;
+            buf[o + 3] = rot.x;
+            buf[o + 4] = rot.y;
+            buf[o + 5] = rot.z;
+            buf[o + 6] = rot.w;
+        }
     }
 
     /**
@@ -434,6 +506,15 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public linvel(target?: Vector): Vector {
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset + 7;
+            target ??= VectorOps.zeros();
+            target.x = buf[o];
+            target.y = buf[o + 1];
+            target.z = buf[o + 2];
+            return target;
+        }
         this.rawSet.rbLinvel(this.handle, this.scratchBuffer);
         return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
@@ -454,6 +535,15 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public angvel(target?: Vector): Vector {
+        const buf = this._bufferRef.buffer;
+        if (buf) {
+            const o = this._bufferOffset + 10;
+            target ??= VectorOps.zeros();
+            target.x = buf[o];
+            target.y = buf[o + 1];
+            target.z = buf[o + 2];
+            return target;
+        }
         this.rawSet.rbAngvel(this.handle, this.scratchBuffer);
         return VectorOps.fromBuffer(this.scratchBuffer, target);
     }
