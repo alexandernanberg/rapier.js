@@ -88,7 +88,7 @@ impl RawDynamicRayCastVehicleController {
 
             let query_pipeline = broad_phase.0.as_query_pipeline_mut(
                 narrow_phase.0.query_dispatcher(),
-                &mut bodies.0,
+                &mut bodies.bodies,
                 &mut colliders.0,
                 query_filter,
             );

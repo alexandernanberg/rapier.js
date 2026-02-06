@@ -1,7 +1,7 @@
 import {Coarena} from "../coarena";
 import {ColliderSet} from "../geometry";
 import {VectorOps, RotationOps} from "../math";
-import {RawBodyTransformBuffer, RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {RawRigidBodySet, RawRigidBodyType} from "../raw";
 import {ImpulseJointSet} from "./impulse_joint_set";
 import {IslandManager} from "./island_manager";
 import {MultibodyJointSet} from "./multibody_joint_set";
@@ -19,7 +19,6 @@ export class RigidBodySet {
     private map: Coarena<RigidBody>;
     /** @internal */
     _bufferRef: TransformBufferRef = {buffer: null};
-    private _rawTransformBuffer: RawBodyTransformBuffer;
 
     /**
      * Release the WASM memory occupied by this rigid-body set.
@@ -29,11 +28,6 @@ export class RigidBodySet {
             this.raw.free();
         }
         this.raw = undefined!;
-
-        if (!!this._rawTransformBuffer) {
-            this._rawTransformBuffer.free();
-        }
-        this._rawTransformBuffer = undefined!;
         this._bufferRef = {buffer: null};
 
         if (!!this.map) {
@@ -45,7 +39,6 @@ export class RigidBodySet {
     constructor(raw?: RawRigidBodySet) {
         this.raw = raw || new RawRigidBodySet();
         this.map = new Coarena<RigidBody>();
-        this._rawTransformBuffer = new RawBodyTransformBuffer();
         // deserialize
         if (raw) {
             raw.forEachRigidBodyHandle((handle: RigidBodyHandle) => {
@@ -62,17 +55,18 @@ export class RigidBodySet {
     }
 
     /**
-     * Syncs all rigid body transforms into a contiguous buffer in WASM memory.
+     * Refreshes the Float32Array view into the WASM transform buffer.
      *
-     * After calling this, `RigidBody.translation()`, `.rotation()`, `.linvel()`, and `.angvel()`
-     * will read directly from this buffer without crossing the WASM boundary.
+     * The actual data sync happens inside the Rust step() for cache locality.
+     * This method just updates the JS-side Float32Array view (which may be
+     * invalidated if WASM memory grew).
      *
-     * This is called automatically by `World.step()`.
+     * Called automatically by `World.step()`.
      *
      * @internal
      */
     public syncTransformBuffer() {
-        this._bufferRef.buffer = this._rawTransformBuffer.sync(this.raw);
+        this._bufferRef.buffer = this.raw.transformBufferView();
     }
 
     /**

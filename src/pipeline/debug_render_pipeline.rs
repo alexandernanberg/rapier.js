@@ -64,7 +64,7 @@ impl RawDebugRenderPipeline {
                     exclude_rigid_body: None,
                     predicate,
                 },
-                bodies: &bodies.0,
+                bodies: &bodies.bodies,
                 colliders: &colliders.0,
                 vertices: &mut self.vertices,
                 colors: &mut self.colors,
@@ -72,7 +72,7 @@ impl RawDebugRenderPipeline {
 
             self.raw.render(
                 &mut backend,
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 &impulse_joints.0,
                 &multibody_joints.0,
