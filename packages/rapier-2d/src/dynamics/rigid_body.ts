@@ -1122,7 +1122,7 @@ export class RigidBodyDesc {
      * the created rigid-body.
      */
     public lockTranslations(): RigidBodyDesc {
-        return this.restrictTranslations(false, false);
+        return this.enabledTranslations(false, false);
     }
 
     /**
