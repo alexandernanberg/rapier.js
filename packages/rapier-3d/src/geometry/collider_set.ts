@@ -1,5 +1,5 @@
 import {Coarena} from "../coarena";
-import {ImpulseJointHandle, IslandManager, RigidBodyHandle} from "../dynamics";
+import {IslandManager, RigidBodyHandle} from "../dynamics";
 import {RigidBodySet} from "../dynamics";
 import {RotationOps, VectorOps} from "../math";
 import {RawColliderSet} from "../raw";
@@ -146,7 +146,7 @@ export class ColliderSet {
      * Internal function, do not call directly.
      * @param handle
      */
-    public unmap(handle: ImpulseJointHandle) {
+    public unmap(handle: ColliderHandle) {
         this.map.delete(handle);
     }
 
