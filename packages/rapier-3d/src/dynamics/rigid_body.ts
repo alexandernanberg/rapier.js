@@ -2,8 +2,24 @@ import {Collider, ColliderSet} from "../geometry";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {SdpMatrix3, SdpMatrix3Ops} from "../math";
 import {RawRigidBodySet, RawRigidBodyType} from "../raw";
-import {BODY_TRANSFORM_STRIDE, handleToIndex} from "./transform_buffer";
-import type {TransformBufferRef} from "./transform_buffer";
+import {handleToIndex} from "../coarena";
+
+/**
+ * Number of f32 values per body in the transform buffer.
+ * Layout: translation(3) + rotation(4) + linvel(3) + angvel(3) = 13
+ */
+export const BODY_TRANSFORM_STRIDE = 13;
+
+/**
+ * @internal Shared container for the transform buffer, passed by reference
+ * to RigidBody instances so they can read updated data without circular imports.
+ */
+export interface TransformBufferRef {
+    buffer: Float32Array | null;
+}
+
+/** Shared scratch buffer for WASM fallback reads (single-threaded, safe to share). */
+const _scratch = new Float32Array(4);
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -50,7 +66,6 @@ export class RigidBody {
     private rawSet: RawRigidBodySet; // The RigidBody won't need to free this.
     private colliderSet: ColliderSet;
     readonly handle: RigidBodyHandle;
-    private scratchBuffer: Float32Array;
     /** @internal */
     _bufferRef: TransformBufferRef;
     /** @internal */
@@ -71,7 +86,6 @@ export class RigidBody {
         this._bufferRef = bufferRef;
         this.colliderSet = colliderSet;
         this.handle = handle;
-        this.scratchBuffer = new Float32Array(4);
         this._bufferOffset = handleToIndex(handle) * BODY_TRANSFORM_STRIDE;
     }
 
@@ -262,8 +276,8 @@ export class RigidBody {
             target.z = buf[o + 2];
             return target;
         }
-        this.rawSet.rbTranslation(this.handle, this.scratchBuffer);
-        return VectorOps.fromBuffer(this.scratchBuffer, target);
+        this.rawSet.rbTranslation(this.handle, _scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -282,8 +296,8 @@ export class RigidBody {
             target.w = buf[o + 3];
             return target;
         }
-        this.rawSet.rbRotation(this.handle, this.scratchBuffer);
-        return RotationOps.fromBuffer(this.scratchBuffer, target);
+        this.rawSet.rbRotation(this.handle, _scratch);
+        return RotationOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -296,8 +310,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public nextTranslation(target?: Vector): Vector {
-        this.rawSet.rbNextTranslation(this.handle, this.scratchBuffer);
-        return VectorOps.fromBuffer(this.scratchBuffer, target);
+        this.rawSet.rbNextTranslation(this.handle, _scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -310,8 +324,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public nextRotation(target?: Rotation): Rotation {
-        this.rawSet.rbNextRotation(this.handle, this.scratchBuffer);
-        return RotationOps.fromBuffer(this.scratchBuffer, target);
+        this.rawSet.rbNextRotation(this.handle, _scratch);
+        return RotationOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -515,8 +529,8 @@ export class RigidBody {
             target.z = buf[o + 2];
             return target;
         }
-        this.rawSet.rbLinvel(this.handle, this.scratchBuffer);
-        return VectorOps.fromBuffer(this.scratchBuffer, target);
+        this.rawSet.rbLinvel(this.handle, _scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -544,8 +558,8 @@ export class RigidBody {
             target.z = buf[o + 2];
             return target;
         }
-        this.rawSet.rbAngvel(this.handle, this.scratchBuffer);
-        return VectorOps.fromBuffer(this.scratchBuffer, target);
+        this.rawSet.rbAngvel(this.handle, _scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -577,8 +591,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public localCom(target?: Vector): Vector {
-        this.rawSet.rbLocalCom(this.handle, this.scratchBuffer);
-        return VectorOps.fromBuffer(this.scratchBuffer, target);
+        this.rawSet.rbLocalCom(this.handle, _scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -587,8 +601,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public worldCom(target?: Vector): Vector {
-        this.rawSet.rbWorldCom(this.handle, this.scratchBuffer);
-        return VectorOps.fromBuffer(this.scratchBuffer, target);
+        this.rawSet.rbWorldCom(this.handle, _scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**

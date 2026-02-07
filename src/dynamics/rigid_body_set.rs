@@ -1,4 +1,3 @@
-use crate::dynamics::transform_buffer::BODY_STRIDE;
 use crate::dynamics::{RawImpulseJointSet, RawIslandManager, RawMultibodyJointSet};
 use crate::geometry::RawColliderSet;
 use crate::math::{RawRotation, RawVector};
@@ -7,6 +6,12 @@ use js_sys::Float32Array;
 use rapier::dynamics::{MassProperties, RigidBody, RigidBodyBuilder, RigidBodySet, RigidBodyType};
 use rapier::math::Pose;
 use wasm_bindgen::prelude::*;
+
+/// Number of f32 values per body in the transform buffer.
+#[cfg(feature = "dim3")]
+const BODY_STRIDE: usize = 13; // translation(3) + rotation(4) + linvel(3) + angvel(3)
+#[cfg(feature = "dim2")]
+const BODY_STRIDE: usize = 6; // translation(2) + rotation(1) + linvel(2) + angvel(1)
 
 #[wasm_bindgen]
 pub enum RawRigidBodyType {
