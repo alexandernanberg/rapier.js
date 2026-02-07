@@ -16,7 +16,10 @@
     "author": "Sébastien Crozet <developer@crozet.re>",
     "repository": {
         "type": "git",
-        "url": "https://github.com/dimforge/rapier.js"
+        "url": "https://github.com/alexandernanberg/rapier.js"
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "files": [
         "dist"
