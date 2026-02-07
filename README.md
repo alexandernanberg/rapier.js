@@ -38,30 +38,30 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 
 ### Benchmarks
 
-3D, 500 bodies (Ubuntu, Node v24.13.0):
+3D, 3000 bodies, mean times (Apple M1 Max, Node v22.21.1):
 
-| Benchmark                        | Mean    | Min     | Max     |
-| -------------------------------- | ------- | ------- | ------- |
-| world.step() [500 bodies]        | 851.7µs | 38.7µs  | 1.594ms |
-| create 1000 bodies+colliders     | 5.480ms | 4.565ms | 9.371ms |
-| spawn+despawn 100 bodies         | 780.1µs | 484.8µs | 1.369ms |
-| castRay (500 bodies)             | 3.8µs   | 2.5µs   | 24.0µs  |
-| castRayAndGetNormal              | 4.1µs   | 3.0µs   | 23.6µs  |
-| intersectionsWithRay             | 6.6µs   | 3.7µs   | 186.1µs |
-| projectPoint                     | 6.6µs   | 3.1µs   | 255.8µs |
-| intersectionsWithPoint           | 2.9µs   | 2.3µs   | 34.7µs  |
-| body.translation() [alloc]       | 19.5µs  | 6.0µs   | 611.9µs |
-| body.translation() [reuse]       | 11.0µs  | 5.2µs   | 40.4µs  |
-| body.rotation() [alloc]          | 12.8µs  | 5.4µs   | 218.1µs |
-| body.rotation() [reuse]          | 12.9µs  | 5.5µs   | 70.3µs  |
-| body.linvel() [alloc]            | 16.7µs  | 5.7µs   | 247.9µs |
-| body.linvel() [reuse]            | 10.9µs  | 5.0µs   | 46.6µs  |
-| collider.translation() [alloc]   | 62.3µs  | 54.2µs  | 320.8µs |
-| collider.translation() [reuse]   | 59.4µs  | 53.7µs  | 223.7µs |
-| body.setTransform()              | 24.7µs  | 23.0µs  | 116.2µs |
-| body.setNextKinematicTransform() | 23.3µs  | 22.5µs  | 39.4µs  |
+| Benchmark                        | Fork     | Official | Speedup |
+| -------------------------------- | -------- | -------- | ------- |
+| world.step()                     | 1.188ms  | 1.150ms  | —       |
+| create 1000 bodies+colliders     | 3.215ms  | 3.401ms  | 1.1x   |
+| spawn+despawn 100 bodies         | 362.7µs  | 378.5µs  | —       |
+| castRay x100                     | 69.5µs   | 122.9µs  | 1.8x   |
+| castRayAndGetNormal x100         | 97.9µs   | 152.1µs  | 1.6x   |
+| intersectionsWithRay x100        | 112.1µs  | 172.9µs  | 1.5x   |
+| projectPoint x100                | 122.0µs  | 168.9µs  | 1.4x   |
+| intersectionsWithPoint x100      | 31.2µs   | 29.0µs   | —       |
+| body.translation()               | 6.3µs    | 209.9µs  | 33x    |
+| body.translation() [reuse]       | 5.6µs    | n/a      | 37x    |
+| body.rotation()                  | 5.2µs    | 223.0µs  | 43x    |
+| body.rotation() [reuse]          | 5.2µs    | n/a      | 43x    |
+| body.linvel()                    | 5.5µs    | 207.4µs  | 38x    |
+| body.linvel() [reuse]            | 4.6µs    | n/a      | 45x    |
+| collider.translation()           | 60.9µs   | 208.8µs  | 3.4x   |
+| collider.translation() [reuse]   | 60.8µs   | n/a      | 3.4x   |
+| body.setTransform()              | 22.2µs   | 31.3µs   | 1.4x   |
+| body.setNextKinematicTransform() | 20.7µs   | 33.2µs   | 1.6x   |
 
-Run `pnpm bench` to benchmark on your machine.
+Official = `@dimforge/rapier3d-compat` v0.19.3. Reuse = zero-allocation target parameter (fork only), speedup compared against official alloc. Getter times are for 1000 bodies. Run `pnpm bench` / `pnpm bench --official` to benchmark on your machine.
 
 ### What Makes It Faster
 
