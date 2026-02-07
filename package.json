@@ -22,9 +22,14 @@
         "bench": "pnpm --filter rapier-benchmarks bench",
         "bench:2d": "pnpm --filter rapier-benchmarks bench:2d",
         "bench:3d": "pnpm --filter rapier-benchmarks bench:3d",
-        "bench:quick": "pnpm --filter rapier-benchmarks bench:quick"
+        "bench:quick": "pnpm --filter rapier-benchmarks bench:quick",
+        "changeset": "changeset",
+        "version-packages": "changeset version",
+        "release": "pnpm build && changeset publish"
     },
     "devDependencies": {
+        "@changesets/changelog-github": "^0.5.2",
+        "@changesets/cli": "^2.29.8",
         "oxfmt": "0.27.0",
         "oxlint": "1.42.0",
         "typedoc": "0.28.16",

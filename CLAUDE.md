@@ -207,6 +207,16 @@ const body = world.createRigidBody(bodyDesc);
 | WASM init logic      | `packages/rapier-{2d,3d}/src/init.ts`, `init-compat.ts`       |
 | Math utilities       | `packages/rapier-{2d,3d}/src/math.ts`                         |
 
+## Pre-commit Checks
+
+Always run these before committing:
+
+```bash
+pnpm fmt                # Format TypeScript/JS with oxfmt
+pnpm lint               # Lint with oxlint
+cargo fmt               # Format Rust code
+```
+
 ## Testing
 
 Testbeds serve as integration tests:

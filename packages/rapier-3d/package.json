@@ -16,7 +16,7 @@
     "author": "Sébastien Crozet <developer@crozet.re>",
     "repository": {
         "type": "git",
-        "url": "https://github.com/dimforge/rapier.js"
+        "url": "https://github.com/alexandernanberg/rapier.js"
     },
     "files": [
         "dist"
@@ -39,6 +39,10 @@
             "types": "./dist/compat-simd.d.mts",
             "default": "./dist/compat-simd.mjs"
         }
+    },
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
     },
     "scripts": {
         "build": "tsdown",
