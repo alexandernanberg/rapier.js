@@ -30,53 +30,59 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 
 - Rapier 0.32 with glam math library
 - pnpm monorepo with tsdown bundler
+- Contiguous transform buffer (body reads with zero WASM crossings)
 - Zero-allocation getters (optional target parameter)
 - Batch transform setters (`setTransform`, `setNextKinematicTransform`)
 - Built-in benchmarks
 - Simplified package variants (4 per dimension)
 
-### Benchmarks vs Official
+### Benchmarks
 
-Comparison against `@dimforge/rapier3d-compat@0.19.3` (3D, 1000 bodies):
+3D, 500 bodies (Ubuntu, Node v24.13.0):
 
-| Benchmark          | Fork   | Official | Improvement |
-| ------------------ | ------ | -------- | ----------- |
-| world.step()       | 1.37ms | 1.40ms   | ~same       |
-| create 1000 bodies | 3.8ms  | 4.1ms    | **7%**      |
-| castRay            | 2.6µs  | 4.0µs    | **35%**     |
-| body.translation() | 73µs   | 210µs    | **2.9x**    |
-| body.rotation()    | 70µs   | 223µs    | **3.2x**    |
+| Benchmark                        | Mean    | Min     | Max     |
+| -------------------------------- | ------- | ------- | ------- |
+| world.step() [500 bodies]        | 851.7µs | 38.7µs  | 1.594ms |
+| create 1000 bodies+colliders     | 5.480ms | 4.565ms | 9.371ms |
+| spawn+despawn 100 bodies         | 780.1µs | 484.8µs | 1.369ms |
+| castRay (500 bodies)             | 3.8µs   | 2.5µs   | 24.0µs  |
+| castRayAndGetNormal              | 4.1µs   | 3.0µs   | 23.6µs  |
+| intersectionsWithRay             | 6.6µs   | 3.7µs   | 186.1µs |
+| projectPoint                     | 6.6µs   | 3.1µs   | 255.8µs |
+| intersectionsWithPoint           | 2.9µs   | 2.3µs   | 34.7µs  |
+| body.translation() [alloc]       | 19.5µs  | 6.0µs   | 611.9µs |
+| body.translation() [reuse]       | 11.0µs  | 5.2µs   | 40.4µs  |
+| body.rotation() [alloc]          | 12.8µs  | 5.4µs   | 218.1µs |
+| body.rotation() [reuse]          | 12.9µs  | 5.5µs   | 70.3µs  |
+| body.linvel() [alloc]            | 16.7µs  | 5.7µs   | 247.9µs |
+| body.linvel() [reuse]            | 10.9µs  | 5.0µs   | 46.6µs  |
+| collider.translation() [alloc]   | 62.3µs  | 54.2µs  | 320.8µs |
+| collider.translation() [reuse]   | 59.4µs  | 53.7µs  | 223.7µs |
+| body.setTransform()              | 24.7µs  | 23.0µs  | 116.2µs |
+| body.setNextKinematicTransform() | 23.3µs  | 22.5µs  | 39.4µs  |
+
+Run `pnpm bench` to benchmark on your machine.
 
 ### What Makes It Faster
 
-**Zero-allocation getters (3x faster)**
+**Contiguous transform buffer (zero WASM crossings for body reads)**
 
-The official package allocates a new object every call:
-
-```typescript
-// Official: allocates {x, y, z} every call
-for (const body of bodies) {
-    const pos = body.translation(); // new object
-}
-```
-
-This fork accepts an optional target to reuse:
+Body transforms are synced into a contiguous `Float32Array` backed by WASM linear memory during `world.step()`. Reading `translation()`, `rotation()`, `linvel()`, and `angvel()` reads directly from this buffer with no WASM boundary crossing.
 
 ```typescript
-// Fork: zero allocations
-const pos = {x: 0, y: 0, z: 0};
-for (const body of bodies) {
-    body.translation(pos); // writes into existing object
-}
+// Reads from shared Float32Array — no WASM call
+const pos = body.translation();
+
+// Zero-allocation variant (reuses existing object)
+const _pos = {x: 0, y: 0, z: 0};
+body.translation(_pos);
 ```
 
 Supported: `translation()`, `rotation()`, `linvel()`, `angvel()`, `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`
 
-**Optimized ray casting (35% faster)**
+**Optimized ray casting**
 
 Ray origin/direction passed as primitives directly to WASM, avoiding temporary `RawVector` allocations.
-
-Run `pnpm bench --official` to compare on your machine.
 
 ---
 
