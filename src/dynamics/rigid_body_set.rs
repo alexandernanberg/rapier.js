@@ -2,9 +2,16 @@ use crate::dynamics::{RawImpulseJointSet, RawIslandManager, RawMultibodyJointSet
 use crate::geometry::RawColliderSet;
 use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
+use js_sys::Float32Array;
 use rapier::dynamics::{MassProperties, RigidBody, RigidBodyBuilder, RigidBodySet, RigidBodyType};
 use rapier::math::Pose;
 use wasm_bindgen::prelude::*;
+
+/// Number of f32 values per body in the transform buffer.
+#[cfg(feature = "dim3")]
+const BODY_STRIDE: usize = 13; // translation(3) + rotation(4) + linvel(3) + angvel(3)
+#[cfg(feature = "dim2")]
+const BODY_STRIDE: usize = 6; // translation(2) + rotation(1) + linvel(2) + angvel(1)
 
 #[wasm_bindgen]
 pub enum RawRigidBodyType {
@@ -37,11 +44,14 @@ impl Into<RawRigidBodyType> for RigidBodyType {
 }
 
 #[wasm_bindgen]
-pub struct RawRigidBodySet(pub(crate) RigidBodySet);
+pub struct RawRigidBodySet {
+    pub(crate) bodies: RigidBodySet,
+    pub(crate) transform_data: Vec<f32>,
+}
 
 impl RawRigidBodySet {
     pub(crate) fn map<T>(&self, handle: FlatHandle, f: impl FnOnce(&RigidBody) -> T) -> T {
-        let body = self.0.get(utils::body_handle(handle)).expect(
+        let body = self.bodies.get(utils::body_handle(handle)).expect(
             "Invalid RigidBody reference. It may have been removed from the physics World.",
         );
         f(body)
@@ -52,7 +62,7 @@ impl RawRigidBodySet {
         handle: FlatHandle,
         f: impl FnOnce(&mut RigidBody) -> T,
     ) -> T {
-        let body = self.0.get_mut(utils::body_handle(handle)).expect(
+        let body = self.bodies.get_mut(utils::body_handle(handle)).expect(
             "Invalid RigidBody reference. It may have been removed from the physics World.",
         );
         f(body)
@@ -63,7 +73,81 @@ impl RawRigidBodySet {
 impl RawRigidBodySet {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        RawRigidBodySet(RigidBodySet::new())
+        RawRigidBodySet {
+            bodies: RigidBodySet::new(),
+            transform_data: Vec::new(),
+        }
+    }
+
+    /// Syncs all rigid body transforms into the contiguous buffer.
+    pub fn syncTransformBuffer(&mut self) {
+        let mut max_index: usize = 0;
+        for (handle, _) in self.bodies.iter() {
+            let (index, _) = handle.0.into_raw_parts();
+            max_index = max_index.max(index as usize);
+        }
+
+        let required_len = if self.bodies.len() > 0 {
+            (max_index + 1) * BODY_STRIDE
+        } else {
+            0
+        };
+
+        if self.transform_data.len() < required_len {
+            self.transform_data.resize(required_len, 0.0);
+        }
+
+        for (handle, body) in self.bodies.iter() {
+            let (index, _) = handle.0.into_raw_parts();
+            let offset = index as usize * BODY_STRIDE;
+
+            let pos = body.position();
+            let lv = body.linvel();
+
+            #[cfg(feature = "dim3")]
+            {
+                let t = pos.translation;
+                let r = pos.rotation;
+                let av = body.angvel();
+                self.transform_data[offset] = t.x;
+                self.transform_data[offset + 1] = t.y;
+                self.transform_data[offset + 2] = t.z;
+                self.transform_data[offset + 3] = r.x;
+                self.transform_data[offset + 4] = r.y;
+                self.transform_data[offset + 5] = r.z;
+                self.transform_data[offset + 6] = r.w;
+                self.transform_data[offset + 7] = lv.x;
+                self.transform_data[offset + 8] = lv.y;
+                self.transform_data[offset + 9] = lv.z;
+                self.transform_data[offset + 10] = av.x;
+                self.transform_data[offset + 11] = av.y;
+                self.transform_data[offset + 12] = av.z;
+            }
+
+            #[cfg(feature = "dim2")]
+            {
+                let t = pos.translation;
+                let r = pos.rotation.angle();
+                let av = body.angvel();
+                self.transform_data[offset] = t.x;
+                self.transform_data[offset + 1] = t.y;
+                self.transform_data[offset + 2] = r;
+                self.transform_data[offset + 3] = lv.x;
+                self.transform_data[offset + 4] = lv.y;
+                self.transform_data[offset + 5] = av;
+            }
+        }
+    }
+
+    /// Returns a Float32Array view directly into WASM linear memory.
+    /// Only valid until the next WASM memory growth.
+    pub fn transformBufferView(&self) -> Float32Array {
+        unsafe { Float32Array::view(&self.transform_data) }
+    }
+
+    /// Returns the number of floats per body in the buffer.
+    pub fn transformBufferStride(&self) -> usize {
+        BODY_STRIDE
     }
 
     #[cfg(feature = "dim3")]
@@ -131,7 +215,7 @@ impl RawRigidBodySet {
             rigid_body.additional_mass_properties(props)
         };
 
-        utils::flat_handle(self.0.insert(rigid_body.build()).0)
+        utils::flat_handle(self.bodies.insert(rigid_body.build()).0)
     }
 
     #[cfg(feature = "dim2")]
@@ -188,7 +272,7 @@ impl RawRigidBodySet {
             rigid_body = rigid_body.lock_rotations();
         }
 
-        utils::flat_handle(self.0.insert(rigid_body.build()).0)
+        utils::flat_handle(self.bodies.insert(rigid_body.build()).0)
     }
 
     pub fn remove(
@@ -200,7 +284,7 @@ impl RawRigidBodySet {
         articulations: &mut RawMultibodyJointSet,
     ) {
         let handle = utils::body_handle(handle);
-        self.0.remove(
+        self.bodies.remove(
             handle,
             &mut islands.0,
             &mut colliders.0,
@@ -212,12 +296,12 @@ impl RawRigidBodySet {
 
     /// The number of rigid-bodies on this set.
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.bodies.len()
     }
 
     /// Checks if a rigid-body with the given integer handle exists.
     pub fn contains(&self, handle: FlatHandle) -> bool {
-        self.0.get(utils::body_handle(handle)).is_some()
+        self.bodies.get(utils::body_handle(handle)).is_some()
     }
 
     /// Applies the given JavaScript function to the integer handle of each rigid-body managed by this set.
@@ -226,13 +310,13 @@ impl RawRigidBodySet {
     /// - `f(handle)`: the function to apply to the integer handle of each rigid-body managed by this set. Called as `f(collider)`.
     pub fn forEachRigidBodyHandle(&self, f: &js_sys::Function) {
         let this = JsValue::null();
-        for (handle, _) in self.0.iter() {
+        for (handle, _) in self.bodies.iter() {
             let _ = f.call1(&this, &JsValue::from(utils::flat_handle(handle.0)));
         }
     }
 
     pub fn propagateModifiedBodyPositionsToColliders(&mut self, colliders: &mut RawColliderSet) {
-        self.0
+        self.bodies
             .propagate_modified_body_positions_to_colliders(&mut colliders.0);
     }
 }

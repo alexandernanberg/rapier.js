@@ -115,7 +115,7 @@ impl RawPhysicsPipeline {
             &mut islands.0,
             &mut broadPhase.0,
             &mut narrowPhase.0,
-            &mut bodies.0,
+            &mut bodies.bodies,
             &mut colliders.0,
             &mut joints.0,
             &mut articulations.0,
@@ -123,6 +123,8 @@ impl RawPhysicsPipeline {
             &(),
             &(),
         );
+
+        bodies.syncTransformBuffer();
     }
 
     pub fn stepWithEvents(
@@ -158,7 +160,7 @@ impl RawPhysicsPipeline {
             &mut islands.0,
             &mut broadPhase.0,
             &mut narrowPhase.0,
-            &mut bodies.0,
+            &mut bodies.bodies,
             &mut colliders.0,
             &mut joints.0,
             &mut articulations.0,
@@ -166,5 +168,7 @@ impl RawPhysicsPipeline {
             &hooks,
             &eventQueue.collector,
         );
+
+        bodies.syncTransformBuffer();
     }
 }

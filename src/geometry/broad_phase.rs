@@ -54,7 +54,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -102,7 +102,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -151,7 +151,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -196,7 +196,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -253,7 +253,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -313,7 +313,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -352,7 +352,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -394,7 +394,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -433,7 +433,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -474,7 +474,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -525,7 +525,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -575,7 +575,7 @@ impl RawBroadPhase {
 
             let query_pipeline = self.0.as_query_pipeline(
                 narrow_phase.0.query_dispatcher(),
-                &bodies.0,
+                &bodies.bodies,
                 &colliders.0,
                 query_filter,
             );
@@ -616,7 +616,7 @@ impl RawBroadPhase {
 
         let query_pipeline = self.0.as_query_pipeline(
             narrow_phase.0.query_dispatcher(),
-            &bodies.0,
+            &bodies.bodies,
             &colliders.0,
             Default::default(),
         );

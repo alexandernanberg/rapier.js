@@ -126,7 +126,7 @@ impl RawColliderSet {
         if hasParent {
             Some(utils::flat_handle(
                 self.0
-                    .insert_with_parent(collider, utils::body_handle(parent), &mut bodies.0)
+                    .insert_with_parent(collider, utils::body_handle(parent), &mut bodies.bodies)
                     .0,
             ))
         } else {
@@ -273,7 +273,8 @@ impl RawColliderSet {
         wakeUp: bool,
     ) {
         let handle = utils::collider_handle(handle);
-        self.0.remove(handle, &mut islands.0, &mut bodies.0, wakeUp);
+        self.0
+            .remove(handle, &mut islands.0, &mut bodies.bodies, wakeUp);
     }
 
     /// Checks if a collider with the given integer handle exists.

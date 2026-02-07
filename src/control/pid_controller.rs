@@ -144,7 +144,7 @@ impl RawPidController {
         target_linvel: &RawVector,
     ) {
         let rb_handle = utils::body_handle(rb_handle);
-        let Some(rb) = bodies.0.get_mut(rb_handle) else {
+        let Some(rb) = bodies.bodies.get_mut(rb_handle) else {
             return;
         };
 
@@ -167,7 +167,7 @@ impl RawPidController {
         target_angvel: f32,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
-        let Some(rb) = bodies.0.get_mut(rb_handle) else {
+        let Some(rb) = bodies.bodies.get_mut(rb_handle) else {
             return;
         };
 
@@ -190,7 +190,7 @@ impl RawPidController {
         target_angvel: &RawVector,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
-        let Some(rb) = bodies.0.get_mut(rb_handle) else {
+        let Some(rb) = bodies.bodies.get_mut(rb_handle) else {
             return;
         };
 
@@ -212,7 +212,7 @@ impl RawPidController {
         target_linvel: &RawVector,
     ) -> RawVector {
         let rb_handle = crate::utils::body_handle(rb_handle);
-        let Some(rb) = bodies.0.get(rb_handle) else {
+        let Some(rb) = bodies.bodies.get(rb_handle) else {
             return RawVector(Vector::ZERO);
         };
 
@@ -231,7 +231,7 @@ impl RawPidController {
         target_angvel: f32,
     ) -> f32 {
         let rb_handle = crate::utils::body_handle(rb_handle);
-        let Some(rb) = bodies.0.get(rb_handle) else {
+        let Some(rb) = bodies.bodies.get(rb_handle) else {
             return 0.0;
         };
 
@@ -253,7 +253,7 @@ impl RawPidController {
         target_angvel: &RawVector,
     ) -> RawVector {
         let rb_handle = crate::utils::body_handle(rb_handle);
-        let Some(rb) = bodies.0.get(rb_handle) else {
+        let Some(rb) = bodies.bodies.get(rb_handle) else {
             return RawVector(Vector::ZERO);
         };
 

@@ -1,3 +1,4 @@
+import type {TransformBufferRef} from "./rigid_body";
 import {Coarena} from "../coarena";
 import {ColliderSet} from "../geometry";
 import {VectorOps, RotationOps} from "../math";
@@ -16,6 +17,8 @@ import {RigidBody, RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
 export class RigidBodySet {
     raw: RawRigidBodySet;
     private map: Coarena<RigidBody>;
+    /** @internal */
+    _bufferRef: TransformBufferRef = {buffer: null};
 
     /**
      * Release the WASM memory occupied by this rigid-body set.
@@ -25,6 +28,7 @@ export class RigidBodySet {
             this.raw.free();
         }
         this.raw = undefined!;
+        this._bufferRef = {buffer: null};
 
         if (!!this.map) {
             this.map.clear();
@@ -38,7 +42,7 @@ export class RigidBodySet {
         // deserialize
         if (raw) {
             raw.forEachRigidBodyHandle((handle: RigidBodyHandle) => {
-                this.map.set(handle, new RigidBody(raw, null!, handle));
+                this.map.set(handle, new RigidBody(this.raw, this._bufferRef, null!, handle));
             });
         }
     }
@@ -48,6 +52,21 @@ export class RigidBodySet {
      */
     public finalizeDeserialization(colliderSet: ColliderSet) {
         this.map.forEach((rb) => rb.finalizeDeserialization(colliderSet));
+    }
+
+    /**
+     * Refreshes the Float32Array view into the WASM transform buffer.
+     *
+     * The actual data sync happens inside the Rust step() for cache locality.
+     * This method just updates the JS-side Float32Array view (which may be
+     * invalidated if WASM memory grew).
+     *
+     * Called automatically by `World.step()`.
+     *
+     * @internal
+     */
+    public syncTransformBuffer() {
+        this._bufferRef.buffer = this.raw.transformBufferView();
     }
 
     /**
@@ -103,7 +122,10 @@ export class RigidBodySet {
         rawPrincipalInertia.free();
         rawInertiaFrame.free();
 
-        const body = new RigidBody(this.raw, colliderSet, handle);
+        // Invalidate the buffer since WASM memory may have grown
+        this._bufferRef.buffer = null;
+
+        const body = new RigidBody(this.raw, this._bufferRef, colliderSet, handle);
         body.userData = desc.userData;
 
         this.map.set(handle, body);

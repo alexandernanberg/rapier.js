@@ -173,14 +173,14 @@ impl RawKinematicCharacterController {
                 let character_mass = character_mass
                     .or_else(|| {
                         collider_parent
-                            .and_then(|h| bodies.0.get(h))
+                            .and_then(|h| bodies.bodies.get(h))
                             .map(|b| b.mass())
                     })
                     .unwrap_or(0.0);
 
                 let mut query_pipeline = broad_phase.0.as_query_pipeline_mut(
                     narrow_phase.0.query_dispatcher(),
-                    &mut bodies.0,
+                    &mut bodies.bodies,
                     &mut colliders.0,
                     query_filter,
                 );

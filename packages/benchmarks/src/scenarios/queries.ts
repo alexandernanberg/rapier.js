@@ -2,6 +2,25 @@ import type {BenchResult} from "../runner.js";
 import {bench} from "../runner.js";
 import {createSparseWorld} from "../worlds/sparse.js";
 
+const RAY_COUNT = 100;
+
+function createRays(RAPIER: any, is3D: boolean, count: number) {
+    const rays = [];
+    for (let i = 0; i < count; i++) {
+        // Random origins spread across the scene, casting downward with slight variation
+        const x = (Math.random() - 0.5) * 80;
+        const dirX = (Math.random() - 0.5) * 0.2;
+        if (is3D) {
+            const z = (Math.random() - 0.5) * 80;
+            const dirZ = (Math.random() - 0.5) * 0.2;
+            rays.push(new RAPIER.Ray({x, y: 50, z}, {x: dirX, y: -1, z: dirZ}));
+        } else {
+            rays.push(new RAPIER.Ray({x, y: 50}, {x: dirX, y: -1}));
+        }
+    }
+    return rays;
+}
+
 export async function benchQueries(
     RAPIER: any,
     is3D: boolean,
@@ -16,16 +35,16 @@ export async function benchQueries(
     // Let bodies settle
     for (let i = 0; i < 60; i++) world.step();
 
-    const origin = is3D ? {x: 0, y: 50, z: 0} : {x: 0, y: 50};
-    const dir = is3D ? {x: 0, y: -1, z: 0} : {x: 0, y: -1};
-    const ray = new RAPIER.Ray(origin, dir);
+    const rays = createRays(RAPIER, is3D, RAY_COUNT);
 
-    // Single ray cast
+    // Cast 100 rays
     results.push(
         bench(
-            `castRay (${bodyCount} bodies)`,
+            `castRay x${RAY_COUNT} (${bodyCount} bodies)`,
             () => {
-                world.castRay(ray, 100, true);
+                for (let i = 0; i < RAY_COUNT; i++) {
+                    world.castRay(rays[i], 100, true);
+                }
             },
             opts,
         ),
@@ -34,9 +53,11 @@ export async function benchQueries(
     // Ray cast with normal
     results.push(
         bench(
-            `castRayAndGetNormal`,
+            `castRayAndGetNormal x${RAY_COUNT}`,
             () => {
-                world.castRayAndGetNormal(ray, 100, true);
+                for (let i = 0; i < RAY_COUNT; i++) {
+                    world.castRayAndGetNormal(rays[i], 100, true);
+                }
             },
             opts,
         ),
@@ -46,24 +67,38 @@ export async function benchQueries(
     let _hitCount = 0;
     results.push(
         bench(
-            `intersectionsWithRay`,
+            `intersectionsWithRay x${RAY_COUNT}`,
             () => {
-                world.intersectionsWithRay(ray, 100, true, () => {
-                    _hitCount++;
-                    return true;
-                });
+                for (let i = 0; i < RAY_COUNT; i++) {
+                    world.intersectionsWithRay(rays[i], 100, true, () => {
+                        _hitCount++;
+                        return true;
+                    });
+                }
             },
             opts,
         ),
     );
 
     // Point projection
-    const point: any = is3D ? {x: 0, y: 5, z: 0} : {x: 0, y: 5};
+    const points: any[] = [];
+    for (let i = 0; i < RAY_COUNT; i++) {
+        const x = (Math.random() - 0.5) * 80;
+        if (is3D) {
+            const z = (Math.random() - 0.5) * 80;
+            points.push({x, y: 5, z});
+        } else {
+            points.push({x, y: 5});
+        }
+    }
+
     results.push(
         bench(
-            `projectPoint`,
+            `projectPoint x${RAY_COUNT}`,
             () => {
-                world.projectPoint(point, true);
+                for (let i = 0; i < RAY_COUNT; i++) {
+                    world.projectPoint(points[i], true);
+                }
             },
             opts,
         ),
@@ -72,9 +107,11 @@ export async function benchQueries(
     // Intersections with point
     results.push(
         bench(
-            `intersectionsWithPoint`,
+            `intersectionsWithPoint x${RAY_COUNT}`,
             () => {
-                world.intersectionsWithPoint(point, () => true);
+                for (let i = 0; i < RAY_COUNT; i++) {
+                    world.intersectionsWithPoint(points[i], () => true);
+                }
             },
             opts,
         ),

@@ -255,6 +255,7 @@ export class World {
             eventQueue,
             hooks,
         );
+        this.bodies.syncTransformBuffer();
     }
 
     /**
