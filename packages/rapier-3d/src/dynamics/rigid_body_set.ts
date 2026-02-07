@@ -1,3 +1,4 @@
+import type {TransformBufferRef} from "./rigid_body";
 import {Coarena} from "../coarena";
 import {ColliderSet} from "../geometry";
 import {VectorOps, RotationOps} from "../math";
@@ -6,7 +7,6 @@ import {ImpulseJointSet} from "./impulse_joint_set";
 import {IslandManager} from "./island_manager";
 import {MultibodyJointSet} from "./multibody_joint_set";
 import {RigidBody, RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
-import type {TransformBufferRef} from "./rigid_body";
 
 /**
  * A set of rigid bodies that can be handled by a physics pipeline.

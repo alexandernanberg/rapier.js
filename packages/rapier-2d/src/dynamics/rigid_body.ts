@@ -1,7 +1,7 @@
+import {handleToIndex} from "../coarena";
 import {Collider, ColliderSet} from "../geometry";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {RawRigidBodySet, RawRigidBodyType} from "../raw";
-import {handleToIndex} from "../coarena";
 
 /**
  * Number of f32 values per body in the transform buffer.

@@ -273,7 +273,8 @@ impl RawColliderSet {
         wakeUp: bool,
     ) {
         let handle = utils::collider_handle(handle);
-        self.0.remove(handle, &mut islands.0, &mut bodies.bodies, wakeUp);
+        self.0
+            .remove(handle, &mut islands.0, &mut bodies.bodies, wakeUp);
     }
 
     /// Checks if a collider with the given integer handle exists.
