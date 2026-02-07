@@ -16,7 +16,7 @@
     "author": "Sébastien Crozet <developer@crozet.re>",
     "repository": {
         "type": "git",
-        "url": "https://github.com/alexandernanberg/rapier.js"
+        "url": "git+https://github.com/alexandernanberg/rapier.js.git"
     },
     "files": [
         "dist"
