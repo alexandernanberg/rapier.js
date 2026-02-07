@@ -637,7 +637,7 @@ export class World {
      * @param wakeUp - If set to `true`, the rigid-bodies attached by this joint will be awaken.
      */
     public removeMultibodyJoint(joint: MultibodyJoint, wakeUp: boolean) {
-        if (this.impulseJoints) {
+        if (this.multibodyJoints) {
             this.multibodyJoints.remove(joint.handle, wakeUp);
         }
     }
