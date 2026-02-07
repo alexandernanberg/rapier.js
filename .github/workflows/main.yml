@@ -213,9 +213,6 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - name: testbed2d
-                      package: rapier-testbed2d
-                      project-id: VERCEL_PROJECT_ID_TESTBED2D
                     - name: testbed3d
                       package: rapier-testbed3d
                       project-id: VERCEL_PROJECT_ID_TESTBED3D
