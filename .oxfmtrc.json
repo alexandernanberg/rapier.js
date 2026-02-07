@@ -17,5 +17,15 @@
     "bracketSpacing": false,
     "trailingComma": "all",
     "printWidth": 100,
-    "ignorePatterns": ["pkg", "gen2d", "gen3d", "docs", "target", "dist", "wasm", "crates"]
+    "ignorePatterns": [
+        "pkg",
+        "gen2d",
+        "gen3d",
+        "docs",
+        "target",
+        "dist",
+        "wasm",
+        "crates",
+        "CHANGELOG.md"
+    ]
 }
