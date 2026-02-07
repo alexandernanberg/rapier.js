@@ -18,9 +18,6 @@
         "type": "git",
         "url": "https://github.com/alexandernanberg/rapier.js"
     },
-    "publishConfig": {
-        "access": "public"
-    },
     "files": [
         "dist"
     ],
@@ -42,6 +39,10 @@
             "types": "./dist/compat-simd.d.mts",
             "default": "./dist/compat-simd.mjs"
         }
+    },
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
     },
     "scripts": {
         "build": "tsdown",
