@@ -1,0 +1,48 @@
+name: release
+
+on:
+    push:
+        branches: [master]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+            id-token: write
+        steps:
+            - uses: actions/checkout@v6
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  cache: "pnpm"
+                  registry-url: "https://registry.npmjs.org"
+            - uses: actions/cache@v5
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      target/
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            - run: pnpm install --frozen-lockfile
+            - name: Create release PR or publish
+              id: changesets
+              uses: changesets/action@v1
+              with:
+                  version: pnpm version-packages
+                  publish: pnpm release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

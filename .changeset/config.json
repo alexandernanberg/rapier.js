@@ -1,0 +1,11 @@
+{
+    "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+    "changelog": ["@changesets/changelog-github", {"repo": "alexandernanberg/rapier.js"}],
+    "commit": false,
+    "fixed": [["@alexandernanberg/rapier2d", "@alexandernanberg/rapier3d"]],
+    "linked": [],
+    "access": "public",
+    "baseBranch": "master",
+    "updateInternalDependencies": "patch",
+    "ignore": []
+}
