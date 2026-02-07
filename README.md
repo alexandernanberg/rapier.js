@@ -40,26 +40,26 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 
 3D, 3000 bodies, mean times (Apple M1 Max, Node v22.21.1):
 
-| Benchmark                        | Fork     | Official | Speedup |
-| -------------------------------- | -------- | -------- | ------- |
-| world.step()                     | 1.188ms  | 1.150ms  | —       |
-| create 1000 bodies+colliders     | 3.215ms  | 3.401ms  | 1.1x   |
-| spawn+despawn 100 bodies         | 362.7µs  | 378.5µs  | —       |
-| castRay x100                     | 69.5µs   | 122.9µs  | 1.8x   |
-| castRayAndGetNormal x100         | 97.9µs   | 152.1µs  | 1.6x   |
-| intersectionsWithRay x100        | 112.1µs  | 172.9µs  | 1.5x   |
-| projectPoint x100                | 122.0µs  | 168.9µs  | 1.4x   |
-| intersectionsWithPoint x100      | 31.2µs   | 29.0µs   | —       |
-| body.translation()               | 6.3µs    | 209.9µs  | 33x    |
-| body.translation() [reuse]       | 5.6µs    | n/a      | 37x    |
-| body.rotation()                  | 5.2µs    | 223.0µs  | 43x    |
-| body.rotation() [reuse]          | 5.2µs    | n/a      | 43x    |
-| body.linvel()                    | 5.5µs    | 207.4µs  | 38x    |
-| body.linvel() [reuse]            | 4.6µs    | n/a      | 45x    |
-| collider.translation()           | 60.9µs   | 208.8µs  | 3.4x   |
-| collider.translation() [reuse]   | 60.8µs   | n/a      | 3.4x   |
-| body.setTransform()              | 22.2µs   | 31.3µs   | 1.4x   |
-| body.setNextKinematicTransform() | 20.7µs   | 33.2µs   | 1.6x   |
+| Benchmark                        | Fork    | Official | Speedup |
+| -------------------------------- | ------- | -------- | ------- |
+| world.step()                     | 1.188ms | 1.150ms  | —       |
+| create 1000 bodies+colliders     | 3.215ms | 3.401ms  | 1.1x    |
+| spawn+despawn 100 bodies         | 362.7µs | 378.5µs  | —       |
+| castRay x100                     | 69.5µs  | 122.9µs  | 1.8x    |
+| castRayAndGetNormal x100         | 97.9µs  | 152.1µs  | 1.6x    |
+| intersectionsWithRay x100        | 112.1µs | 172.9µs  | 1.5x    |
+| projectPoint x100                | 122.0µs | 168.9µs  | 1.4x    |
+| intersectionsWithPoint x100      | 31.2µs  | 29.0µs   | —       |
+| body.translation()               | 6.3µs   | 209.9µs  | 33x     |
+| body.translation() [reuse]       | 5.6µs   | n/a      | 37x     |
+| body.rotation()                  | 5.2µs   | 223.0µs  | 43x     |
+| body.rotation() [reuse]          | 5.2µs   | n/a      | 43x     |
+| body.linvel()                    | 5.5µs   | 207.4µs  | 38x     |
+| body.linvel() [reuse]            | 4.6µs   | n/a      | 45x     |
+| collider.translation()           | 60.9µs  | 208.8µs  | 3.4x    |
+| collider.translation() [reuse]   | 60.8µs  | n/a      | 3.4x    |
+| body.setTransform()              | 22.2µs  | 31.3µs   | 1.4x    |
+| body.setNextKinematicTransform() | 20.7µs  | 33.2µs   | 1.6x    |
 
 Official = `@dimforge/rapier3d-compat` v0.19.3. Reuse = zero-allocation target parameter (fork only), speedup compared against official alloc. Getter times are for 1000 bodies. Run `pnpm bench` / `pnpm bench --official` to benchmark on your machine.
 
