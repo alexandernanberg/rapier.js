@@ -944,7 +944,7 @@ export class ConvexPolyhedron extends Shape {
     }
 
     public intoRaw(): RawShape {
-        if (!!this.indices) {
+        if (this.indices) {
             return RawShape.convexMesh(this.vertices, this.indices)!;
         } else {
             return RawShape.convexHull(this.vertices)!;
@@ -995,7 +995,7 @@ export class RoundConvexPolyhedron extends Shape {
     }
 
     public intoRaw(): RawShape {
-        if (!!this.indices) {
+        if (this.indices) {
             return RawShape.roundConvexMesh(this.vertices, this.indices, this.borderRadius)!;
         } else {
             return RawShape.roundConvexHull(this.vertices, this.borderRadius)!;

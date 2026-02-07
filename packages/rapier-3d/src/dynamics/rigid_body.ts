@@ -1310,7 +1310,7 @@ export class RigidBodyDesc {
      * the created rigid-body.
      */
     public lockRotations(): RigidBodyDesc {
-        return this.restrictRotations(false, false, false);
+        return this.enabledRotations(false, false, false);
     }
 
     /**

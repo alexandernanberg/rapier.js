@@ -78,13 +78,16 @@ export enum ActiveCollisionTypes {
         DYNAMIC_FIXED |
         KINEMATIC_KINEMATIC |
         KINEMATIC_FIXED |
-        KINEMATIC_KINEMATIC,
+        FIXED_FIXED,
 }
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
  */
 export type ColliderHandle = number;
+
+/** Shared scratch buffer for WASM fallback reads (single-threaded, safe to share). */
+const _scratch = new Float32Array(4);
 
 /**
  * A geometric entity that can be attached to a body so it can be affected
@@ -95,7 +98,6 @@ export class Collider {
     readonly handle: ColliderHandle;
     private _shape: Shape; // TODO: deprecate/remove this since it isn't a reliable way of getting the latest shape properties.
     private _parent: RigidBody | null;
-    private scratchBuffer: Float32Array;
 
     constructor(
         colliderSet: ColliderSet,
@@ -107,7 +109,6 @@ export class Collider {
         this.handle = handle;
         this._parent = parent;
         this._shape = shape!;
-        this.scratchBuffer = new Float32Array(4);
     }
 
     /** @internal */
@@ -155,8 +156,8 @@ export class Collider {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public translation(target?: Vector): Vector {
-        this.colliderSet.raw.coTranslation(this.handle, this.scratchBuffer);
-        return VectorOps.fromBuffer(this.scratchBuffer, target);
+        this.colliderSet.raw.coTranslation(this.handle, _scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -167,20 +168,17 @@ export class Collider {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public translationWrtParent(target?: Vector): Vector | null {
-        const hasParent = this.colliderSet.raw.coTranslationWrtParent(
-            this.handle,
-            this.scratchBuffer,
-        );
+        const hasParent = this.colliderSet.raw.coTranslationWrtParent(this.handle, _scratch);
         if (!hasParent) return null;
-        return VectorOps.fromBuffer(this.scratchBuffer, target);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
      * The world-space orientation of this collider.
      */
     public rotation(): Rotation {
-        this.colliderSet.raw.coRotation(this.handle, this.scratchBuffer);
-        return RotationOps.fromBuffer(this.scratchBuffer);
+        this.colliderSet.raw.coRotation(this.handle, _scratch);
+        return RotationOps.fromBuffer(_scratch);
     }
 
     /**
@@ -189,9 +187,9 @@ export class Collider {
      * Returns `null` if the collider doesn't have a parent rigid-body.
      */
     public rotationWrtParent(): Rotation | null {
-        const hasParent = this.colliderSet.raw.coRotationWrtParent(this.handle, this.scratchBuffer);
+        const hasParent = this.colliderSet.raw.coRotationWrtParent(this.handle, _scratch);
         if (!hasParent) return null;
-        return RotationOps.fromBuffer(this.scratchBuffer);
+        return RotationOps.fromBuffer(_scratch);
     }
 
     /**
@@ -515,6 +513,7 @@ export class Collider {
     public setHalfExtents(newHalfExtents: Vector) {
         const rawPoint = VectorOps.intoRaw(newHalfExtents);
         this.colliderSet.raw.coSetHalfExtents(this.handle, rawPoint);
+        rawPoint.free();
     }
 
     /**
@@ -956,11 +955,9 @@ export class Collider {
      * @returns `null` if the shapes are separated by a distance greater than prediction, otherwise contact details. The result is given in world-space.
      */
     contactCollider(collider2: Collider, prediction: number): ShapeContact | null {
-        let result = ShapeContact.fromRaw(
+        return ShapeContact.fromRaw(
             this.colliderSet.raw.coContactCollider(this.handle, collider2.handle, prediction)!,
         );
-
-        return result;
     }
 
     /**
