@@ -1,5 +1,12 @@
 # rapier-testbed3d
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [[`b9661f7`](https://github.com/alexandernanberg/rapier.js/commit/b9661f73c410e805a8ed13ebfc1074d4edaabef8)]:
+  - @alexandernanberg/rapier3d@0.1.1
+
 ## 0.1.1
 
 ### Patch Changes

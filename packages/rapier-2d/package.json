@@ -1,6 +1,6 @@
 {
     "name": "@alexandernanberg/rapier2d",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "2-dimensional physics engine - official JS bindings",
     "keywords": [
         "2d",
