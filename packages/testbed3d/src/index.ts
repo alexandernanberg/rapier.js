@@ -9,6 +9,7 @@ import * as glbToTrimesh from "./demos/glbToTrimesh";
 import * as Heightfield from "./demos/heightfield";
 import * as Joints from "./demos/joints";
 import * as Keva from "./demos/keva";
+import * as KinematicBodies from "./demos/kinematicBodies";
 import * as LockedRotations from "./demos/lockedRotations";
 import * as PidController from "./demos/pidController";
 import * as Platform from "./demos/platform";
@@ -29,6 +30,7 @@ import("@alexandernanberg/rapier3d/compat-simd").then(async (RAPIER) => {
         ["heightfield", Heightfield.initWorld],
         ["joints", Joints.initWorld],
         ["keva tower", Keva.initWorld],
+        ["kinematic bodies", KinematicBodies.initWorld],
         ["locked rotations", LockedRotations.initWorld],
         ["pid controller", PidController.initWorld],
         ["platform", Platform.initWorld],

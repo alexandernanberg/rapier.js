@@ -350,7 +350,7 @@ export class Graphics {
                     gfx.prevQuaternion = _quaternion.clone();
                     gfx.snapshotPosition = _position.clone();
                     gfx.snapshotQuaternion = _quaternion.clone();
-                } else if (!_position.equals(gfx.snapshotPosition)) {
+                } else {
                     gfx.prevPosition.copy(gfx.snapshotPosition);
                     gfx.prevQuaternion.copy(gfx.snapshotQuaternion);
                 }
@@ -388,7 +388,7 @@ export class Graphics {
                     mesh.userData.prevQuaternion = _quaternion.clone();
                     mesh.userData.snapshotPosition = _position.clone();
                     mesh.userData.snapshotQuaternion = _quaternion.clone();
-                } else if (!_position.equals(mesh.userData.snapshotPosition)) {
+                } else {
                     mesh.userData.prevPosition.copy(mesh.userData.snapshotPosition);
                     mesh.userData.prevQuaternion.copy(mesh.userData.snapshotQuaternion);
                 }

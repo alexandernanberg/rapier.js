@@ -44,16 +44,18 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 break;
         }
 
-        let body = world.createRigidBody(bodyDesc);
-        let collider = world.createCollider(colliderDesc, body);
-        graphics.addCollider(RAPIER, world, collider);
+        // Use testbed.world instead of captured world so it works after snapshot restore.
+        let body = testbed.world.createRigidBody(bodyDesc);
+        let collider = testbed.world.createCollider(colliderDesc, body);
+        graphics.addCollider(RAPIER, testbed.world, collider);
 
-        removableBodies.push(body);
+        removableBodies.push(body.handle);
 
         // We reached the max number, delete the oldest rigid-body.
         if (removableBodies.length > 400) {
-            let rb = removableBodies[0];
-            world.removeRigidBody(rb);
+            let rbHandle = removableBodies[0];
+            let rb = testbed.world.getRigidBody(rbHandle);
+            testbed.world.removeRigidBody(rb);
             graphics.removeRigidBody(rb);
             removableBodies.shift();
         }

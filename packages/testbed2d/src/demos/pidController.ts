@@ -43,28 +43,34 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     world.createCollider(characterColliderDesc, character);
 
     let pidController = world.createPidController(60.0, 0.0, 1.0, RAPIER.PidAxesMask.AllAng);
+
+    // Capture handle instead of body reference so callback survives snapshot restore.
+    let characterHandle = character.handle;
+
     let speed = 0.2;
     let movementDirection = {x: 0.0, y: 0.0};
     let targetVelocity = {x: 0.0, y: 0.0};
     let _targetRotation = 0.0;
 
     let updateCharacter = () => {
+        let charBody = testbed.world.getRigidBody(characterHandle);
+
         if (movementDirection.x == 0.0 && movementDirection.y == 0.0) {
             // Only adjust the rotation, but let translation.
             pidController.setAxes(RAPIER.PidAxesMask.AllAng);
         } else if (movementDirection.y == 0.0) {
-            // Don’t control the linear Y axis so the player can fall down due to gravity.
+            // Don't control the linear Y axis so the player can fall down due to gravity.
             pidController.setAxes(RAPIER.PidAxesMask.AllAng | RAPIER.PidAxesMask.LinX);
         } else {
             pidController.setAxes(RAPIER.PidAxesMask.All);
         }
 
-        let targetPoint = character.translation();
+        let targetPoint = charBody.translation();
         targetPoint.x += movementDirection.x;
         targetPoint.y += movementDirection.y;
 
-        pidController.applyLinearCorrection(character, targetPoint, targetVelocity);
-        pidController.applyAngularCorrection(character, 0.0, 0.0);
+        pidController.applyLinearCorrection(charBody, targetPoint, targetVelocity);
+        pidController.applyAngularCorrection(charBody, 0.0, 0.0);
     };
 
     testbed.setWorld(world);

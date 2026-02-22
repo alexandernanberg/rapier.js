@@ -49,14 +49,16 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let trimesh = generateTriMesh(20, 70.0, 4.0, 70.0);
     let colliderDesc = RAPIER.ColliderDesc.trimesh(trimesh.vertices, trimesh.indices);
     world.createCollider(colliderDesc, platformBody);
+    let platformHandle = platformBody.handle;
     let t = 0.0;
 
     let movePlatform = () => {
         t += 0.016;
+        let body = testbed.world.getRigidBody(platformHandle);
         let dy = Math.sin(t) * 10.0;
         let dang = Math.sin(t) * 0.2;
-        platformBody.setLinvel({x: 0.0, y: dy, z: 0.0}, true);
-        platformBody.setAngvel({x: 0.0, y: dang, z: 0.0}, true);
+        body.setLinvel({x: 0.0, y: dy, z: 0.0}, true);
+        body.setAngvel({x: 0.0, y: dang, z: 0.0}, true);
     };
 
     // Dynamic cubes.

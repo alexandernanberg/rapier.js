@@ -43,18 +43,24 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     characterController.enableAutostep(0.7, 0.3, true);
     characterController.enableSnapToGround(0.7);
 
+    // Capture handles instead of body references so callbacks survive snapshot restore.
+    let characterHandle = character.handle;
+    let characterColliderHandle = characterCollider.handle;
+
     let speed = 0.2;
     let movementDirection = {x: 0.0, y: -speed};
 
     let updateCharacter = () => {
-        characterController.computeColliderMovement(characterCollider, movementDirection);
+        let charBody = testbed.world.getRigidBody(characterHandle);
+        let charCollider = testbed.world.getCollider(characterColliderHandle);
+
+        characterController.computeColliderMovement(charCollider, movementDirection);
 
         let movement = characterController.computedMovement();
-        let newPos = character.translation();
+        let newPos = charBody.translation();
         newPos.x += movement.x;
         newPos.y += movement.y;
-        character.setNextKinematicTranslation(newPos);
-        console.log("here");
+        charBody.setNextKinematicTranslation(newPos);
     };
 
     testbed.setWorld(world);
