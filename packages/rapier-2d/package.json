@@ -46,6 +46,7 @@
     },
     "scripts": {
         "build": "tsdown",
+        "test": "vitest run",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
@@ -53,6 +54,7 @@
     },
     "devDependencies": {
         "tsdown": "^0.20.1",
-        "typescript": "^5.9.3"
+        "typescript": "^5.9.3",
+        "vitest": "^3.0.5"
     }
 }

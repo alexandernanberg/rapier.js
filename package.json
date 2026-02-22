@@ -22,6 +22,7 @@
         "bench": "pnpm --filter rapier-benchmarks bench",
         "bench:2d": "pnpm --filter rapier-benchmarks bench:2d",
         "bench:3d": "pnpm --filter rapier-benchmarks bench:3d",
+        "test": "pnpm -r --filter './packages/rapier-*' test",
         "bench:quick": "pnpm --filter rapier-benchmarks bench:quick",
         "changeset": "changeset",
         "version-packages": "changeset version",
