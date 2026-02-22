@@ -2,7 +2,6 @@ use crate::dynamics::{RawImpulseJointSet, RawIslandManager, RawMultibodyJointSet
 use crate::geometry::RawColliderSet;
 use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
-use js_sys::Float32Array;
 use rapier::dynamics::{MassProperties, RigidBody, RigidBodyBuilder, RigidBodySet, RigidBodyType};
 use rapier::math::Pose;
 use wasm_bindgen::prelude::*;
@@ -67,20 +66,12 @@ impl RawRigidBodySet {
         );
         f(body)
     }
-}
-
-#[wasm_bindgen]
-impl RawRigidBodySet {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        RawRigidBodySet {
-            bodies: RigidBodySet::new(),
-            transform_data: Vec::new(),
-        }
-    }
 
     /// Syncs all rigid body transforms into the contiguous buffer.
-    pub fn syncTransformBuffer(&mut self) {
+    ///
+    /// Called internally from the physics pipeline step for cache locality.
+    /// Not exposed via wasm-bindgen to avoid borrow tracking issues.
+    pub(crate) fn sync_transform_data(&mut self) {
         let mut max_index: usize = 0;
         for (handle, _) in self.bodies.iter() {
             let (index, _) = handle.0.into_raw_parts();
@@ -138,11 +129,24 @@ impl RawRigidBodySet {
             }
         }
     }
+}
 
-    /// Returns a Float32Array view directly into WASM linear memory.
-    /// Only valid until the next WASM memory growth.
-    pub fn transformBufferView(&self) -> Float32Array {
-        unsafe { Float32Array::view(&self.transform_data) }
+#[wasm_bindgen]
+impl RawRigidBodySet {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        RawRigidBodySet {
+            bodies: RigidBodySet::new(),
+            transform_data: Vec::new(),
+        }
+    }
+
+    /// Returns the transform buffer pointer and length packed into a single f64.
+    /// Low 32 bits = byte offset in WASM memory, high 32 bits = f32 element count.
+    pub fn transformBufferInfo(&self) -> f64 {
+        let ptr = self.transform_data.as_ptr() as u32;
+        let len = self.transform_data.len() as u32;
+        f64::from_bits(ptr as u64 | ((len as u64) << 32))
     }
 
     /// Returns the number of floats per body in the buffer.

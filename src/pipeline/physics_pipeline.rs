@@ -124,7 +124,7 @@ impl RawPhysicsPipeline {
             &(),
         );
 
-        bodies.syncTransformBuffer();
+        bodies.sync_transform_data();
     }
 
     pub fn stepWithEvents(
@@ -169,6 +169,6 @@ impl RawPhysicsPipeline {
             &eventQueue.collector,
         );
 
-        bodies.syncTransformBuffer();
+        bodies.sync_transform_data();
     }
 }

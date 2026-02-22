@@ -23,6 +23,15 @@ pub fn reserve_memory(extra_bytes_count: u32) {
     std::hint::black_box(&unused);
 }
 
+/// Returns the WASM linear memory object.
+///
+/// Used by the TypeScript bindings to create Float32Array views from
+/// raw pointers without going through wasm-bindgen borrow tracking.
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn wasmMemory() -> wasm_bindgen::JsValue {
+    wasm_bindgen::memory()
+}
+
 pub mod control;
 pub mod dynamics;
 pub mod geometry;

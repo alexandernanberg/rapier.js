@@ -2,7 +2,7 @@ import type {TransformBufferRef} from "./rigid_body";
 import {Coarena} from "../coarena";
 import {ColliderSet} from "../geometry";
 import {VectorOps, RotationOps} from "../math";
-import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {RawRigidBodySet, RawRigidBodyType, wasmMemory} from "../raw";
 import {ImpulseJointSet} from "./impulse_joint_set";
 import {IslandManager} from "./island_manager";
 import {MultibodyJointSet} from "./multibody_joint_set";
@@ -14,11 +14,16 @@ import {RigidBody, RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
  * To avoid leaking WASM resources, this MUST be freed manually with `rigidBodySet.free()`
  * once you are done using it (and all the rigid-bodies it created).
  */
+// Scratch buffers for unpacking transformBufferInfo f64 → ptr + len
+const _infoBuf = new Float64Array(1);
+const _infoView = new Uint32Array(_infoBuf.buffer);
+
 export class RigidBodySet {
     raw: RawRigidBodySet;
     private map: Coarena<RigidBody>;
     /** @internal */
     _bufferRef: TransformBufferRef = {buffer: null};
+    private _wasmMemory: WebAssembly.Memory | null = null;
 
     /**
      * Release the WASM memory occupied by this rigid-body set.
@@ -55,18 +60,24 @@ export class RigidBodySet {
     }
 
     /**
-     * Refreshes the Float32Array view into the WASM transform buffer.
+     * Refreshes the JS-side Float32Array view into the WASM transform buffer.
      *
-     * The actual data sync happens inside the Rust step() for cache locality.
-     * This method just updates the JS-side Float32Array view (which may be
-     * invalidated if WASM memory grew).
+     * The data sync happens inside the Rust step() for cache locality.
+     * This creates the Float32Array view directly from WASM memory using
+     * ptr+len, bypassing wasm-bindgen borrow tracking entirely.
      *
      * Called automatically by `World.step()`.
      *
      * @internal
      */
     public syncTransformBuffer() {
-        this._bufferRef.buffer = this.raw.transformBufferView();
+        _infoBuf[0] = this.raw.transformBufferInfo();
+        const ptr = _infoView[0]; // byte offset
+        const len = _infoView[1]; // element count
+        if (!this._wasmMemory) {
+            this._wasmMemory = wasmMemory() as unknown as WebAssembly.Memory;
+        }
+        this._bufferRef.buffer = new Float32Array(this._wasmMemory.buffer, ptr, len);
     }
 
     /**
