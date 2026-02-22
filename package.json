@@ -26,7 +26,7 @@
         "bench:quick": "pnpm --filter rapier-benchmarks bench:quick",
         "changeset": "changeset",
         "version-packages": "changeset version",
-        "release": "pnpm build && changeset publish"
+        "release": "changeset publish"
     },
     "devDependencies": {
         "@changesets/changelog-github": "^0.5.2",

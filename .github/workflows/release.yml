@@ -1,19 +1,19 @@
 name: release
 
 on:
-    push:
+    workflow_run:
+        workflows: ["main"]
+        types: [completed]
         branches: [master]
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: false
 
-env:
-    CARGO_TERM_COLOR: always
-
 jobs:
     release:
         runs-on: ubuntu-latest
+        if: github.event.workflow_run.conclusion == 'success'
         permissions:
             contents: write
             pull-requests: write
@@ -28,16 +28,15 @@ jobs:
                   node-version: "24"
                   cache: "pnpm"
                   registry-url: "https://registry.npmjs.org"
-            - uses: actions/cache@v5
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
             - run: pnpm install --frozen-lockfile
+            - name: Download build artifacts
+              uses: actions/download-artifact@v4
+              continue-on-error: true
+              with:
+                  name: build-artifacts
+                  path: packages
+                  run-id: ${{ github.event.workflow_run.id }}
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
             - name: Create release PR or publish
               id: changesets
               uses: changesets/action@v1
