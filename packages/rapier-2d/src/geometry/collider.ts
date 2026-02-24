@@ -533,7 +533,7 @@ export class Collider {
     }
 
     /**
-     * The radius of the round edges of this collider if it is a round cylinder.
+     * The radius of the round edges of this collider.
      */
     public roundRadius(): number {
         return this.colliderSet.raw.coRoundRadius(this.handle)!;
@@ -650,8 +650,8 @@ export class Collider {
     }
 
     /**
-     * If this collider has a triangle mesh, polyline, convex polygon, or convex polyhedron shape,
-     * this returns the vertex buffer of said shape.
+     * If this collider has a triangle mesh, polyline, convex polygon, convex polyhedron,
+     * segment, triangle, or round triangle shape, this returns the vertex buffer of said shape.
      */
     public vertices(): Float32Array {
         return this.colliderSet.raw.coVertices(this.handle)!;
