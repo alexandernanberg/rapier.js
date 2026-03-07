@@ -1,5 +1,4 @@
-import type {BenchResult} from "../runner.js";
-import {bench} from "../runner.js";
+import {bench, summary} from "mitata";
 import {createSparseWorld} from "../worlds/sparse.js";
 
 const RAY_COUNT = 100;
@@ -7,7 +6,6 @@ const RAY_COUNT = 100;
 function createRays(RAPIER: any, is3D: boolean, count: number) {
     const rays = [];
     for (let i = 0; i < count; i++) {
-        // Random origins spread across the scene, casting downward with slight variation
         const x = (Math.random() - 0.5) * 80;
         const dirX = (Math.random() - 0.5) * 0.2;
         if (is3D) {
@@ -21,14 +19,8 @@ function createRays(RAPIER: any, is3D: boolean, count: number) {
     return rays;
 }
 
-export async function benchQueries(
-    RAPIER: any,
-    is3D: boolean,
-    quick: boolean,
-): Promise<BenchResult[]> {
-    const results: BenchResult[] = [];
+export function benchQueries(RAPIER: any, is3D: boolean, quick: boolean): void {
     const bodyCount = quick ? 500 : 2000;
-    const opts = quick ? {warmup: 50, iterations: 200} : {warmup: 100, iterations: 1000};
 
     const world = createSparseWorld(RAPIER, is3D, bodyCount);
 
@@ -37,50 +29,6 @@ export async function benchQueries(
 
     const rays = createRays(RAPIER, is3D, RAY_COUNT);
 
-    // Cast 100 rays
-    results.push(
-        bench(
-            `castRay x${RAY_COUNT} (${bodyCount} bodies)`,
-            () => {
-                for (let i = 0; i < RAY_COUNT; i++) {
-                    world.castRay(rays[i], 100, true);
-                }
-            },
-            opts,
-        ),
-    );
-
-    // Ray cast with normal
-    results.push(
-        bench(
-            `castRayAndGetNormal x${RAY_COUNT}`,
-            () => {
-                for (let i = 0; i < RAY_COUNT; i++) {
-                    world.castRayAndGetNormal(rays[i], 100, true);
-                }
-            },
-            opts,
-        ),
-    );
-
-    // All intersections with ray
-    let _hitCount = 0;
-    results.push(
-        bench(
-            `intersectionsWithRay x${RAY_COUNT}`,
-            () => {
-                for (let i = 0; i < RAY_COUNT; i++) {
-                    world.intersectionsWithRay(rays[i], 100, true, () => {
-                        _hitCount++;
-                        return true;
-                    });
-                }
-            },
-            opts,
-        ),
-    );
-
-    // Point projection
     const points: any[] = [];
     for (let i = 0; i < RAY_COUNT; i++) {
         const x = (Math.random() - 0.5) * 80;
@@ -92,32 +40,35 @@ export async function benchQueries(
         }
     }
 
-    results.push(
-        bench(
-            `projectPoint x${RAY_COUNT}`,
-            () => {
-                for (let i = 0; i < RAY_COUNT; i++) {
-                    world.projectPoint(points[i], true);
-                }
-            },
-            opts,
-        ),
-    );
+    summary(() => {
+        bench(`castRay x${RAY_COUNT} (${bodyCount} bodies)`, () => {
+            for (let i = 0; i < RAY_COUNT; i++) {
+                world.castRay(rays[i], 100, true);
+            }
+        });
 
-    // Intersections with point
-    results.push(
-        bench(
-            `intersectionsWithPoint x${RAY_COUNT}`,
-            () => {
-                for (let i = 0; i < RAY_COUNT; i++) {
-                    world.intersectionsWithPoint(points[i], () => true);
-                }
-            },
-            opts,
-        ),
-    );
+        bench(`castRayAndGetNormal x${RAY_COUNT}`, () => {
+            for (let i = 0; i < RAY_COUNT; i++) {
+                world.castRayAndGetNormal(rays[i], 100, true);
+            }
+        });
 
-    world.free();
+        bench(`intersectionsWithRay x${RAY_COUNT}`, () => {
+            for (let i = 0; i < RAY_COUNT; i++) {
+                world.intersectionsWithRay(rays[i], 100, true, () => true);
+            }
+        });
 
-    return results;
+        bench(`projectPoint x${RAY_COUNT}`, () => {
+            for (let i = 0; i < RAY_COUNT; i++) {
+                world.projectPoint(points[i], true);
+            }
+        });
+
+        bench(`intersectionsWithPoint x${RAY_COUNT}`, () => {
+            for (let i = 0; i < RAY_COUNT; i++) {
+                world.intersectionsWithPoint(points[i], () => true);
+            }
+        });
+    });
 }

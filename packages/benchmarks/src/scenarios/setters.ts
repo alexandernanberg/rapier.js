@@ -1,14 +1,7 @@
-import type {BenchResult} from "../runner.js";
-import {bench} from "../runner.js";
+import {bench, summary} from "mitata";
 
-export async function benchSetters(
-    RAPIER: any,
-    is3D: boolean,
-    quick: boolean,
-): Promise<BenchResult[]> {
-    const results: BenchResult[] = [];
+export function benchSetters(RAPIER: any, is3D: boolean, _quick: boolean): void {
     const bodyCount = 1000;
-    const opts = quick ? {warmup: 50, iterations: 200} : {warmup: 100, iterations: 1000};
 
     const gravity = is3D ? {x: 0, y: -9.81, z: 0} : {x: 0, y: -9.81};
     const world = new RAPIER.World(gravity);
@@ -60,7 +53,6 @@ export async function benchSetters(
         y: Math.random() * 100,
     }));
     const rotations3D = dynamicBodies.map(() => {
-        // Generate random quaternion
         const u1 = Math.random();
         const u2 = Math.random() * Math.PI * 2;
         const u3 = Math.random() * Math.PI * 2;
@@ -78,126 +70,38 @@ export async function benchSetters(
     // Check if batch setTransform is supported (our fork only)
     const supportsBatchTransform = typeof dynamicBodies[0].setTransform === "function";
 
-    if (is3D) {
-        // Use batch setTransform when available (fork), otherwise separate calls (official)
-        if (supportsBatchTransform) {
-            results.push(
-                bench(
-                    `body.setTransform()`,
-                    () => {
-                        for (let i = 0; i < dynamicBodies.length; i++) {
-                            dynamicBodies[i].setTransform(translations3D[i], rotations3D[i], true);
-                        }
-                    },
-                    opts,
-                ),
-            );
-        } else {
-            results.push(
-                bench(
-                    `body.setTransform()`,
-                    () => {
-                        for (let i = 0; i < dynamicBodies.length; i++) {
-                            dynamicBodies[i].setTranslation(translations3D[i], false);
-                            dynamicBodies[i].setRotation(rotations3D[i], true);
-                        }
-                    },
-                    opts,
-                ),
-            );
-        }
+    const translations = is3D ? translations3D : translations2D;
+    const rotations = is3D ? rotations3D : rotations2D;
 
-        // Use batch setNextKinematicTransform when available (fork), otherwise separate calls
+    summary(() => {
         if (supportsBatchTransform) {
-            results.push(
-                bench(
-                    `body.setNextKinematicTransform()`,
-                    () => {
-                        for (let i = 0; i < kinematicBodies.length; i++) {
-                            kinematicBodies[i].setNextKinematicTransform(
-                                translations3D[i],
-                                rotations3D[i],
-                            );
-                        }
-                    },
-                    opts,
-                ),
-            );
+            bench(`body.setTransform()`, () => {
+                for (let i = 0; i < dynamicBodies.length; i++) {
+                    dynamicBodies[i].setTransform(translations[i], rotations[i], true);
+                }
+            });
         } else {
-            results.push(
-                bench(
-                    `body.setNextKinematicTransform()`,
-                    () => {
-                        for (let i = 0; i < kinematicBodies.length; i++) {
-                            kinematicBodies[i].setNextKinematicTranslation(translations3D[i]);
-                            kinematicBodies[i].setNextKinematicRotation(rotations3D[i]);
-                        }
-                    },
-                    opts,
-                ),
-            );
-        }
-    } else {
-        // 2D variants
-        if (supportsBatchTransform) {
-            results.push(
-                bench(
-                    `body.setTransform()`,
-                    () => {
-                        for (let i = 0; i < dynamicBodies.length; i++) {
-                            dynamicBodies[i].setTransform(translations2D[i], rotations2D[i], true);
-                        }
-                    },
-                    opts,
-                ),
-            );
-        } else {
-            results.push(
-                bench(
-                    `body.setTransform()`,
-                    () => {
-                        for (let i = 0; i < dynamicBodies.length; i++) {
-                            dynamicBodies[i].setTranslation(translations2D[i], false);
-                            dynamicBodies[i].setRotation(rotations2D[i], true);
-                        }
-                    },
-                    opts,
-                ),
-            );
+            bench(`body.setTransform()`, () => {
+                for (let i = 0; i < dynamicBodies.length; i++) {
+                    dynamicBodies[i].setTranslation(translations[i], false);
+                    dynamicBodies[i].setRotation(rotations[i], true);
+                }
+            });
         }
 
         if (supportsBatchTransform) {
-            results.push(
-                bench(
-                    `body.setNextKinematicTransform()`,
-                    () => {
-                        for (let i = 0; i < kinematicBodies.length; i++) {
-                            kinematicBodies[i].setNextKinematicTransform(
-                                translations2D[i],
-                                rotations2D[i],
-                            );
-                        }
-                    },
-                    opts,
-                ),
-            );
+            bench(`body.setNextKinematicTransform()`, () => {
+                for (let i = 0; i < kinematicBodies.length; i++) {
+                    kinematicBodies[i].setNextKinematicTransform(translations[i], rotations[i]);
+                }
+            });
         } else {
-            results.push(
-                bench(
-                    `body.setNextKinematicTransform()`,
-                    () => {
-                        for (let i = 0; i < kinematicBodies.length; i++) {
-                            kinematicBodies[i].setNextKinematicTranslation(translations2D[i]);
-                            kinematicBodies[i].setNextKinematicRotation(rotations2D[i]);
-                        }
-                    },
-                    opts,
-                ),
-            );
+            bench(`body.setNextKinematicTransform()`, () => {
+                for (let i = 0; i < kinematicBodies.length; i++) {
+                    kinematicBodies[i].setNextKinematicTranslation(translations[i]);
+                    kinematicBodies[i].setNextKinematicRotation(rotations[i]);
+                }
+            });
         }
-    }
-
-    world.free();
-
-    return results;
+    });
 }
