@@ -547,6 +547,7 @@ export class JointData {
                 // we're treating it as a u8 on the Rust side
                 let rawAxesMask = this.axesMask;
                 result = RawGenericJoint.generic(rawA1, rawA2, rawAx, rawAxesMask);
+                rawAx.free();
                 break;
             case JointType.Spherical:
                 result = RawGenericJoint.spherical(rawA1, rawA2);

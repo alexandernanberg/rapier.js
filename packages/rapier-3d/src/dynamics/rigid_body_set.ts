@@ -33,7 +33,10 @@ export class RigidBodySet {
             this.raw.free();
         }
         this.raw = undefined!;
-        this._bufferRef = {buffer: null};
+        // Null the shared buffer view in-place so any lingering RigidBody
+        // instances (which hold a reference to this same object) fall back to
+        // WASM and fail loudly instead of reading freed linear memory.
+        this._bufferRef.buffer = null;
 
         if (!!this.map) {
             this.map.clear();
