@@ -51,6 +51,22 @@ export interface VehicleControllerOptions {
     frictionSlip?: number;
     /** Lateral grip. Higher = the car resists sliding sideways. */
     sideFrictionStiffness?: number;
+    /**
+     * Tyre grip budget as a multiple of the wheel's vertical load (think of it
+     * as the friction coefficient μ). It drives two combined-slip effects:
+     *
+     *  - *traction limiting*: a driven wheel can't lay down more drive force
+     *    than `gripCoefficient * verticalLoad`, so an over-powered RWD car spins
+     *    up and launches worse than the same power split across an AWD layout;
+     *  - a *friction circle*: drive force spent accelerating steals lateral grip
+     *    from that wheel, so throttle mid-corner makes RWD step out (oversteer)
+     *    and FWD push wide (understeer).
+     *
+     * Set to `0` to disable both effects (the original decoupled behaviour).
+     */
+    gripCoefficient?: number;
+    /** Lowest fraction of a wheel's lateral grip kept at full longitudinal load. */
+    combinedSlipFloor?: number;
 
     // --- Engine / drivetrain ---
     drivetrain?: Drivetrain;
@@ -118,6 +134,8 @@ export const DEFAULT_VEHICLE_OPTIONS: Required<VehicleControllerOptions> = {
 
     frictionSlip: 4.0,
     sideFrictionStiffness: 1.0,
+    gripCoefficient: 1.2,
+    combinedSlipFloor: 0.2,
 
     drivetrain: "rwd",
     maxEngineForce: 8000.0,
@@ -345,11 +363,32 @@ export class VehicleController {
                 c.setWheelEngineForce(i, 0);
                 c.setWheelBrake(i, o.handbrakeForce);
                 c.setWheelSideFrictionStiffness(i, o.handbrakeSideFriction);
-            } else {
-                c.setWheelEngineForce(i, w.powered ? cmd.perWheelEngineForce : 0);
-                c.setWheelBrake(i, w.brakes ? cmd.brake : 0);
-                c.setWheelSideFrictionStiffness(i, o.sideFrictionStiffness);
+                continue;
             }
+
+            let engineForce = w.powered ? cmd.perWheelEngineForce : 0;
+            let sideFriction = o.sideFrictionStiffness;
+
+            // Combined-slip model. The grip available at a wheel is proportional
+            // to how hard the suspension presses it into the ground (which also
+            // captures weight transfer for free). We read last step's suspension
+            // force; skip it while airborne or before the first update.
+            const verticalLoad = c.wheelSuspensionForce(i) ?? 0;
+            if (o.gripCoefficient > 0 && verticalLoad > 50) {
+                const maxGrip = o.gripCoefficient * verticalLoad;
+
+                // Traction limit: a tyre can't transmit more drive than its grip.
+                engineForce = Math.max(-maxGrip, Math.min(maxGrip, engineForce));
+
+                // Friction circle: grip spent driving is unavailable for cornering.
+                const longitudinalUse = Math.min(1, Math.abs(engineForce) / maxGrip);
+                const lateral = Math.sqrt(Math.max(0, 1 - longitudinalUse * longitudinalUse));
+                sideFriction *= Math.max(o.combinedSlipFloor, lateral);
+            }
+
+            c.setWheelEngineForce(i, engineForce);
+            c.setWheelBrake(i, w.brakes ? cmd.brake : 0);
+            c.setWheelSideFrictionStiffness(i, sideFriction);
         }
 
         c.updateVehicle(dt);

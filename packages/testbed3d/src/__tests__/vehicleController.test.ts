@@ -485,4 +485,102 @@ describe("vehicle presets", () => {
         expect(supra).toBeGreaterThan(1.0); // it really breaks traction
         expect(supra).toBeGreaterThan(skyline * 1.5); // and much more than the AWD car
     });
+
+    test("the cars are tuned with their own suspension and wheels", () => {
+        // Per-car data really differs...
+        expect(VEHICLE_PRESETS.miata.controller.wheelRadius).not.toBe(
+            VEHICLE_PRESETS.skyline.controller.wheelRadius,
+        );
+        expect(VEHICLE_PRESETS.evo.controller.suspensionStiffness).not.toBe(
+            VEHICLE_PRESETS.supra.controller.suspensionStiffness,
+        );
+
+        // ...and it shows up as a different ride height: the tall rally car
+        // settles higher than the low roadster.
+        const rideHeight = (name: VehiclePresetName) => {
+            const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+            createGround(world);
+            const car = spawnPreset(world, name);
+            settle(world, car);
+            const y = car.chassis.translation().y;
+            world.free();
+            return y;
+        };
+        expect(rideHeight("evo")).toBeGreaterThan(rideHeight("miata") + 0.05);
+    });
+});
+
+// ============================================================================
+// Drivetrain dynamics: the combined-slip (friction-circle) model.
+// ============================================================================
+
+describe("drivetrain dynamics", () => {
+    /** Speed reached shortly after launch, at a given power and grip budget. */
+    function launchAtPower(drivetrain: "fwd" | "rwd" | "awd", power: number, grip: number): number {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world, {drivetrain, maxEngineForce: power, gripCoefficient: grip});
+        settle(world, car);
+        drive(world, car, {accelerate: 1}, 60);
+        const speed = car.currentSpeed();
+        world.free();
+        return speed;
+    }
+
+    /** Net heading change through a gentle, power-on corner. */
+    function cornerYaw(drivetrain: "fwd" | "rwd" | "awd", grip: number): number {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world, {drivetrain, gripCoefficient: grip});
+        settle(world, car);
+        drive(world, car, {accelerate: 1}, 90);
+        const before = heading(car.chassis.rotation());
+        drive(world, car, {accelerate: 0.7, steer: 0.45}, 120);
+        let delta = heading(car.chassis.rotation()) - before;
+        while (delta > Math.PI) delta -= 2 * Math.PI;
+        while (delta < -Math.PI) delta += 2 * Math.PI;
+        world.free();
+        return delta;
+    }
+
+    /** Side-grip left on a driven (rear) wheel after holding `throttle`. */
+    function rearSideGrip(grip: number, throttle: number): number {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world, {drivetrain: "rwd", gripCoefficient: grip});
+        settle(world, car);
+        drive(world, car, {accelerate: throttle}, 30);
+        const grip2 = car.controller.wheelSideFrictionStiffness(2) ?? 0;
+        world.free();
+        return grip2;
+    }
+
+    test("at high power an AWD car lays down more than FWD (traction limited)", () => {
+        // Front wheels unload under hard acceleration, so a powerful FWD car
+        // spins up and launches worse than the same power through all four.
+        expect(launchAtPower("awd", 16000, 1.2)).toBeGreaterThan(
+            launchAtPower("fwd", 16000, 1.2) + 2,
+        );
+
+        // With the model disabled, where the power is delivered no longer matters.
+        const fwdOff = launchAtPower("fwd", 16000, 0);
+        const awdOff = launchAtPower("awd", 16000, 0);
+        expect(Math.abs(awdOff - fwdOff)).toBeLessThan(1);
+    });
+
+    test("the friction circle makes a FWD car push wide (understeer) under power", () => {
+        const gapOn = cornerYaw("rwd", 1.2) - cornerYaw("fwd", 1.2);
+        const gapOff = cornerYaw("rwd", 0) - cornerYaw("fwd", 0);
+        // Turning the model on opens an understeer gap: FWD turns in less than RWD.
+        expect(gapOn).toBeGreaterThan(gapOff + 0.08);
+    });
+
+    test("a driven wheel sheds lateral grip under throttle (friction circle)", () => {
+        const idle = rearSideGrip(1.2, 0);
+        const power = rearSideGrip(1.2, 1);
+        expect(power).toBeLessThan(idle * 0.8); // grip is spent driving
+
+        // Disabled: full lateral grip regardless of throttle.
+        expect(rearSideGrip(0, 1)).toBeCloseTo(rearSideGrip(0, 0), 5);
+    });
 });

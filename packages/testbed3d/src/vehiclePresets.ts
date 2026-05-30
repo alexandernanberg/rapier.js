@@ -46,6 +46,10 @@ export const VEHICLE_PRESETS = {
             handbrakeForce: 9000,
             handbrakeSideFriction: 0.6,
             maxSteerAngle: 0.55,
+            // Firm, planted suspension on big wheels.
+            suspensionStiffness: 30,
+            suspensionRestLength: 0.3,
+            wheelRadius: 0.34,
         },
     },
     // RWD coupe: lots of power at the rear, lower lateral grip — tail-happy.
@@ -62,6 +66,10 @@ export const VEHICLE_PRESETS = {
             handbrakeForce: 8000,
             handbrakeSideFriction: 0.3,
             maxSteerAngle: 0.6,
+            // Stiff sports setup, sits low.
+            suspensionStiffness: 30,
+            suspensionRestLength: 0.3,
+            wheelRadius: 0.34,
         },
     },
     // AWD rally car: lighter, razor-sharp turn-in, immense grip.
@@ -79,6 +87,11 @@ export const VEHICLE_PRESETS = {
             handbrakeSideFriction: 0.5,
             maxSteerAngle: 0.66,
             steerRate: 5.0,
+            // Softer, longer-travel rally suspension that rides higher.
+            suspensionStiffness: 22,
+            suspensionRestLength: 0.36,
+            maxSuspensionTravel: 0.6,
+            wheelRadius: 0.34,
         },
     },
     // Light RWD roadster: low power but nimble and playful.
@@ -95,6 +108,10 @@ export const VEHICLE_PRESETS = {
             handbrakeForce: 6000,
             handbrakeSideFriction: 0.35,
             maxSteerAngle: 0.62,
+            // Low and small-wheeled roadster.
+            suspensionStiffness: 26,
+            suspensionRestLength: 0.26,
+            wheelRadius: 0.3,
         },
     },
     // FWD hot hatch: practical, a touch of understeer, won't easily oversteer.
@@ -111,6 +128,10 @@ export const VEHICLE_PRESETS = {
             handbrakeForce: 7000,
             handbrakeSideFriction: 0.5,
             maxSteerAngle: 0.6,
+            // Comfortable hatch ride height.
+            suspensionStiffness: 24,
+            suspensionRestLength: 0.3,
+            wheelRadius: 0.32,
         },
     },
 } satisfies Record<string, VehiclePreset>;
