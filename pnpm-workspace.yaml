@@ -1,5 +1,6 @@
 packages:
     - packages/*
 
-ignoredBuiltDependencies:
-    - wasm-pack
+allowBuilds:
+    esbuild: true
+    wasm-pack: true

@@ -1,12 +1,15 @@
-import type {BenchResult} from "./runner.js";
+import {run} from "mitata";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
     loadBaseline,
     saveBaseline,
     compareToBaseline,
     hasRegression,
     summarizeComparison,
+    printComparisonTable,
+    type BenchResult,
 } from "./baseline.js";
-import {printTable, printComparisonTable, saveResults} from "./results.js";
 import {benchGetters} from "./scenarios/getters.js";
 import {benchLifecycle} from "./scenarios/lifecycle.js";
 import {benchQueries} from "./scenarios/queries.js";
@@ -66,7 +69,7 @@ Options:
   --dim=3d          Run 3D benchmarks (default)
   --simd            Use SIMD variant (requires simd128 support)
   --official        Use official @dimforge/rapier packages instead of fork
-  --quick           Run with fewer iterations (faster, less accurate)
+  --quick           Run with fewer bodies (faster setup, same measurement precision)
   --save-baseline   Save current results as new baseline
   --no-compare      Run without baseline comparison
   --help, -h        Show this help message
@@ -105,53 +108,82 @@ async function main() {
 
     await RAPIER.init();
 
-    const results: BenchResult[] = [];
+    // Register all benchmarks (mitata collects them globally)
+    benchSimulation(RAPIER, is3D, quick);
+    benchLifecycle(RAPIER, is3D, quick);
+    benchQueries(RAPIER, is3D, quick);
+    benchGetters(RAPIER, is3D, quick);
+    benchSetters(RAPIER, is3D, quick);
 
-    console.log("Running simulation benchmarks...");
-    results.push(...(await benchSimulation(RAPIER, is3D, quick)));
+    // Run all registered benchmarks
+    const {benchmarks} = await run();
 
-    console.log("Running lifecycle benchmarks...");
-    results.push(...(await benchLifecycle(RAPIER, is3D, quick)));
+    // Extract results from mitata's format
+    const results: BenchResult[] = benchmarks.flatMap((trial) =>
+        trial.runs
+            .filter((r) => r.stats != null)
+            .map((r) => ({
+                name: r.name,
+                avg: r.stats!.avg,
+            })),
+    );
 
-    console.log("Running query benchmarks...");
-    results.push(...(await benchQueries(RAPIER, is3D, quick)));
-
-    console.log("Running getter benchmarks...");
-    results.push(...(await benchGetters(RAPIER, is3D, quick)));
-
-    console.log("Running setter benchmarks...");
-    results.push(...(await benchSetters(RAPIER, is3D, quick)));
-
-    console.log("");
+    // Save results JSON for CI (convert ns → ms to match expected format)
+    const resultsDir = path.join(new URL("..", import.meta.url).pathname, "results");
+    fs.mkdirSync(resultsDir, {recursive: true});
+    const resultsFile = path.join(resultsDir, `${dim}-${Date.now()}.json`);
+    fs.writeFileSync(
+        resultsFile,
+        JSON.stringify(
+            {
+                timestamp: new Date().toISOString(),
+                node: process.version,
+                platform: process.platform,
+                arch: process.arch,
+                results: benchmarks.flatMap((trial) =>
+                    trial.runs
+                        .filter((r) => r.stats != null)
+                        .map((r) => ({
+                            name: r.name,
+                            mean: r.stats!.avg / 1e6,
+                            min: r.stats!.min / 1e6,
+                            max: r.stats!.max / 1e6,
+                            p50: r.stats!.p50 / 1e6,
+                            p99: r.stats!.p99 / 1e6,
+                            samples: r.stats!.samples.length,
+                        })),
+                ),
+            },
+            null,
+            2,
+        ),
+    );
+    console.log(`\nResults saved to ${resultsFile}`);
 
     // Handle baseline operations
     if (saveBaselineFlag) {
-        printTable(results);
         saveBaseline(dim, results);
-    } else if (noCompare) {
-        printTable(results);
-    } else {
-        // Try to compare against baseline
+    } else if (!noCompare) {
         const baseline = loadBaseline();
 
         if (baseline && Object.keys(baseline[dim]).length > 0) {
             const comparisons = compareToBaseline(dim, results, baseline);
             printComparisonTable(comparisons);
 
-            const summary = summarizeComparison(comparisons);
+            const summaryResult = summarizeComparison(comparisons);
             const parts: string[] = [];
 
-            if (summary.newBenchmarks > 0) {
-                parts.push(`${summary.newBenchmarks} new`);
+            if (summaryResult.newBenchmarks > 0) {
+                parts.push(`${summaryResult.newBenchmarks} new`);
             }
-            if (summary.warnings > 0) {
+            if (summaryResult.warnings > 0) {
                 parts.push(
-                    `\u26a0\ufe0f ${summary.warnings} warning${summary.warnings > 1 ? "s" : ""}`,
+                    `\u26a0\ufe0f ${summaryResult.warnings} warning${summaryResult.warnings > 1 ? "s" : ""}`,
                 );
             }
-            if (summary.regressions > 0) {
+            if (summaryResult.regressions > 0) {
                 parts.push(
-                    `\u274c ${summary.regressions} regression${summary.regressions > 1 ? "s" : ""}`,
+                    `\u274c ${summaryResult.regressions} regression${summaryResult.regressions > 1 ? "s" : ""}`,
                 );
             }
 
@@ -161,23 +193,13 @@ async function main() {
                 console.log("\n\u2713 All benchmarks within tolerance");
             }
 
-            // Exit with error code if regression detected
             if (hasRegression(comparisons)) {
-                const timestamp = Date.now();
-                const resultsDir = new URL("../results", import.meta.url).pathname;
-                saveResults(results, `${resultsDir}/${dim}-${timestamp}.json`);
                 process.exit(1);
             }
         } else {
-            // No baseline exists, just print results
-            printTable(results);
             console.log("\nNo baseline found. Run with --save-baseline to create one.");
         }
     }
-
-    const timestamp = Date.now();
-    const resultsDir = new URL("../results", import.meta.url).pathname;
-    saveResults(results, `${resultsDir}/${dim}-${timestamp}.json`);
 }
 
 main().catch((err) => {
