@@ -22,7 +22,7 @@ jobs:
             testbed: ${{ steps.filter.outputs.testbed }}
         steps:
             - uses: actions/checkout@v6
-            - uses: dorny/paths-filter@v3
+            - uses: dorny/paths-filter@v4
               id: filter
               with:
                   filters: |
@@ -41,7 +41,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4
+            - uses: pnpm/action-setup@v6
             - uses: actions/setup-node@v6
               with:
                   node-version: "24"
@@ -62,7 +62,7 @@ jobs:
             RUSTFLAGS: -D warnings
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4
+            - uses: pnpm/action-setup@v6
             - uses: actions/setup-node@v6
               with:
                   node-version: "24"
@@ -96,7 +96,7 @@ jobs:
                     exit 1
                   fi
             - name: Upload build artifacts
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: build-artifacts
                   path: |
@@ -114,14 +114,14 @@ jobs:
             pull-requests: write
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4
+            - uses: pnpm/action-setup@v6
             - uses: actions/setup-node@v6
               with:
                   node-version: "24"
                   cache: "pnpm"
             - run: pnpm install --frozen-lockfile
             - name: Download build artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v8
               with:
                   name: build-artifacts
                   path: packages
@@ -163,7 +163,7 @@ jobs:
                   fs.writeFileSync('benchmark-comment.md', md);
                   "
             - name: Post or update PR comment
-              uses: actions/github-script@v7
+              uses: actions/github-script@v9
               with:
                   script: |
                       const fs = require('fs');
@@ -212,14 +212,14 @@ jobs:
                       project-id: VERCEL_PROJECT_ID_TESTBED3D
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v4
+            - uses: pnpm/action-setup@v6
             - uses: actions/setup-node@v6
               with:
                   node-version: "24"
                   cache: "pnpm"
             - run: pnpm install --frozen-lockfile
             - name: Download build artifacts
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v8
               with:
                   name: build-artifacts
                   path: packages
