@@ -17,6 +17,7 @@ import * as PidController from "./demos/pidController";
 import * as Platform from "./demos/platform";
 import * as Pyramid from "./demos/pyramid";
 import * as Trimesh from "./demos/trimesh";
+import * as VehicleController from "./demos/vehicleController";
 import * as Voxels from "./demos/voxels";
 import {Testbed} from "./Testbed";
 
@@ -46,6 +47,7 @@ import("@alexandernanberg/rapier3d/compat").then(async (compat) => {
         ["platform", Platform.initWorld],
         ["pyramid", Pyramid.initWorld],
         ["triangle mesh", Trimesh.initWorld],
+        ["vehicle controller", VehicleController.initWorld],
         ["voxels", Voxels.initWorld],
         ["GLTF to convexHull", glbToConvexHull.initWorld],
         ["GLTF to trimesh", glbToTrimesh.initWorld],

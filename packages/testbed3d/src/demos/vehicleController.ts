@@ -1,0 +1,287 @@
+import * as THREE from "three";
+import type {Graphics} from "../Graphics";
+import type {Testbed} from "../Testbed";
+import {VehicleController} from "../VehicleController";
+
+type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+
+// Chassis dimensions (full sizes along X/Y/Z).
+const CHASSIS_WIDTH = 1.8;
+const CHASSIS_HEIGHT = 0.7;
+const CHASSIS_LENGTH = 3.6;
+
+// If steering feels inverted on your machine, flip this to -1.
+const STEER_SIGN = 1;
+
+// Scratch objects reused every frame to avoid per-frame allocations.
+const _carPos = new THREE.Vector3();
+const _forward = new THREE.Vector3();
+const _desiredEye = new THREE.Vector3();
+const _camTarget = new THREE.Vector3();
+const _dirWs = new THREE.Vector3();
+const _wheelPos = new THREE.Vector3();
+const _chassisQuat = new THREE.Quaternion();
+const _qSteer = new THREE.Quaternion();
+const _qSpin = new THREE.Quaternion();
+const _wheelQuat = new THREE.Quaternion();
+const _axisUp = new THREE.Vector3(0, 1, 0);
+const _axisAxle = new THREE.Vector3(1, 0, 0);
+// Aligns a cylinder (whose length runs along Y) onto the wheel's axle (X).
+const _qAlign = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);
+
+function createHud(): HTMLDivElement {
+    document.getElementById("vehicle-hud")?.remove();
+
+    const hud = document.createElement("div");
+    hud.id = "vehicle-hud";
+    hud.style.cssText = [
+        "position:absolute",
+        "left:12px",
+        "bottom:12px",
+        "padding:10px 14px",
+        "font:14px/1.4 ui-monospace,Menlo,Consolas,monospace",
+        "color:#fff",
+        "background:rgba(0,0,0,0.45)",
+        "border-radius:8px",
+        "pointer-events:none",
+        "white-space:pre",
+        "z-index:10",
+    ].join(";");
+    document.body.appendChild(hud);
+    return hud;
+}
+
+export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
+    const gfx = testbed.graphics;
+    const gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
+    const world = new RAPIER.World(gravity);
+
+    // --- Ground -----------------------------------------------------------
+    const ground = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    world.createCollider(
+        RAPIER.ColliderDesc.cuboid(120.0, 0.5, 120.0).setTranslation(0, -0.5, 0).setFriction(1.2),
+        ground,
+    );
+
+    // --- Ramps to jump off ------------------------------------------------
+    const rampBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    const makeRamp = (x: number, z: number, angle: number) => {
+        const rot = new RAPIER.Quaternion(Math.sin(angle / 2), 0, 0, Math.cos(angle / 2));
+        world.createCollider(
+            RAPIER.ColliderDesc.cuboid(4.0, 0.25, 5.0)
+                .setTranslation(x, Math.sin(angle) * 5.0 - 0.2, z)
+                .setRotation(rot)
+                .setFriction(1.0),
+            rampBody,
+        );
+    };
+    makeRamp(0, 20, -0.32);
+    makeRamp(-12, 35, -0.4);
+
+    // --- A few static blocks + a wall of crates to knock around -----------
+    for (let i = 0; i < 5; i++) {
+        const crate = world.createRigidBody(
+            RAPIER.RigidBodyDesc.dynamic().setTranslation(8 + (i % 2), 0.5 + Math.floor(i / 2), 28),
+        );
+        world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5).setDensity(20), crate);
+    }
+    for (let i = 0; i < 8; i++) {
+        const cone = world.createRigidBody(
+            RAPIER.RigidBodyDesc.dynamic().setTranslation(-6 + i * 1.5, 0.4, 10),
+        );
+        world.createCollider(RAPIER.ColliderDesc.cone(0.4, 0.35).setDensity(8), cone);
+    }
+
+    // --- Chassis ----------------------------------------------------------
+    // A low center of mass is the single most important "GTA" stability
+    // trick: it keeps the car from rolling over when cornering hard.
+    const mass = 1000.0;
+    const com = new RAPIER.Vector3(0.0, -0.25, 0.0);
+    const w = CHASSIS_WIDTH;
+    const h = CHASSIS_HEIGHT;
+    const d = CHASSIS_LENGTH;
+    const inertia = new RAPIER.Vector3(
+        (mass / 12) * (h * h + d * d),
+        (mass / 12) * (w * w + d * d),
+        (mass / 12) * (w * w + h * h),
+    );
+
+    const chassisDesc = RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(0, 1.5, -20)
+        .setAdditionalMassProperties(mass, com, inertia, new RAPIER.Quaternion(0, 0, 0, 1))
+        .setLinearDamping(0.1)
+        .setAngularDamping(0.3)
+        .setCanSleep(false)
+        .setCcdEnabled(true);
+    const chassis = world.createRigidBody(chassisDesc);
+
+    // Main body + a smaller cabin on top, both rendered by the testbed.
+    world.createCollider(
+        RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2)
+            .setFriction(0.6)
+            .setRestitution(0.0),
+        chassis,
+    );
+    world.createCollider(
+        RAPIER.ColliderDesc.cuboid(w / 2 - 0.2, h / 2, d / 4)
+            .setTranslation(0, h, -0.2)
+            .setFriction(0.6),
+        chassis,
+    );
+
+    const vehicle = new VehicleController(world, chassis, {drivetrain: "awd"});
+
+    // --- Wheel visuals (raycast wheels have no colliders of their own) ----
+    // Remove a stale wheel group if this demo is being re-loaded (the testbed
+    // only auto-cleans collider meshes, not custom objects we add ourselves).
+    gfx.scene.getObjectByName("vehicle-wheels")?.removeFromParent();
+
+    const wheelGroup = new THREE.Group();
+    wheelGroup.name = "vehicle-wheels";
+    const wheelMaterial = new THREE.MeshPhongMaterial({color: 0x111111, flatShading: true});
+    const tireGeometry = new THREE.CylinderGeometry(
+        vehicle.options.wheelRadius,
+        vehicle.options.wheelRadius,
+        0.3,
+        20,
+    );
+    const wheelMeshes: THREE.Mesh[] = [];
+    for (let i = 0; i < vehicle.wheelCount; i++) {
+        const mesh = new THREE.Mesh(tireGeometry, wheelMaterial);
+        wheelGroup.add(mesh);
+        wheelMeshes.push(mesh);
+    }
+    gfx.scene.add(wheelGroup);
+
+    const hud = createHud();
+
+    // --- Input ------------------------------------------------------------
+    const keys = {forward: false, back: false, left: false, right: false, handbrake: false};
+    const spawn = {x: 0, y: 1.5, z: -20};
+
+    const respawn = () => {
+        chassis.setTranslation(new RAPIER.Vector3(spawn.x, spawn.y, spawn.z), true);
+        chassis.setRotation(new RAPIER.Quaternion(0, 0, 0, 1), true);
+        chassis.setLinvel(new RAPIER.Vector3(0, 0, 0), true);
+        chassis.setAngvel(new RAPIER.Vector3(0, 0, 0), true);
+    };
+
+    document.onkeydown = (event: KeyboardEvent) => {
+        switch (event.key.toLowerCase()) {
+            case "arrowup":
+            case "w":
+                keys.forward = true;
+                break;
+            case "arrowdown":
+            case "s":
+                keys.back = true;
+                break;
+            case "arrowleft":
+            case "a":
+                keys.left = true;
+                break;
+            case "arrowright":
+            case "d":
+                keys.right = true;
+                break;
+            case " ":
+                keys.handbrake = true;
+                break;
+            case "r":
+                respawn();
+                break;
+        }
+    };
+    document.onkeyup = (event: KeyboardEvent) => {
+        switch (event.key.toLowerCase()) {
+            case "arrowup":
+            case "w":
+                keys.forward = false;
+                break;
+            case "arrowdown":
+            case "s":
+                keys.back = false;
+                break;
+            case "arrowleft":
+            case "a":
+                keys.left = false;
+                break;
+            case "arrowright":
+            case "d":
+                keys.right = false;
+                break;
+            case " ":
+                keys.handbrake = false;
+                break;
+        }
+    };
+
+    const dt = world.timestep;
+
+    const update = (graphics: Graphics) => {
+        // Map keyboard to driver input.
+        vehicle.input.accelerate = keys.forward ? 1 : 0;
+        vehicle.input.brake = keys.back ? 1 : 0;
+        vehicle.input.steer = STEER_SIGN * ((keys.left ? 1 : 0) - (keys.right ? 1 : 0));
+        vehicle.input.handbrake = keys.handbrake;
+
+        vehicle.update(dt);
+
+        // Sync wheel meshes from the raycast vehicle's wheel state.
+        const rot = chassis.rotation();
+        _chassisQuat.set(rot.x, rot.y, rot.z, rot.w);
+        _dirWs.set(0, -1, 0).applyQuaternion(_chassisQuat);
+
+        for (let i = 0; i < wheelMeshes.length; i++) {
+            const hardPoint = vehicle.controller.wheelHardPoint(i);
+            if (!hardPoint) continue;
+            const suspension =
+                vehicle.controller.wheelSuspensionLength(i) ?? vehicle.options.suspensionRestLength;
+            const steer = vehicle.controller.wheelSteering(i) ?? 0;
+            const spin = vehicle.controller.wheelRotation(i) ?? 0;
+
+            _wheelPos
+                .set(hardPoint.x, hardPoint.y, hardPoint.z)
+                .addScaledVector(_dirWs, suspension);
+
+            _qSteer.setFromAxisAngle(_axisUp, steer);
+            _qSpin.setFromAxisAngle(_axisAxle, spin);
+            _wheelQuat.copy(_chassisQuat).multiply(_qSteer).multiply(_qSpin).multiply(_qAlign);
+
+            wheelMeshes[i].position.copy(_wheelPos);
+            wheelMeshes[i].quaternion.copy(_wheelQuat);
+        }
+
+        // Chase camera: sit behind and above the car, looking slightly ahead.
+        const t = chassis.translation();
+        _carPos.set(t.x, t.y, t.z);
+        _forward.set(0, 0, 1).applyQuaternion(_chassisQuat);
+        _forward.y = 0;
+        if (_forward.lengthSq() > 1e-4) _forward.normalize();
+
+        _desiredEye
+            .copy(_carPos)
+            .addScaledVector(_forward, -9)
+            .setY(_carPos.y + 4.5);
+        graphics.camera.position.lerp(_desiredEye, 0.08);
+        _camTarget.copy(_carPos).setY(_carPos.y + 1.0);
+        graphics.controls.target.lerp(_camTarget, 0.15);
+
+        // HUD.
+        const speed = vehicle.currentSpeed();
+        const kmh = Math.abs(speed) * 3.6;
+        const gear = speed > 0.5 ? "D" : speed < -0.5 ? "R" : "N";
+        hud.textContent =
+            `${kmh.toFixed(0).padStart(3)} km/h   [${gear}]` +
+            `${keys.handbrake ? "  HANDBRAKE" : ""}\n` +
+            `W/↑ accel · S/↓ brake-reverse · A/D steer · Space handbrake · R reset`;
+    };
+
+    testbed.setWorld(world);
+    testbed.setpreTimestepAction(update);
+
+    testbed.lookAt({
+        eye: {x: 0, y: 6, z: -32},
+        target: {x: 0, y: 1, z: -20},
+    });
+}
