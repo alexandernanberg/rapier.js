@@ -11,6 +11,19 @@ import {
     type VehicleControllerOptions,
     type VehicleInput,
 } from "../VehicleController";
+import {
+    spawnVehicle,
+    VEHICLE_PRESET_NAMES,
+    VEHICLE_PRESETS,
+    type VehiclePresetName,
+} from "../vehiclePresets";
+
+// spawnVehicle is typed against the default build; we run on the (equivalent)
+// compat build, so bridge the nominal type mismatch once, here.
+type RapierApi = typeof import("@alexandernanberg/rapier3d");
+function spawnPreset(world: RAPIER.World, name: VehiclePresetName): VehicleController {
+    return spawnVehicle(RAPIER as unknown as RapierApi, world as unknown as DefaultWorld, name);
+}
 
 beforeAll(async () => {
     await init();
@@ -389,5 +402,87 @@ describe("VehicleController (simulated behaviour)", () => {
 
         // The handbrake run slides noticeably more sideways than the grippy run.
         expect(driftSlip).toBeGreaterThan(gripSlip * 1.3);
+    });
+});
+
+// ============================================================================
+// Vehicle presets: different cars should actually drive differently.
+// ============================================================================
+
+describe("vehicle presets", () => {
+    /** Forward speed reached after a fixed full-throttle burst from rest. */
+    function launchSpeed(name: VehiclePresetName, steps: number): number {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = spawnPreset(world, name);
+        settle(world, car);
+        drive(world, car, {accelerate: 1}, steps);
+        const speed = car.currentSpeed();
+        world.free();
+        return speed;
+    }
+
+    /** Near-terminal forward speed after a long full-throttle run. */
+    function flatOutSpeed(name: VehiclePresetName): number {
+        return launchSpeed(name, 1500);
+    }
+
+    /** Peak sideways slip in a hard corner taken with the handbrake. */
+    function handbrakeSlip(name: VehiclePresetName): number {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = spawnPreset(world, name);
+        settle(world, car);
+        drive(world, car, {accelerate: 1}, 200);
+
+        let slip = 0;
+        drive(world, car, {steer: 1, handbrake: true}, 90, () => {
+            const v = car.chassis.linvel();
+            const local = rotateInverse(car.chassis.rotation(), {x: v.x, y: 0, z: v.z});
+            if (Math.abs(local.z) > 1) slip = Math.max(slip, Math.abs(local.x) / Math.abs(local.z));
+        });
+        world.free();
+        return slip;
+    }
+
+    test("the presets encode distinct drivetrains", () => {
+        expect(VEHICLE_PRESETS.skyline.controller.drivetrain).toBe("awd");
+        expect(VEHICLE_PRESETS.supra.controller.drivetrain).toBe("rwd");
+        expect(VEHICLE_PRESETS.golf.controller.drivetrain).toBe("fwd");
+    });
+
+    test.each(VEHICLE_PRESET_NAMES)("preset '%s' spawns a drivable, upright car", (name) => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = spawnPreset(world, name);
+        settle(world, car);
+
+        expect(car.wheelCount).toBe(4);
+        for (let i = 0; i < car.wheelCount; i++) {
+            expect(car.controller.wheelIsInContact(i)).toBe(true);
+        }
+        expect(uprightness(car.chassis.rotation())).toBeGreaterThan(0.95);
+
+        drive(world, car, {accelerate: 1}, 120);
+        expect(car.currentSpeed()).toBeGreaterThan(4);
+
+        world.free();
+    });
+
+    test("a higher-spec car reaches a higher top speed than a humble one", () => {
+        // The Supra (topSpeed 50) clearly out-runs the little Miata (topSpeed 38).
+        expect(flatOutSpeed("supra")).toBeGreaterThan(flatOutSpeed("miata") + 3);
+        expect(flatOutSpeed("skyline")).toBeGreaterThan(flatOutSpeed("miata") + 3);
+    });
+
+    test("the more powerful car out-accelerates the light, low-power one", () => {
+        expect(launchSpeed("supra", 120)).toBeGreaterThan(launchSpeed("miata", 120));
+    });
+
+    test("the drift-tuned RWD coupe slides far more on the handbrake than the grippy AWD car", () => {
+        const supra = handbrakeSlip("supra");
+        const skyline = handbrakeSlip("skyline");
+        expect(supra).toBeGreaterThan(1.0); // it really breaks traction
+        expect(supra).toBeGreaterThan(skyline * 1.5); // and much more than the AWD car
     });
 });

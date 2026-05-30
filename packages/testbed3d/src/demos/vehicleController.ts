@@ -1,14 +1,14 @@
 import * as THREE from "three";
 import type {Graphics} from "../Graphics";
 import type {Testbed} from "../Testbed";
-import {VehicleController} from "../VehicleController";
+import {
+    spawnVehicle,
+    VEHICLE_PRESET_NAMES,
+    VEHICLE_PRESETS,
+    type VehiclePresetName,
+} from "../vehiclePresets";
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
-
-// Chassis dimensions (full sizes along X/Y/Z).
-const CHASSIS_WIDTH = 1.8;
-const CHASSIS_HEIGHT = 0.7;
-const CHASSIS_LENGTH = 3.6;
 
 // If steering feels inverted on your machine, flip this to -1.
 const STEER_SIGN = 1;
@@ -92,78 +92,64 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         world.createCollider(RAPIER.ColliderDesc.cone(0.4, 0.35).setDensity(8), cone);
     }
 
-    // --- Chassis ----------------------------------------------------------
-    // A low center of mass is the single most important "GTA" stability
-    // trick: it keeps the car from rolling over when cornering hard.
-    const mass = 1000.0;
-    const com = new RAPIER.Vector3(0.0, -0.25, 0.0);
-    const w = CHASSIS_WIDTH;
-    const h = CHASSIS_HEIGHT;
-    const d = CHASSIS_LENGTH;
-    const inertia = new RAPIER.Vector3(
-        (mass / 12) * (h * h + d * d),
-        (mass / 12) * (w * w + d * d),
-        (mass / 12) * (w * w + h * h),
-    );
-
-    const chassisDesc = RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(0, 1.5, -20)
-        .setAdditionalMassProperties(mass, com, inertia, new RAPIER.Quaternion(0, 0, 0, 1))
-        .setLinearDamping(0.1)
-        .setAngularDamping(0.3)
-        .setCanSleep(false)
-        .setCcdEnabled(true);
-    const chassis = world.createRigidBody(chassisDesc);
-
-    // Main body + a smaller cabin on top, both rendered by the testbed.
-    world.createCollider(
-        RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2)
-            .setFriction(0.6)
-            .setRestitution(0.0),
-        chassis,
-    );
-    world.createCollider(
-        RAPIER.ColliderDesc.cuboid(w / 2 - 0.2, h / 2, d / 4)
-            .setTranslation(0, h, -0.2)
-            .setFriction(0.6),
-        chassis,
-    );
-
-    const vehicle = new VehicleController(world, chassis, {drivetrain: "awd"});
+    // --- Vehicle (built from a preset; swap cars with the number keys) -----
+    const spawn = {x: 0, y: 1.5, z: -20};
+    let currentPreset: VehiclePresetName = "skyline";
+    let vehicle = spawnVehicle(RAPIER, world, currentPreset, spawn);
 
     // --- Wheel visuals (raycast wheels have no colliders of their own) ----
     // Remove a stale wheel group if this demo is being re-loaded (the testbed
     // only auto-cleans collider meshes, not custom objects we add ourselves).
     gfx.scene.getObjectByName("vehicle-wheels")?.removeFromParent();
-
     const wheelGroup = new THREE.Group();
     wheelGroup.name = "vehicle-wheels";
-    const wheelMaterial = new THREE.MeshPhongMaterial({color: 0x111111, flatShading: true});
-    const tireGeometry = new THREE.CylinderGeometry(
-        vehicle.options.wheelRadius,
-        vehicle.options.wheelRadius,
-        0.3,
-        20,
-    );
-    const wheelMeshes: THREE.Mesh[] = [];
-    for (let i = 0; i < vehicle.wheelCount; i++) {
-        const mesh = new THREE.Mesh(tireGeometry, wheelMaterial);
-        wheelGroup.add(mesh);
-        wheelMeshes.push(mesh);
-    }
     gfx.scene.add(wheelGroup);
+
+    const wheelMaterial = new THREE.MeshPhongMaterial({color: 0x111111, flatShading: true});
+    const wheelMeshes: THREE.Mesh[] = [];
+
+    const buildWheels = () => {
+        for (const mesh of wheelMeshes) {
+            mesh.geometry.dispose();
+            wheelGroup.remove(mesh);
+        }
+        wheelMeshes.length = 0;
+
+        const r = vehicle.options.wheelRadius;
+        const geometry = new THREE.CylinderGeometry(r, r, 0.3, 20);
+        for (let i = 0; i < vehicle.wheelCount; i++) {
+            const mesh = new THREE.Mesh(geometry, wheelMaterial);
+            wheelGroup.add(mesh);
+            wheelMeshes.push(mesh);
+        }
+    };
+    buildWheels();
+
+    const switchPreset = (name: VehiclePresetName) => {
+        // Tear down the current car (graphics first, while its colliders exist).
+        gfx.removeRigidBody(vehicle.chassis);
+        world.removeVehicleController(vehicle.controller);
+        world.removeRigidBody(vehicle.chassis);
+
+        // Spawn the new one and register its colliders with the renderer.
+        currentPreset = name;
+        vehicle = spawnVehicle(RAPIER, world, name, spawn);
+        for (let i = 0; i < vehicle.chassis.numColliders(); i++) {
+            gfx.addCollider(RAPIER, world, vehicle.chassis.collider(i));
+        }
+        buildWheels();
+    };
 
     const hud = createHud();
 
     // --- Input ------------------------------------------------------------
     const keys = {forward: false, back: false, left: false, right: false, handbrake: false};
-    const spawn = {x: 0, y: 1.5, z: -20};
 
     const respawn = () => {
-        chassis.setTranslation(new RAPIER.Vector3(spawn.x, spawn.y, spawn.z), true);
-        chassis.setRotation(new RAPIER.Quaternion(0, 0, 0, 1), true);
-        chassis.setLinvel(new RAPIER.Vector3(0, 0, 0), true);
-        chassis.setAngvel(new RAPIER.Vector3(0, 0, 0), true);
+        vehicle.chassis.setTranslation(new RAPIER.Vector3(spawn.x, spawn.y, spawn.z), true);
+        vehicle.chassis.setRotation(new RAPIER.Quaternion(0, 0, 0, 1), true);
+        vehicle.chassis.setLinvel(new RAPIER.Vector3(0, 0, 0), true);
+        vehicle.chassis.setAngvel(new RAPIER.Vector3(0, 0, 0), true);
     };
 
     document.onkeydown = (event: KeyboardEvent) => {
@@ -190,6 +176,13 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             case "r":
                 respawn();
                 break;
+            default: {
+                // Number keys 1..N switch between vehicle presets.
+                const index = Number.parseInt(event.key, 10) - 1;
+                if (index >= 0 && index < VEHICLE_PRESET_NAMES.length) {
+                    switchPreset(VEHICLE_PRESET_NAMES[index]);
+                }
+            }
         }
     };
     document.onkeyup = (event: KeyboardEvent) => {
@@ -218,6 +211,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
     const dt = world.timestep;
 
+    const menu = VEHICLE_PRESET_NAMES.map((n, i) => `${i + 1} ${VEHICLE_PRESETS[n].label}`).join(
+        "   ",
+    );
+
     const update = (graphics: Graphics) => {
         // Map keyboard to driver input.
         vehicle.input.accelerate = keys.forward ? 1 : 0;
@@ -228,6 +225,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         vehicle.update(dt);
 
         // Sync wheel meshes from the raycast vehicle's wheel state.
+        const chassis = vehicle.chassis;
         const rot = chassis.rotation();
         _chassisQuat.set(rot.x, rot.y, rot.z, rot.w);
         _dirWs.set(0, -1, 0).applyQuaternion(_chassisQuat);
@@ -272,9 +270,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         const kmh = Math.abs(speed) * 3.6;
         const gear = speed > 0.5 ? "D" : speed < -0.5 ? "R" : "N";
         hud.textContent =
-            `${kmh.toFixed(0).padStart(3)} km/h   [${gear}]` +
-            `${keys.handbrake ? "  HANDBRAKE" : ""}\n` +
-            `W/↑ accel · S/↓ brake-reverse · A/D steer · Space handbrake · R reset`;
+            `${VEHICLE_PRESETS[currentPreset].label}\n` +
+            `${kmh.toFixed(0).padStart(3)} km/h   [${gear}]${keys.handbrake ? "  HANDBRAKE" : ""}\n` +
+            `W/↑ accel · S/↓ brake-reverse · A/D steer · Space handbrake · R reset\n` +
+            `cars:  ${menu}`;
     };
 
     testbed.setWorld(world);
