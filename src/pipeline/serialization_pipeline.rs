@@ -140,7 +140,7 @@ impl RawSerializationPipeline {
                 bodies: d.bodies,
                 transform_data: Vec::new(),
             }),
-            colliders: Some(RawColliderSet(d.colliders)),
+            colliders: Some(RawColliderSet(d.colliders, Vec::new())),
             impulse_joints: Some(RawImpulseJointSet(d.impulse_joints)),
             multibody_joints: Some(RawMultibodyJointSet(d.multibody_joints)),
         })

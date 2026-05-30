@@ -1,3 +1,4 @@
+import {handleToIndex} from "../coarena";
 import {CoefficientCombineRule, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
@@ -94,6 +95,12 @@ export type ColliderHandle = number;
 const _scratch = new Float32Array(4);
 
 /**
+ * Number of f32 values per collider in the world-space transform buffer.
+ * Layout: translation(3) + rotation(4) = 7
+ */
+const COLLIDER_TRANSFORM_STRIDE = 7;
+
+/**
  * A geometric entity that can be attached to a body so it can be affected
  * by contacts and proximity queries.
  */
@@ -102,6 +109,8 @@ export class Collider {
     readonly handle: ColliderHandle;
     private _shape: Shape; // TODO: deprecate/remove this since it isn't a reliable way of getting the latest shape properties.
     private _parent: RigidBody | null;
+    /** @internal Offset of this collider's transform inside the shared buffer. */
+    _bufferOffset: number;
 
     constructor(
         colliderSet: ColliderSet,
@@ -113,6 +122,27 @@ export class Collider {
         this.handle = handle;
         this._parent = parent;
         this._shape = shape!;
+        this._bufferOffset = handleToIndex(handle) * COLLIDER_TRANSFORM_STRIDE;
+    }
+
+    /**
+     * @internal
+     * Returns the collider transform buffer view if it is currently valid.
+     *
+     * The `Float32Array` view detaches whenever WASM memory grows (e.g. after
+     * creating bodies/colliders). When that happens `byteLength` becomes 0 and we
+     * must drop the stale view; the next `world.step()` re-establishes it via
+     * `ColliderSet.syncTransformBuffer()`.
+     */
+    private liveBuffer(): Float32Array | null {
+        const view = this.colliderSet._bufferRef.buffer;
+        if (view === null) return null;
+        // A detached view (after memory growth) has a zero byteLength.
+        if (view.byteLength === 0) {
+            this.colliderSet._bufferRef.buffer = null;
+            return null;
+        }
+        return view;
     }
 
     /** @internal */
@@ -160,6 +190,15 @@ export class Collider {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public translation(target?: Vector): Vector {
+        const buf = this.liveBuffer();
+        if (buf !== null) {
+            const o = this._bufferOffset;
+            target ??= VectorOps.zeros();
+            target.x = buf[o];
+            target.y = buf[o + 1];
+            target.z = buf[o + 2];
+            return target;
+        }
         this.colliderSet.raw.coTranslation(this.handle, _scratch);
         return VectorOps.fromBuffer(_scratch, target);
     }
@@ -183,6 +222,16 @@ export class Collider {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public rotation(target?: Rotation): Rotation {
+        const buf = this.liveBuffer();
+        if (buf !== null) {
+            const o = this._bufferOffset + 3;
+            target ??= RotationOps.identity();
+            target.x = buf[o];
+            target.y = buf[o + 1];
+            target.z = buf[o + 2];
+            target.w = buf[o + 3];
+            return target;
+        }
         this.colliderSet.raw.coRotation(this.handle, _scratch);
         return RotationOps.fromBuffer(_scratch, target);
     }
@@ -478,6 +527,7 @@ export class Collider {
      */
     public setTranslation(tra: Vector) {
         this.colliderSet.raw.coSetTranslation(this.handle, tra.x, tra.y, tra.z);
+        this.colliderSet._bufferRef.buffer = null;
     }
 
     /**
@@ -489,6 +539,7 @@ export class Collider {
      */
     public setTranslationWrtParent(tra: Vector) {
         this.colliderSet.raw.coSetTranslationWrtParent(this.handle, tra.x, tra.y, tra.z);
+        this.colliderSet._bufferRef.buffer = null;
     }
 
     /**
@@ -500,6 +551,7 @@ export class Collider {
      */
     public setRotation(rot: Rotation) {
         this.colliderSet.raw.coSetRotation(this.handle, rot.x, rot.y, rot.z, rot.w);
+        this.colliderSet._bufferRef.buffer = null;
     }
 
     /**
@@ -512,6 +564,7 @@ export class Collider {
      */
     public setRotationWrtParent(rot: Rotation) {
         this.colliderSet.raw.coSetRotationWrtParent(this.handle, rot.x, rot.y, rot.z, rot.w);
+        this.colliderSet._bufferRef.buffer = null;
     }
 
     /**

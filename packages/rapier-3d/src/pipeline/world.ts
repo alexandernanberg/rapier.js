@@ -256,6 +256,7 @@ export class World {
             hooks,
         );
         this.bodies.syncTransformBuffer();
+        this.colliders.syncTransformBuffer();
     }
 
     /**
@@ -267,6 +268,9 @@ export class World {
      */
     public propagateModifiedBodyPositionsToColliders() {
         this.bodies.raw.propagateModifiedBodyPositionsToColliders(this.colliders.raw);
+        // Collider world positions changed without a step; force reads back onto
+        // the WASM path until the next step rebuilds the buffer.
+        this.colliders._bufferRef.buffer = null;
     }
 
     // TODO: This needs to trigger a broad-phase update but without emitting collision events?
