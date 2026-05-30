@@ -6,9 +6,10 @@ beforeAll(async () => {
 });
 
 /**
- * Exercises the collider world-space transform buffer, which is synced only for
- * colliders attached to awake bodies (plus a full rewrite on insertion), and is
- * invalidated on the JS side when a collider is mutated directly.
+ * Exercises the collider world-space transform buffer, which is rebuilt for every
+ * collider inside the Rust step(), and is invalidated on the JS side when a
+ * collider is mutated directly (forcing reads back onto the WASM path until the
+ * next step).
  */
 describe("collider transform buffer sync", () => {
     test("attached collider tracks its parent body after a step", () => {
