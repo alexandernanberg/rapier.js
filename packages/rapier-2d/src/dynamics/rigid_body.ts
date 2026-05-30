@@ -94,6 +94,30 @@ export class RigidBody {
     }
 
     /**
+     * Returns the shared transform-buffer view if it is currently usable.
+     *
+     * `_bufferRef.buffer` is a `Float32Array` view pointing directly into WASM
+     * linear memory. Whenever WASM memory grows — which can happen on any allocating
+     * operation between two `World.step()` calls (creating colliders/joints, scene
+     * queries or setters that go through `intoRaw()`, etc.) — the underlying
+     * `ArrayBuffer` is detached and this view becomes unusable: reads silently yield
+     * `NaN` and writes are silently dropped. A detached typed array reports a `length`
+     * of `0`, which we use to detect the situation, drop the stale view, and fall back
+     * to reading/writing directly through WASM until `World.step()` rebuilds it.
+     *
+     * (With shared memory — the threads/SIMD build — `grow` does not detach the old
+     * buffer, so the view stays valid and this check is a no-op.)
+     *
+     * @internal
+     */
+    private liveBuffer(): Float32Array | null {
+        const view = this._bufferRef.buffer;
+        if (view !== null && view.length !== 0) return view;
+        if (view !== null) this._bufferRef.buffer = null;
+        return null;
+    }
+
+    /**
      * Checks if this rigid-body is still valid (i.e. that it has
      * not been deleted from the rigid-body set yet.
      */
@@ -219,7 +243,7 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public translation(target?: Vector): Vector {
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset;
             target ??= VectorOps.zeros();
@@ -235,7 +259,7 @@ export class RigidBody {
      * The world-space orientation of this rigid-body.
      */
     public rotation(): Rotation {
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             return buf[this._bufferOffset + 2];
         }
@@ -278,7 +302,7 @@ export class RigidBody {
      */
     public setTranslation(tra: Vector, wakeUp: boolean) {
         this.rawSet.rbSetTranslation(this.handle, tra.x, tra.y, wakeUp);
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset;
             buf[o] = tra.x;
@@ -296,7 +320,7 @@ export class RigidBody {
         let rawVel = VectorOps.intoRaw(vel);
         this.rawSet.rbSetLinvel(this.handle, rawVel, wakeUp);
         rawVel.free();
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset + 3;
             buf[o] = vel.x;
@@ -333,7 +357,7 @@ export class RigidBody {
      */
     public setRotation(angle: number, wakeUp: boolean) {
         this.rawSet.rbSetRotation(this.handle, angle, wakeUp);
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             buf[this._bufferOffset + 2] = angle;
         }
@@ -347,7 +371,7 @@ export class RigidBody {
      */
     public setAngvel(vel: number, wakeUp: boolean) {
         this.rawSet.rbSetAngvel(this.handle, vel, wakeUp);
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             buf[this._bufferOffset + 5] = vel;
         }
@@ -396,7 +420,7 @@ export class RigidBody {
      */
     public setTransform(tra: Vector, rot: Rotation, wakeUp: boolean) {
         this.rawSet.rbSetTransform(this.handle, tra.x, tra.y, rot, wakeUp);
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset;
             buf[o] = tra.x;
@@ -425,7 +449,7 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public linvel(target?: Vector): Vector {
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset + 3;
             target ??= VectorOps.zeros();
@@ -451,7 +475,7 @@ export class RigidBody {
      * The angular velocity of this rigid-body.
      */
     public angvel(): number {
-        const buf = this._bufferRef.buffer;
+        const buf = this.liveBuffer();
         if (buf) {
             return buf[this._bufferOffset + 5];
         }

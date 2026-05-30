@@ -157,6 +157,32 @@ describe("RigidBody", () => {
         world.free();
     });
 
+    test("transform buffer stays valid after WASM memory growth between steps", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 2));
+        world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+
+        // Step to populate the transform-buffer view (a Float32Array pointing
+        // directly into WASM linear memory).
+        world.step();
+        const before = body.translation();
+        expect(Number.isNaN(before.x)).toBe(false);
+
+        // Allocate enough colliders to grow WASM memory. This path does NOT
+        // invalidate the rigid-body transform buffer, so its cached view becomes
+        // detached. Reads must fall back to WASM instead of returning NaN.
+        for (let i = 0; i < 30000; i++) {
+            world.createCollider(RAPIER.ColliderDesc.ball(0.1));
+        }
+
+        const after = body.translation();
+        expect(Number.isNaN(after.x)).toBe(false);
+        expect(after.x).toBeCloseTo(before.x, 5);
+        expect(after.y).toBeCloseTo(before.y, 5);
+
+        world.free();
+    });
+
     test("body removal via removeRigidBody", () => {
         const world = new RAPIER.World({x: 0, y: -9.81});
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
