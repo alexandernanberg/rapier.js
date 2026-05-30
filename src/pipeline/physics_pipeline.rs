@@ -125,6 +125,7 @@ impl RawPhysicsPipeline {
         );
 
         bodies.sync_transform_data();
+        colliders.sync_transform_data();
     }
 
     pub fn stepWithEvents(
@@ -170,5 +171,6 @@ impl RawPhysicsPipeline {
         );
 
         bodies.sync_transform_data();
+        colliders.sync_transform_data();
     }
 }

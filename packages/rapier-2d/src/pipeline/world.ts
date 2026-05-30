@@ -247,6 +247,7 @@ export class World {
             hooks,
         );
         this.bodies.syncTransformBuffer();
+        this.colliders.syncTransformBuffer();
     }
 
     /**

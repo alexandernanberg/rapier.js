@@ -13,8 +13,18 @@ enum MassPropsMode {
     MassProps,
 }
 
+/// Number of f32 values per collider in the world-space transform buffer.
+#[cfg(feature = "dim3")]
+const COLLIDER_STRIDE: usize = 7; // translation(3) + rotation(4)
+#[cfg(feature = "dim2")]
+const COLLIDER_STRIDE: usize = 3; // translation(2) + rotation(1)
+
 #[wasm_bindgen]
-pub struct RawColliderSet(pub(crate) ColliderSet);
+pub struct RawColliderSet(
+    pub(crate) ColliderSet,
+    /// Contiguous world-space transform buffer, read directly from JS.
+    pub(crate) Vec<f32>,
+);
 
 impl RawColliderSet {
     pub(crate) fn map<T>(&self, handle: FlatHandle, f: impl FnOnce(&Collider) -> T) -> T {
@@ -48,6 +58,66 @@ impl RawColliderSet {
             utils::collider_handle(handle2),
         );
         f(collider1, collider2)
+    }
+
+    /// Writes a single collider's world-space transform into `buf` at `offset`.
+    #[inline]
+    fn write_collider_transform(buf: &mut [f32], offset: usize, collider: &Collider) {
+        let pos = collider.position();
+
+        #[cfg(feature = "dim3")]
+        {
+            let t = pos.translation;
+            let r = pos.rotation;
+            buf[offset] = t.x;
+            buf[offset + 1] = t.y;
+            buf[offset + 2] = t.z;
+            buf[offset + 3] = r.x;
+            buf[offset + 4] = r.y;
+            buf[offset + 5] = r.z;
+            buf[offset + 6] = r.w;
+        }
+
+        #[cfg(feature = "dim2")]
+        {
+            let t = pos.translation;
+            let r = pos.rotation.angle();
+            buf[offset] = t.x;
+            buf[offset + 1] = t.y;
+            buf[offset + 2] = r;
+        }
+    }
+
+    /// Syncs all collider world transforms into the contiguous buffer, resizing
+    /// it to fit the highest collider index.
+    ///
+    /// Called internally from the physics pipeline step for cache locality.
+    /// Not exposed via wasm-bindgen to avoid borrow tracking issues. The JS side
+    /// reads world translations/rotations directly from this buffer, falling back
+    /// to per-collider WASM calls whenever the view is invalidated (a collider was
+    /// created or mutated) or detached (WASM memory growth).
+    pub(crate) fn sync_transform_data(&mut self) {
+        let mut max_index: usize = 0;
+        for (handle, _) in self.0.iter() {
+            let (index, _) = handle.0.into_raw_parts();
+            max_index = max_index.max(index as usize);
+        }
+
+        let required_len = if self.0.len() > 0 {
+            (max_index + 1) * COLLIDER_STRIDE
+        } else {
+            0
+        };
+
+        if self.1.len() < required_len {
+            self.1.resize(required_len, 0.0);
+        }
+
+        for (handle, collider) in self.0.iter() {
+            let (index, _) = handle.0.into_raw_parts();
+            let offset = index as usize * COLLIDER_STRIDE;
+            Self::write_collider_transform(&mut self.1, offset, collider);
+        }
     }
 }
 
@@ -139,7 +209,20 @@ impl RawColliderSet {
 impl RawColliderSet {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        RawColliderSet(ColliderSet::new())
+        RawColliderSet(ColliderSet::new(), Vec::new())
+    }
+
+    /// Returns the transform buffer pointer and length packed into a single f64.
+    /// Low 32 bits = byte offset in WASM memory, high 32 bits = f32 element count.
+    pub fn transformBufferInfo(&self) -> f64 {
+        let ptr = self.1.as_ptr() as u32;
+        let len = self.1.len() as u32;
+        f64::from_bits(ptr as u64 | ((len as u64) << 32))
+    }
+
+    /// Returns the number of floats per collider in the buffer.
+    pub fn transformBufferStride(&self) -> usize {
+        COLLIDER_STRIDE
     }
 
     pub fn len(&self) -> usize {

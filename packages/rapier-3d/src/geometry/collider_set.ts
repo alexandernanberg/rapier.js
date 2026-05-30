@@ -2,8 +2,24 @@ import {Coarena} from "../coarena";
 import {IslandManager, RigidBodyHandle} from "../dynamics";
 import {RigidBodySet} from "../dynamics";
 import {RotationOps, VectorOps} from "../math";
-import {RawColliderSet} from "../raw";
+import {RawColliderSet, wasmMemory} from "../raw";
 import {Collider, ColliderDesc, ColliderHandle} from "./collider";
+
+/**
+ * @internal Container for the collider transform buffer, shared with Collider instances.
+ *
+ * The `buffer` is a view into WASM linear memory. It is `null` while invalidated
+ * (e.g. after a collider is created or mutated) and becomes detached
+ * (`byteLength === 0`) whenever WASM memory grows. Readers must treat both cases
+ * as "no buffer" and fall back to the WASM path; `World.step()` rebuilds it.
+ */
+export interface ColliderTransformBufferRef {
+    buffer: Float32Array | null;
+}
+
+// Scratch buffers for unpacking transformBufferInfo f64 → ptr + len
+const _infoBuf = new Float64Array(1);
+const _infoView = new Uint32Array(_infoBuf.buffer);
 
 /**
  * A set of rigid bodies that can be handled by a physics pipeline.
@@ -14,6 +30,9 @@ import {Collider, ColliderDesc, ColliderHandle} from "./collider";
 export class ColliderSet {
     raw: RawColliderSet;
     private map: Coarena<Collider>;
+    /** @internal */
+    _bufferRef: ColliderTransformBufferRef = {buffer: null};
+    private _wasmMemory: WebAssembly.Memory | null = null;
 
     /**
      * Release the WASM memory occupied by this collider set.
@@ -23,6 +42,7 @@ export class ColliderSet {
             this.raw.free();
         }
         this.raw = undefined!;
+        this._bufferRef = {buffer: null};
 
         if (!!this.map) {
             this.map.clear();
@@ -49,6 +69,25 @@ export class ColliderSet {
         return (handle) => {
             return f(this.get(handle)!);
         };
+    }
+
+    /**
+     * Refreshes the JS-side Float32Array view into the WASM collider transform
+     * buffer. The data sync happens inside the Rust step(); this rebuilds the
+     * view from the current ptr+len (the WASM memory may have grown).
+     *
+     * Called automatically by `World.step()`.
+     *
+     * @internal
+     */
+    public syncTransformBuffer() {
+        _infoBuf[0] = this.raw.transformBufferInfo();
+        const ptr = _infoView[0]; // byte offset
+        const len = _infoView[1]; // element count
+        if (!this._wasmMemory) {
+            this._wasmMemory = wasmMemory() as unknown as WebAssembly.Memory;
+        }
+        this._bufferRef.buffer = new Float32Array(this._wasmMemory.buffer, ptr, len);
     }
 
     /** @internal */
@@ -118,6 +157,9 @@ export class ColliderSet {
 
         rawPrincipalInertia.free();
         rawInertiaFrame.free();
+
+        // Invalidate the buffer since WASM memory may have grown.
+        this._bufferRef.buffer = null;
 
         let parent = hasParent ? bodies.get(parentHandle!) : null;
         let collider = new Collider(this, handle!, parent, desc.shape);
