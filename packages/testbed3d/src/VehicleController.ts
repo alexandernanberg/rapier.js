@@ -102,7 +102,7 @@ interface Wheel {
     handbrakes: boolean;
 }
 
-const DEFAULTS: Required<VehicleControllerOptions> = {
+export const DEFAULT_VEHICLE_OPTIONS: Required<VehicleControllerOptions> = {
     halfTrack: 0.85,
     wheelBaseFront: 1.35,
     wheelBaseRear: 1.35,
@@ -151,6 +151,87 @@ function approach(current: number, target: number, maxDelta: number): number {
     return target;
 }
 
+function clampSteer(x: number): number {
+    return x < -1 ? -1 : x > 1 ? 1 : x;
+}
+
+/** The per-step driving decision derived from the driver input and speed. */
+export interface DriveCommand {
+    /** New smoothed steering angle for the steered wheels (radians). */
+    steerAngle: number;
+    /** Net engine force (N), signed: positive drives forward, negative reverses. */
+    engineForce: number;
+    /** Engine force applied to each *powered* wheel (N). */
+    perWheelEngineForce: number;
+    /** Brake torque applied to each *braking* wheel (N). */
+    brake: number;
+    /** Whether the handbrake is engaged. */
+    handbrake: boolean;
+}
+
+/**
+ * The pure "driving feel" model: maps the driver {@link VehicleInput} and the
+ * current forward `speed` to the per-wheel commands, with no side effects.
+ *
+ * This is where the arcade behaviour lives, kept separate from the physics so
+ * it can be reasoned about (and tested) on its own:
+ *
+ *  - engine force fades linearly to zero as `speed` approaches `topSpeed`,
+ *  - the brake/reverse pedal brakes while rolling forward (`speed > 0.5`) and
+ *    only drives in reverse once the car has (almost) stopped,
+ *  - steering is interpolated between `maxSteerAngle` and `minSteerAngle` by
+ *    speed, and eased towards the target (or back to centre) at a fixed rate,
+ *  - releasing both pedals applies a small `engineBraking` drag.
+ */
+export function computeDriveCommand(
+    input: VehicleInput,
+    speed: number,
+    currentSteerAngle: number,
+    dt: number,
+    o: Required<VehicleControllerOptions>,
+    poweredWheelCount: number,
+): DriveCommand {
+    // --- Steering: tighter at low speed, calmer at speed --------------------
+    const speedFrac = clamp01(Math.abs(speed) / o.steerSpeed);
+    const maxSteer = lerp(o.maxSteerAngle, o.minSteerAngle, speedFrac);
+    const targetSteer = clampSteer(input.steer) * maxSteer;
+    const turnRate = (input.steer === 0 ? o.steerReturnRate : o.steerRate) * dt;
+    const steerAngle = approach(currentSteerAngle, targetSteer, turnRate);
+
+    // --- Engine / brake / reverse pedal -------------------------------------
+    const accel = clamp01(input.accelerate);
+    const reverse = clamp01(input.brake);
+
+    let engineForce = 0;
+    // Coast braking: a touch of drag so the car slows when you let off.
+    let brake = accel === 0 && reverse === 0 ? o.engineBraking : 0;
+
+    if (accel > 0) {
+        // Tractive force fades as we approach top speed.
+        const fade = clamp01(1 - Math.max(0, speed) / o.topSpeed);
+        engineForce += accel * o.maxEngineForce * fade;
+    }
+
+    if (reverse > 0) {
+        if (speed > 0.5) {
+            // Still rolling forward: the pedal is the brake.
+            brake = reverse * o.brakeForce;
+        } else {
+            // Stopped or already reversing: shift into reverse.
+            const fade = clamp01(1 - Math.max(0, -speed) / (o.topSpeed * 0.5));
+            engineForce -= reverse * o.maxReverseForce * fade;
+        }
+    }
+
+    return {
+        steerAngle,
+        engineForce,
+        perWheelEngineForce: engineForce / poweredWheelCount,
+        brake,
+        handbrake: input.handbrake,
+    };
+}
+
 export class VehicleController {
     /** The underlying Rapier raycast vehicle controller (used for rendering). */
     readonly controller: RAPIER.DynamicRayCastVehicleController;
@@ -173,7 +254,7 @@ export class VehicleController {
         options: VehicleControllerOptions = {},
     ) {
         this.chassis = chassis;
-        this.options = {...DEFAULTS, ...options};
+        this.options = {...DEFAULT_VEHICLE_OPTIONS, ...options};
         this.controller = world.createVehicleController(chassis);
 
         // Local axes: Y is up, Z is forward (matches the wheel layout below).
@@ -243,64 +324,34 @@ export class VehicleController {
     update(dt: number) {
         const o = this.options;
         const c = this.controller;
-        const speed = c.currentVehicleSpeed();
 
-        // --- Steering: tighter at low speed, calmer at speed ----------------
-        const speedFrac = clamp01(Math.abs(speed) / o.steerSpeed);
-        const maxSteer = lerp(o.maxSteerAngle, o.minSteerAngle, speedFrac);
-        const targetSteer = clampSteer(this.input.steer) * maxSteer;
-        const turnRate = (this.input.steer === 0 ? o.steerReturnRate : o.steerRate) * dt;
-        this.steerAngle = approach(this.steerAngle, targetSteer, turnRate);
-
-        // --- Engine / brake / reverse pedal --------------------------------
-        const accel = clamp01(this.input.accelerate);
-        const reverse = clamp01(this.input.brake);
-
-        let engineForce = 0;
-        // Coast braking: a touch of drag so the car slows when you let off.
-        let brake = accel === 0 && reverse === 0 ? o.engineBraking : 0;
-
-        if (accel > 0) {
-            // Tractive force fades as we approach top speed.
-            const fade = clamp01(1 - Math.max(0, speed) / o.topSpeed);
-            engineForce += accel * o.maxEngineForce * fade;
-        }
-
-        if (reverse > 0) {
-            if (speed > 0.5) {
-                // Still rolling forward: the pedal is the brake.
-                brake = reverse * o.brakeForce;
-            } else {
-                // Stopped or already reversing: shift into reverse.
-                const fade = clamp01(1 - Math.max(0, -speed) / (o.topSpeed * 0.5));
-                engineForce -= reverse * o.maxReverseForce * fade;
-            }
-        }
-
-        const perWheelEngine = engineForce / this.poweredWheelCount;
-        const handbrake = this.input.handbrake;
+        const cmd = computeDriveCommand(
+            this.input,
+            c.currentVehicleSpeed(),
+            this.steerAngle,
+            dt,
+            o,
+            this.poweredWheelCount,
+        );
+        this.steerAngle = cmd.steerAngle;
 
         for (let i = 0; i < this.wheels.length; i++) {
             const w = this.wheels[i];
 
-            c.setWheelSteering(i, w.steers ? this.steerAngle : 0);
+            c.setWheelSteering(i, w.steers ? cmd.steerAngle : 0);
 
-            if (handbrake && w.handbrakes) {
+            if (cmd.handbrake && w.handbrakes) {
                 // Lock the rear axle and let it slide: instant drift.
                 c.setWheelEngineForce(i, 0);
                 c.setWheelBrake(i, o.handbrakeForce);
                 c.setWheelSideFrictionStiffness(i, o.handbrakeSideFriction);
             } else {
-                c.setWheelEngineForce(i, w.powered ? perWheelEngine : 0);
-                c.setWheelBrake(i, w.brakes ? brake : 0);
+                c.setWheelEngineForce(i, w.powered ? cmd.perWheelEngineForce : 0);
+                c.setWheelBrake(i, w.brakes ? cmd.brake : 0);
                 c.setWheelSideFrictionStiffness(i, o.sideFrictionStiffness);
             }
         }
 
         c.updateVehicle(dt);
     }
-}
-
-function clampSteer(x: number): number {
-    return x < -1 ? -1 : x > 1 ? 1 : x;
 }
