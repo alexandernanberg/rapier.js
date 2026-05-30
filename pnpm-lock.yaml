@@ -50,13 +50,13 @@ importers:
       '@dimforge/rapier3d-simd-compat':
         specifier: ^0.19.3
         version: 0.19.3
-      mitata:
-        specifier: ^1.0.34
-        version: 1.0.34
     devDependencies:
       '@types/node':
         specifier: ^22.19.7
         version: 22.19.7
+      mitata:
+        specifier: ^1.0.34
+        version: 1.0.34
       tsx:
         specifier: ^4.21.0
         version: 4.21.0

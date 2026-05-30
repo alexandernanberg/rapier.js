@@ -1,4 +1,6 @@
 import {run} from "mitata";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
     loadBaseline,
     saveBaseline,
@@ -125,6 +127,38 @@ async function main() {
                 avg: r.stats!.avg,
             })),
     );
+
+    // Save results JSON for CI (convert ns → ms to match expected format)
+    const resultsDir = path.join(new URL("..", import.meta.url).pathname, "results");
+    fs.mkdirSync(resultsDir, {recursive: true});
+    const resultsFile = path.join(resultsDir, `${dim}-${Date.now()}.json`);
+    fs.writeFileSync(
+        resultsFile,
+        JSON.stringify(
+            {
+                timestamp: new Date().toISOString(),
+                node: process.version,
+                platform: process.platform,
+                arch: process.arch,
+                results: benchmarks.flatMap((trial) =>
+                    trial.runs
+                        .filter((r) => r.stats != null)
+                        .map((r) => ({
+                            name: r.name,
+                            mean: r.stats!.avg / 1e6,
+                            min: r.stats!.min / 1e6,
+                            max: r.stats!.max / 1e6,
+                            p50: r.stats!.p50 / 1e6,
+                            p99: r.stats!.p99 / 1e6,
+                            samples: r.stats!.samples.length,
+                        })),
+                ),
+            },
+            null,
+            2,
+        ),
+    );
+    console.log(`\nResults saved to ${resultsFile}`);
 
     // Handle baseline operations
     if (saveBaselineFlag) {
