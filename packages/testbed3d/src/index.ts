@@ -14,6 +14,7 @@ import * as LockedRotations from "./demos/lockedRotations";
 import * as PidController from "./demos/pidController";
 import * as Platform from "./demos/platform";
 import * as Pyramid from "./demos/pyramid";
+import * as RocketLeague from "./demos/rocketLeague";
 import * as Trimesh from "./demos/trimesh";
 import * as Voxels from "./demos/voxels";
 import {Testbed} from "./Testbed";
@@ -35,6 +36,7 @@ import("@alexandernanberg/rapier3d/compat-simd").then(async (RAPIER) => {
         ["pid controller", PidController.initWorld],
         ["platform", Platform.initWorld],
         ["pyramid", Pyramid.initWorld],
+        ["rocket league", RocketLeague.initWorld],
         ["triangle mesh", Trimesh.initWorld],
         ["voxels", Voxels.initWorld],
         ["GLTF to convexHull", glbToConvexHull.initWorld],
