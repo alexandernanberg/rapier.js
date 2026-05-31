@@ -155,14 +155,18 @@ describe("computeDriveCommand (driving model)", () => {
         expect(cmd.brake).toBe(0);
     });
 
-    test("engine force fades to zero as speed approaches top speed", () => {
-        const half = computeDriveCommand({...neutral, accelerate: 1}, o.topSpeed / 2, 0, dt, o, 2);
+    test("the power curve keeps grunt at speed, but drag cancels it at top speed", () => {
+        const mid = computeDriveCommand({...neutral, accelerate: 1}, o.topSpeed / 2, 0, dt, o, 2);
         const top = computeDriveCommand({...neutral, accelerate: 1}, o.topSpeed, 0, dt, o, 2);
-        expect(half.engineForce).toBeCloseTo(o.maxEngineForce / 2, 5);
-        expect(top.engineForce).toBeCloseTo(0, 5);
-        // Monotonically decreasing with speed.
-        expect(half.engineForce).toBeLessThan(o.maxEngineForce);
-        expect(top.engineForce).toBeLessThan(half.engineForce);
+        // Net force decreases with speed and reaches zero at the top speed,
+        // where the power-limited drive force is exactly balanced by drag.
+        expect(top.engineForce).toBeCloseTo(0, 0);
+        expect(mid.engineForce).toBeLessThan(o.maxEngineForce);
+        expect(top.engineForce).toBeLessThan(mid.engineForce);
+        // ...but unlike a linear fade, a power curve still has most of its
+        // launch force on tap at mid-range (here >60%), which is what lets you
+        // break traction at speed.
+        expect(mid.engineForce).toBeGreaterThan(o.maxEngineForce * 0.6);
     });
 
     test("brake pedal brakes (does not reverse) while rolling forward", () => {
@@ -183,15 +187,17 @@ describe("computeDriveCommand (driving model)", () => {
         ).toBeLessThan(0);
     });
 
-    test("reverse force fades towards the reverse top speed", () => {
-        const cmd = computeDriveCommand({...neutral, brake: 1}, -o.topSpeed * 0.5, 0, dt, o, 2);
-        expect(cmd.engineForce).toBeCloseTo(0, 5);
+    test("reverse drive fades out at the reverse top speed", () => {
+        const slow = computeDriveCommand({...neutral, brake: 1}, -2, 0, dt, o, 2);
+        const cap = computeDriveCommand({...neutral, brake: 1}, -o.topSpeed * 0.45, 0, dt, o, 2);
+        expect(slow.engineForce).toBeLessThan(0); // still driving backwards
+        expect(cap.engineForce).toBeGreaterThan(slow.engineForce); // force has faded out
     });
 
-    test("coasting applies a light engine-braking drag", () => {
+    test("coasting brakes via a light pedal drag plus aero drag", () => {
         const cmd = computeDriveCommand(neutral, 15, 0, dt, o, 2);
-        expect(cmd.engineForce).toBe(0);
         expect(cmd.brake).toBeCloseTo(o.engineBraking, 5);
+        expect(cmd.engineForce).toBeLessThan(0); // aerodynamic drag decelerates
     });
 
     test("steering is tighter at low speed than at high speed", () => {
@@ -527,7 +533,7 @@ describe("drivetrain dynamics", () => {
         return speed;
     }
 
-    /** Net heading change through a gentle, power-on corner. */
+    /** Net heading change through a flat-out, power-on corner. */
     function cornerYaw(drivetrain: "fwd" | "rwd" | "awd", grip: number): number {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         createGround(world);
@@ -535,7 +541,7 @@ describe("drivetrain dynamics", () => {
         settle(world, car);
         drive(world, car, {accelerate: 1}, 90);
         const before = heading(car.chassis.rotation());
-        drive(world, car, {accelerate: 0.7, steer: 0.45}, 120);
+        drive(world, car, {accelerate: 1, steer: 0.5}, 110);
         let delta = heading(car.chassis.rotation()) - before;
         while (delta > Math.PI) delta -= 2 * Math.PI;
         while (delta < -Math.PI) delta += 2 * Math.PI;
@@ -568,11 +574,18 @@ describe("drivetrain dynamics", () => {
         expect(Math.abs(awdOff - fwdOff)).toBeLessThan(1);
     });
 
-    test("the friction circle makes a FWD car push wide (understeer) under power", () => {
-        const gapOn = cornerYaw("rwd", 1.2) - cornerYaw("fwd", 1.2);
-        const gapOff = cornerYaw("rwd", 0) - cornerYaw("fwd", 0);
-        // Turning the model on opens an understeer gap: FWD turns in less than RWD.
-        expect(gapOn).toBeGreaterThan(gapOff + 0.08);
+    test("under power the drivetrain sets the cornering balance (RWD oversteers, FWD understeers)", () => {
+        const rwd = cornerYaw("rwd", 1.2);
+        const awd = cornerYaw("awd", 1.2);
+        const fwd = cornerYaw("fwd", 1.2);
+        // Flooring it mid-corner: the rear-driven car rotates most (tail comes
+        // round), the front-driven car least (washes wide), AWD in between.
+        expect(rwd).toBeGreaterThan(awd);
+        expect(awd).toBeGreaterThan(fwd);
+        expect(rwd - fwd).toBeGreaterThan(0.4);
+
+        // With the combined-slip model off, the drivetrain doesn't change the line.
+        expect(Math.abs(cornerYaw("rwd", 0) - cornerYaw("fwd", 0))).toBeLessThan(0.2);
     });
 
     test("a driven wheel sheds lateral grip under throttle (friction circle)", () => {

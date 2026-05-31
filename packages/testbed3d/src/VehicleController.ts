@@ -8,7 +8,7 @@ import type * as RAPIER from "@alexandernanberg/rapier3d";
  * force, brake, steering and tire friction. This class wraps it with the
  * higher-level "driving feel" you expect from an arcade racer:
  *
- *  - an engine model whose force tapers off as you approach top speed,
+ *  - a torque/power engine curve (drag sets top speed, so grunt stays on tap),
  *  - a brake / reverse pedal that brakes while moving forward and only shifts
  *    into reverse once you've (nearly) stopped,
  *  - speed-sensitive steering that tightens up at low speed and calms down at
@@ -70,11 +70,13 @@ export interface VehicleControllerOptions {
 
     // --- Engine / drivetrain ---
     drivetrain?: Drivetrain;
-    /** Total forward force at full throttle (N), split across driven wheels. */
+    /** Engine power (W). Sets the power-limited drive force (≈ power / speed). */
+    enginePower?: number;
+    /** Max drive force off the line (N) — the low-speed torque/traction limit. */
     maxEngineForce?: number;
     /** Total reverse force (N). */
     maxReverseForce?: number;
-    /** Forward speed (m/s) at which engine force fades to zero. */
+    /** Target top speed (m/s). Drag is sized so full throttle tops out here. */
     topSpeed?: number;
 
     // --- Brakes ---
@@ -138,6 +140,7 @@ export const DEFAULT_VEHICLE_OPTIONS: Required<VehicleControllerOptions> = {
     combinedSlipFloor: 0.2,
 
     drivetrain: "rwd",
+    enginePower: 150000.0,
     maxEngineForce: 8000.0,
     maxReverseForce: 4000.0,
     topSpeed: 40.0,
@@ -194,7 +197,10 @@ export interface DriveCommand {
  * This is where the arcade behaviour lives, kept separate from the physics so
  * it can be reasoned about (and tested) on its own:
  *
- *  - engine force fades linearly to zero as `speed` approaches `topSpeed`,
+ *  - the engine is torque-limited off the line and power-limited once rolling
+ *    (force ≈ `enginePower / speed`), so real grunt stays on tap at speed;
+ *    top speed is set by aerodynamic drag rather than by zeroing the force,
+ *    which is what lets you light up the driven wheels mid-corner,
  *  - the brake/reverse pedal brakes while rolling forward (`speed > 0.5`) and
  *    only drives in reverse once the car has (almost) stopped,
  *  - steering is interpolated between `maxSteerAngle` and `minSteerAngle` by
@@ -220,25 +226,35 @@ export function computeDriveCommand(
     const accel = clamp01(input.accelerate);
     const reverse = clamp01(input.brake);
 
-    let engineForce = 0;
-    // Coast braking: a touch of drag so the car slows when you let off.
-    let brake = accel === 0 && reverse === 0 ? o.engineBraking : 0;
+    // Aerodynamic + rolling drag, sized so that at full throttle the
+    // power-limited drive force (enginePower / topSpeed) is cancelled by drag
+    // (drag · topSpeed²) exactly at `topSpeed`.
+    const drag = o.enginePower / (o.topSpeed * o.topSpeed * o.topSpeed);
+    let engineForce = -drag * speed * Math.abs(speed);
+    let brake = 0;
 
     if (accel > 0) {
-        // Tractive force fades as we approach top speed.
-        const fade = clamp01(1 - Math.max(0, speed) / o.topSpeed);
-        engineForce += accel * o.maxEngineForce * fade;
+        // Torque-limited at low speed, power-limited (force = power / speed)
+        // once rolling. Unlike a linear fade this keeps a lot of force on tap
+        // at speed, so flooring it mid-corner can overwhelm the driven wheels.
+        const available = Math.min(
+            o.maxEngineForce,
+            o.enginePower / Math.max(Math.abs(speed), 0.5),
+        );
+        engineForce += accel * available;
+    } else if (reverse > 0 && speed <= 0.5) {
+        // Stopped or already reversing: drive in reverse (kept simple).
+        const fade = clamp01(1 - Math.max(0, -speed) / (o.topSpeed * 0.45));
+        engineForce -= reverse * o.maxReverseForce * fade;
     }
 
-    if (reverse > 0) {
-        if (speed > 0.5) {
-            // Still rolling forward: the pedal is the brake.
-            brake = reverse * o.brakeForce;
-        } else {
-            // Stopped or already reversing: shift into reverse.
-            const fade = clamp01(1 - Math.max(0, -speed) / (o.topSpeed * 0.5));
-            engineForce -= reverse * o.maxReverseForce * fade;
-        }
+    if (reverse > 0 && speed > 0.5) {
+        // Still rolling forward: the pedal is the brake.
+        engineForce = 0;
+        brake = reverse * o.brakeForce;
+    } else if (accel === 0 && reverse === 0) {
+        // Light drag at low speed so the car actually comes to rest.
+        brake = o.engineBraking;
     }
 
     return {

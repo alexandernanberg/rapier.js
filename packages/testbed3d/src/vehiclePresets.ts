@@ -39,6 +39,7 @@ export const VEHICLE_PRESETS = {
         controller: {
             drivetrain: "awd",
             maxEngineForce: 11000,
+            enginePower: 210000,
             maxReverseForce: 5000,
             topSpeed: 47,
             frictionSlip: 4.5,
@@ -59,6 +60,7 @@ export const VEHICLE_PRESETS = {
         controller: {
             drivetrain: "rwd",
             maxEngineForce: 11500,
+            enginePower: 200000,
             maxReverseForce: 5000,
             topSpeed: 50,
             frictionSlip: 4.0,
@@ -79,6 +81,7 @@ export const VEHICLE_PRESETS = {
         controller: {
             drivetrain: "awd",
             maxEngineForce: 10000,
+            enginePower: 195000,
             maxReverseForce: 5000,
             topSpeed: 44,
             frictionSlip: 4.8,
@@ -101,6 +104,7 @@ export const VEHICLE_PRESETS = {
         controller: {
             drivetrain: "rwd",
             maxEngineForce: 6000,
+            enginePower: 95000,
             maxReverseForce: 3000,
             topSpeed: 38,
             frictionSlip: 4.0,
@@ -121,6 +125,7 @@ export const VEHICLE_PRESETS = {
         controller: {
             drivetrain: "fwd",
             maxEngineForce: 7500,
+            enginePower: 155000,
             maxReverseForce: 3500,
             topSpeed: 40,
             frictionSlip: 4.2,
