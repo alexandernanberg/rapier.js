@@ -1,0 +1,12 @@
+version: 2
+updates:
+    # Keep pinned GitHub Actions SHAs patched. Dependabot understands the
+    # "<sha> # vX.Y.Z" pin format and bumps both the SHA and the comment.
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+      groups:
+          github-actions:
+              patterns:
+                  - "*"

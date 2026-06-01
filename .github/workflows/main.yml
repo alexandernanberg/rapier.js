@@ -14,6 +14,11 @@ concurrency:
 env:
     CARGO_TERM_COLOR: always
 
+# Least-privilege default: a read-only token for every job. Jobs that need
+# more (e.g. commenting on PRs) elevate their own permissions below.
+permissions:
+    contents: read
+
 jobs:
     changes:
         runs-on: ubuntu-latest
@@ -21,8 +26,10 @@ jobs:
             src: ${{ steps.filter.outputs.src }}
             testbed: ${{ steps.filter.outputs.testbed }}
         steps:
-            - uses: actions/checkout@v6
-            - uses: dorny/paths-filter@v4
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  persist-credentials: false
+            - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
               id: filter
               with:
                   filters: |
@@ -40,9 +47,11 @@ jobs:
     lint:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: "24"
                   cache: "pnpm"
@@ -61,13 +70,15 @@ jobs:
         env:
             RUSTFLAGS: -D warnings
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: "24"
                   cache: "pnpm"
-            - uses: actions/cache@v5
+            - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
               with:
                   path: |
                       ~/.cargo/bin/
@@ -96,7 +107,7 @@ jobs:
                     exit 1
                   fi
             - name: Upload build artifacts
-              uses: actions/upload-artifact@v7
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
                   name: build-artifacts
                   path: |
@@ -111,17 +122,20 @@ jobs:
         needs: [changes, build]
         if: github.event_name == 'pull_request' && needs.changes.outputs.src == 'true'
         permissions:
+            contents: read
             pull-requests: write
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: "24"
                   cache: "pnpm"
             - run: pnpm install --frozen-lockfile
             - name: Download build artifacts
-              uses: actions/download-artifact@v8
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
               with:
                   name: build-artifacts
                   path: packages
@@ -163,7 +177,7 @@ jobs:
                   fs.writeFileSync('benchmark-comment.md', md);
                   "
             - name: Post or update PR comment
-              uses: actions/github-script@v9
+              uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
               with:
                   script: |
                       const fs = require('fs');
@@ -207,6 +221,7 @@ jobs:
             ) &&
             (needs.changes.outputs.src == 'true' || needs.changes.outputs.testbed == 'true')
         permissions:
+            contents: read
             pull-requests: write
         strategy:
             matrix:
@@ -215,15 +230,17 @@ jobs:
                       package: rapier-testbed3d
                       project-id: VERCEL_PROJECT_ID_TESTBED3D
         steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6
-            - uses: actions/setup-node@v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  persist-credentials: false
+            - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
               with:
                   node-version: "24"
                   cache: "pnpm"
             - run: pnpm install --frozen-lockfile
             - name: Download build artifacts
-              uses: actions/download-artifact@v8
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
               with:
                   name: build-artifacts
                   path: packages
@@ -233,7 +250,7 @@ jobs:
             # deploy a preview build instead.
             - name: Deploy to Vercel
               id: deploy
-              uses: amondnet/vercel-action@v42
+              uses: amondnet/vercel-action@de09aeac2ace6599ec9b11ef87558759a496bac4 # v42.3.0
               with:
                   vercel-token: ${{ secrets.VERCEL_TOKEN }}
                   vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
@@ -243,7 +260,7 @@ jobs:
                   github-comment: false
             - name: Comment preview URL on PR
               if: github.event_name == 'pull_request'
-              uses: actions/github-script@v9
+              uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
               env:
                   PREVIEW_URL: ${{ steps.deploy.outputs.preview-url }}
                   TESTBED: ${{ matrix.name }}
