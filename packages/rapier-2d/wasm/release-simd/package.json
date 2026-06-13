@@ -1,0 +1,17 @@
+{
+  "name": "rapier-wasm-2d",
+  "type": "module",
+  "description": "2-dimensional physics engine - official WASM bindings",
+  "version": "0.19.3",
+  "license": "Apache-2.0",
+  "files": [
+    "rapier_wasm_2d_bg.wasm",
+    "rapier_wasm_2d.js",
+    "rapier_wasm_2d.d.ts"
+  ],
+  "main": "rapier_wasm_2d.js",
+  "types": "rapier_wasm_2d.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
