@@ -124,6 +124,102 @@ describe("RigidBody", () => {
         world.free();
     });
 
+    test("applyImpulse changes linear velocity by impulse/mass", () => {
+        const world = new RAPIER.World({x: 0, y: 0, z: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+
+        const m = body.mass();
+        body.applyImpulse({x: m * 4, y: 0, z: 0}, true);
+
+        const vel = body.linvel();
+        expect(vel.x).toBeCloseTo(4, 3);
+        expect(vel.y).toBeCloseTo(0, 5);
+        expect(vel.z).toBeCloseTo(0, 5);
+
+        world.free();
+    });
+
+    test("addForce accelerates the body along the force axis", () => {
+        const world = new RAPIER.World({x: 0, y: 0, z: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+
+        body.addForce({x: body.mass() * 10, y: 0, z: 0}, true);
+        world.step();
+
+        const vel = body.linvel();
+        expect(vel.x).toBeGreaterThan(0);
+        expect(vel.y).toBeCloseTo(0, 5);
+        expect(vel.z).toBeCloseTo(0, 5);
+
+        world.free();
+    });
+
+    test("applyTorqueImpulse spins the body about the given axis", () => {
+        const world = new RAPIER.World({x: 0, y: 0, z: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5), body);
+
+        body.applyTorqueImpulse({x: 0, y: 3, z: 0}, true);
+
+        const angvel = body.angvel();
+        expect(angvel.y).toBeGreaterThan(0);
+        expect(angvel.x).toBeCloseTo(0, 4);
+        expect(angvel.z).toBeCloseTo(0, 4);
+
+        world.free();
+    });
+
+    test("addTorque spins the body about the given axis", () => {
+        const world = new RAPIER.World({x: 0, y: 0, z: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5), body);
+
+        body.addTorque({x: 0, y: 0, z: 5}, true);
+        world.step();
+
+        const angvel = body.angvel();
+        expect(angvel.z).toBeGreaterThan(0);
+        expect(angvel.x).toBeCloseTo(0, 4);
+        expect(angvel.y).toBeCloseTo(0, 4);
+
+        world.free();
+    });
+
+    test("applyImpulseAtPoint induces torque (r x F)", () => {
+        const world = new RAPIER.World({x: 0, y: 0, z: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5), body);
+
+        // impulse +z at world point (1,0,0) -> r=(1,0,0), F=(0,0,1) -> torque (0,-1,0)
+        body.applyImpulseAtPoint({x: 0, y: 0, z: 1}, {x: 1, y: 0, z: 0}, true);
+
+        const angvel = body.angvel();
+        expect(angvel.y).toBeLessThan(0);
+        expect(angvel.x).toBeCloseTo(0, 4);
+        expect(angvel.z).toBeCloseTo(0, 4);
+
+        world.free();
+    });
+
+    test("addForceAtPoint induces torque (r x F)", () => {
+        const world = new RAPIER.World({x: 0, y: 0, z: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5), body);
+
+        // force +z at world point (1,0,0) -> r=(1,0,0), F=(0,0,1) -> torque (0,-1,0)
+        body.addForceAtPoint({x: 0, y: 0, z: 1}, {x: 1, y: 0, z: 0}, true);
+        world.step();
+
+        const angvel = body.angvel();
+        expect(angvel.y).toBeLessThan(0);
+        expect(angvel.x).toBeCloseTo(0, 3);
+        expect(angvel.z).toBeCloseTo(0, 3);
+
+        world.free();
+    });
+
     test("zero-allocation translation with target parameter", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(3, 7, 11));

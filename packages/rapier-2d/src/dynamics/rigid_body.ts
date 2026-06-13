@@ -317,9 +317,7 @@ export class RigidBody {
      * @param wakeUp - Forces the rigid-body to wake-up if it was asleep.
      */
     public setLinvel(vel: Vector, wakeUp: boolean) {
-        let rawVel = VectorOps.intoRaw(vel);
-        this.rawSet.rbSetLinvel(this.handle, rawVel, wakeUp);
-        rawVel.free();
+        this.rawSet.rbSetLinvel(this.handle, vel.x, vel.y, wakeUp);
         const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset + 3;
@@ -790,9 +788,7 @@ export class RigidBody {
      * @param wakeUp - should the rigid-body be automatically woken-up?
      */
     public addForce(force: Vector, wakeUp: boolean) {
-        const rawForce = VectorOps.intoRaw(force);
-        this.rawSet.rbAddForce(this.handle, rawForce, wakeUp);
-        rawForce.free();
+        this.rawSet.rbAddForce(this.handle, force.x, force.y, wakeUp);
     }
 
     /**
@@ -802,9 +798,7 @@ export class RigidBody {
      * @param wakeUp - should the rigid-body be automatically woken-up?
      */
     public applyImpulse(impulse: Vector, wakeUp: boolean) {
-        const rawImpulse = VectorOps.intoRaw(impulse);
-        this.rawSet.rbApplyImpulse(this.handle, rawImpulse, wakeUp);
-        rawImpulse.free();
+        this.rawSet.rbApplyImpulse(this.handle, impulse.x, impulse.y, wakeUp);
     }
 
     /**
@@ -835,11 +829,7 @@ export class RigidBody {
      * @param wakeUp - should the rigid-body be automatically woken-up?
      */
     public addForceAtPoint(force: Vector, point: Vector, wakeUp: boolean) {
-        const rawForce = VectorOps.intoRaw(force);
-        const rawPoint = VectorOps.intoRaw(point);
-        this.rawSet.rbAddForceAtPoint(this.handle, rawForce, rawPoint, wakeUp);
-        rawForce.free();
-        rawPoint.free();
+        this.rawSet.rbAddForceAtPoint(this.handle, force.x, force.y, point.x, point.y, wakeUp);
     }
 
     /**
@@ -850,11 +840,14 @@ export class RigidBody {
      * @param wakeUp - should the rigid-body be automatically woken-up?
      */
     public applyImpulseAtPoint(impulse: Vector, point: Vector, wakeUp: boolean) {
-        const rawImpulse = VectorOps.intoRaw(impulse);
-        const rawPoint = VectorOps.intoRaw(point);
-        this.rawSet.rbApplyImpulseAtPoint(this.handle, rawImpulse, rawPoint, wakeUp);
-        rawImpulse.free();
-        rawPoint.free();
+        this.rawSet.rbApplyImpulseAtPoint(
+            this.handle,
+            impulse.x,
+            impulse.y,
+            point.x,
+            point.y,
+            wakeUp,
+        );
     }
 
     /**

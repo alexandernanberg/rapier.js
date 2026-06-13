@@ -113,6 +113,62 @@ describe("RigidBody", () => {
         world.free();
     });
 
+    test("applyImpulse changes linear velocity by impulse/mass", () => {
+        const world = new RAPIER.World({x: 0, y: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+
+        const m = body.mass();
+        body.applyImpulse({x: m * 2, y: m * 5}, true);
+
+        const vel = body.linvel();
+        expect(vel.x).toBeCloseTo(2, 3);
+        expect(vel.y).toBeCloseTo(5, 3);
+
+        world.free();
+    });
+
+    test("addForce accelerates the body along the force axis", () => {
+        const world = new RAPIER.World({x: 0, y: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+
+        body.addForce({x: body.mass() * 10, y: 0}, true);
+        world.step();
+
+        const vel = body.linvel();
+        expect(vel.x).toBeGreaterThan(0);
+        expect(vel.y).toBeCloseTo(0, 5);
+
+        world.free();
+    });
+
+    test("applyImpulseAtPoint induces angular velocity", () => {
+        const world = new RAPIER.World({x: 0, y: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 0.5), body);
+
+        // impulse +y at world point (0.5,0) -> r=(0.5,0), F=(0,1) -> torque +z
+        body.applyImpulseAtPoint({x: 0, y: 1}, {x: 0.5, y: 0}, true);
+
+        expect(body.angvel()).toBeGreaterThan(0);
+
+        world.free();
+    });
+
+    test("addForceAtPoint induces angular velocity", () => {
+        const world = new RAPIER.World({x: 0, y: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 0.5), body);
+
+        body.addForceAtPoint({x: 0, y: 1}, {x: 0.5, y: 0}, true);
+        world.step();
+
+        expect(body.angvel()).toBeGreaterThan(0);
+
+        world.free();
+    });
+
     test("zero-allocation translation with target parameter", () => {
         const world = new RAPIER.World({x: 0, y: -9.81});
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(3, 7));

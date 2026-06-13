@@ -192,9 +192,18 @@ impl RawRigidBodySet {
     }
 
     /// Sets the linear velocity of this rigid-body.
-    pub fn rbSetLinvel(&mut self, handle: FlatHandle, linvel: &RawVector, wakeUp: bool) {
+    #[cfg(feature = "dim3")]
+    pub fn rbSetLinvel(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, wakeUp: bool) {
         self.map_mut(handle, |rb| {
-            rb.set_linvel(linvel.0, wakeUp);
+            rb.set_linvel(Vector::new(x, y, z), wakeUp);
+        });
+    }
+
+    /// Sets the linear velocity of this rigid-body.
+    #[cfg(feature = "dim2")]
+    pub fn rbSetLinvel(&mut self, handle: FlatHandle, x: f32, y: f32, wakeUp: bool) {
+        self.map_mut(handle, |rb| {
+            rb.set_linvel(Vector::new(x, y), wakeUp);
         });
     }
 
@@ -208,9 +217,9 @@ impl RawRigidBodySet {
 
     /// Sets the angular velocity of this rigid-body.
     #[cfg(feature = "dim3")]
-    pub fn rbSetAngvel(&mut self, handle: FlatHandle, angvel: &RawVector, wakeUp: bool) {
+    pub fn rbSetAngvel(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, wakeUp: bool) {
         self.map_mut(handle, |rb| {
-            rb.set_angvel(angvel.0, wakeUp);
+            rb.set_angvel(Vector::new(x, y, z), wakeUp);
         });
     }
 
@@ -814,9 +823,18 @@ impl RawRigidBodySet {
     /// # Parameters
     /// - `force`: the world-space force to apply on the rigid-body.
     /// - `wakeUp`: should the rigid-body be automatically woken-up?
-    pub fn rbAddForce(&mut self, handle: FlatHandle, force: &RawVector, wakeUp: bool) {
+    #[cfg(feature = "dim3")]
+    pub fn rbAddForce(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, wakeUp: bool) {
         self.map_mut(handle, |rb| {
-            rb.add_force(force.0, wakeUp);
+            rb.add_force(Vector::new(x, y, z), wakeUp);
+        })
+    }
+
+    /// Adds a force at the center-of-mass of this rigid-body.
+    #[cfg(feature = "dim2")]
+    pub fn rbAddForce(&mut self, handle: FlatHandle, x: f32, y: f32, wakeUp: bool) {
+        self.map_mut(handle, |rb| {
+            rb.add_force(Vector::new(x, y), wakeUp);
         })
     }
 
@@ -825,9 +843,18 @@ impl RawRigidBodySet {
     /// # Parameters
     /// - `impulse`: the world-space impulse to apply on the rigid-body.
     /// - `wakeUp`: should the rigid-body be automatically woken-up?
-    pub fn rbApplyImpulse(&mut self, handle: FlatHandle, impulse: &RawVector, wakeUp: bool) {
+    #[cfg(feature = "dim3")]
+    pub fn rbApplyImpulse(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, wakeUp: bool) {
         self.map_mut(handle, |rb| {
-            rb.apply_impulse(impulse.0, wakeUp);
+            rb.apply_impulse(Vector::new(x, y, z), wakeUp);
+        })
+    }
+
+    /// Applies an impulse at the center-of-mass of this rigid-body.
+    #[cfg(feature = "dim2")]
+    pub fn rbApplyImpulse(&mut self, handle: FlatHandle, x: f32, y: f32, wakeUp: bool) {
+        self.map_mut(handle, |rb| {
+            rb.apply_impulse(Vector::new(x, y), wakeUp);
         })
     }
 
@@ -849,9 +876,9 @@ impl RawRigidBodySet {
     /// - `torque`: the world-space torque to apply on the rigid-body.
     /// - `wakeUp`: should the rigid-body be automatically woken-up?
     #[cfg(feature = "dim3")]
-    pub fn rbAddTorque(&mut self, handle: FlatHandle, torque: &RawVector, wakeUp: bool) {
+    pub fn rbAddTorque(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, wakeUp: bool) {
         self.map_mut(handle, |rb| {
-            rb.add_torque(torque.0, wakeUp);
+            rb.add_torque(Vector::new(x, y, z), wakeUp);
         })
     }
 
@@ -876,11 +903,13 @@ impl RawRigidBodySet {
     pub fn rbApplyTorqueImpulse(
         &mut self,
         handle: FlatHandle,
-        torque_impulse: &RawVector,
+        x: f32,
+        y: f32,
+        z: f32,
         wakeUp: bool,
     ) {
         self.map_mut(handle, |rb| {
-            rb.apply_torque_impulse(torque_impulse.0, wakeUp);
+            rb.apply_torque_impulse(Vector::new(x, y, z), wakeUp);
         })
     }
 
@@ -890,15 +919,40 @@ impl RawRigidBodySet {
     /// - `force`: the world-space force to apply on the rigid-body.
     /// - `point`: the world-space point where the impulse is to be applied on the rigid-body.
     /// - `wakeUp`: should the rigid-body be automatically woken-up?
+    #[cfg(feature = "dim3")]
     pub fn rbAddForceAtPoint(
         &mut self,
         handle: FlatHandle,
-        force: &RawVector,
-        point: &RawVector,
+        fx: f32,
+        fy: f32,
+        fz: f32,
+        px: f32,
+        py: f32,
+        pz: f32,
         wakeUp: bool,
     ) {
         self.map_mut(handle, |rb| {
-            rb.add_force_at_point(force.0, point.0.into(), wakeUp);
+            rb.add_force_at_point(
+                Vector::new(fx, fy, fz),
+                Vector::new(px, py, pz).into(),
+                wakeUp,
+            );
+        })
+    }
+
+    /// Adds a force at the given world-space point of this rigid-body.
+    #[cfg(feature = "dim2")]
+    pub fn rbAddForceAtPoint(
+        &mut self,
+        handle: FlatHandle,
+        fx: f32,
+        fy: f32,
+        px: f32,
+        py: f32,
+        wakeUp: bool,
+    ) {
+        self.map_mut(handle, |rb| {
+            rb.add_force_at_point(Vector::new(fx, fy), Vector::new(px, py).into(), wakeUp);
         })
     }
 
@@ -908,15 +962,40 @@ impl RawRigidBodySet {
     /// - `impulse`: the world-space impulse to apply on the rigid-body.
     /// - `point`: the world-space point where the impulse is to be applied on the rigid-body.
     /// - `wakeUp`: should the rigid-body be automatically woken-up?
+    #[cfg(feature = "dim3")]
     pub fn rbApplyImpulseAtPoint(
         &mut self,
         handle: FlatHandle,
-        impulse: &RawVector,
-        point: &RawVector,
+        ix: f32,
+        iy: f32,
+        iz: f32,
+        px: f32,
+        py: f32,
+        pz: f32,
         wakeUp: bool,
     ) {
         self.map_mut(handle, |rb| {
-            rb.apply_impulse_at_point(impulse.0, point.0.into(), wakeUp);
+            rb.apply_impulse_at_point(
+                Vector::new(ix, iy, iz),
+                Vector::new(px, py, pz).into(),
+                wakeUp,
+            );
+        })
+    }
+
+    /// Applies an impulse at the given world-space point of this rigid-body.
+    #[cfg(feature = "dim2")]
+    pub fn rbApplyImpulseAtPoint(
+        &mut self,
+        handle: FlatHandle,
+        ix: f32,
+        iy: f32,
+        px: f32,
+        py: f32,
+        wakeUp: bool,
+    ) {
+        self.map_mut(handle, |rb| {
+            rb.apply_impulse_at_point(Vector::new(ix, iy), Vector::new(px, py).into(), wakeUp);
         })
     }
 

@@ -104,4 +104,24 @@ export function benchSetters(RAPIER: any, is3D: boolean, _quick: boolean): void 
             });
         }
     });
+
+    // Per-frame force/velocity setters (hot path for character controllers,
+    // vehicles, thrusters, projectiles, custom force fields).
+    const vec = is3D ? {x: 1, y: 2, z: 3} : {x: 1, y: 2};
+    const pt = is3D ? {x: 0.5, y: 0.5, z: 0.5} : {x: 0.5, y: 0.5};
+
+    summary(() => {
+        bench(`body.setLinvel()`, () => {
+            for (const b of dynamicBodies) b.setLinvel(vec, true);
+        });
+        bench(`body.applyImpulse()`, () => {
+            for (const b of dynamicBodies) b.applyImpulse(vec, true);
+        });
+        bench(`body.addForce()`, () => {
+            for (const b of dynamicBodies) b.addForce(vec, true);
+        });
+        bench(`body.applyImpulseAtPoint()`, () => {
+            for (const b of dynamicBodies) b.applyImpulseAtPoint(vec, pt, true);
+        });
+    });
 }
