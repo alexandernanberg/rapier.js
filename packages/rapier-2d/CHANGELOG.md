@@ -1,5 +1,53 @@
 # @alexandernanberg/rapier2d
 
+## 0.1.2
+
+### Patch Changes
+
+- [`fa0dbe5`](https://github.com/alexandernanberg/rapier.js/commit/fa0dbe52a277ba37d7376f9926a3b3eaedb5b63e) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - perf: pass vectors as scalars to force/velocity setters to remove per-call allocations
+
+  `setLinvel`, `setAngvel`, `addForce`, `applyImpulse`, `addTorque`,
+  `applyTorqueImpulse`, `addForceAtPoint`, and `applyImpulseAtPoint` previously
+  marshalled their vector arguments through `VectorOps.intoRaw()`, which allocates
+  a `RawVector` in WASM memory and crosses the JS↔WASM boundary three times (alloc,
+  set, free) per call. They now pass the vector components as scalar arguments
+  directly — the same zero-allocation pattern already used by `setTranslation`.
+
+  This makes these per-frame setters 14–25× faster (e.g. `setLinvel` ~217ns → ~15ns,
+  `applyImpulseAtPoint` ~404ns → ~16ns for 1000 bodies) and removes all GC pressure
+  from applying forces/impulses each step — a common hot path for character
+  controllers, vehicles, thrusters and projectiles.
+
+- [#12](https://github.com/alexandernanberg/rapier.js/pull/12) [`261b414`](https://github.com/alexandernanberg/rapier.js/commit/261b414600dedc14aea19749cbd05c809a209069) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - perf: read collider world transforms from a shared buffer
+
+  `Collider.translation()` and `Collider.rotation()` previously crossed the
+  JS↔WASM boundary on every call. Collider world transforms are now mirrored into
+  a contiguous buffer (filled inside the Rust `step()`, mirroring the rigid-body
+  transform buffer) and read directly from JS as plain array accesses, eliminating
+  per-call boundary crossings in render loops (~7× faster for reading many
+  colliders per frame). Relative getters (`translationWrtParent` /
+  `rotationWrtParent`) are unaffected.
+
+  The buffer is a `Float32Array` view into WASM memory, so reads go through a
+  `liveBuffer()` guard (mirroring `RigidBody.liveBuffer()`): the view is dropped
+  and reads fall back to the WASM path whenever it is invalidated (a collider was
+  created or mutated) or detached by WASM memory growth (`memory.grow()` leaves a
+  zero-length view). `World.step()` rebuilds the view each step.
+
+- [#11](https://github.com/alexandernanberg/rapier.js/pull/11) [`da2cfab`](https://github.com/alexandernanberg/rapier.js/commit/da2cfab202787916a982962aa0abeea9b845567b) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - Fix stale/detached transform-buffer reads after WASM memory growth
+
+  `RigidBody` position/velocity getters and setters read through a `Float32Array`
+  view that points directly into WASM linear memory. When WASM memory grew between
+  two `World.step()` calls (e.g. creating colliders or joints, or scene queries and
+  setters that allocate via `intoRaw()`), the underlying `ArrayBuffer` was detached
+  and the cached view became unusable — reads silently returned `NaN` and writes
+  were silently dropped. Only `createRigidBody` invalidated the view, so the other
+  growth paths were missed.
+
+  Getters/setters now detect a detached view (length `0`) and fall back to reading
+  directly from WASM until the next `World.step()` rebuilds it. Shared-memory
+  (threads/SIMD) builds are unaffected since growing shared memory does not detach.
+
 ## 0.1.1
 
 ### Patch Changes
