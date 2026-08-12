@@ -36,6 +36,9 @@ export class ColliderSet {
             this.raw.free();
         }
         this.raw = undefined!;
+        // Bodies/colliders handed out earlier still hold the old ref: mark it
+        // stale so they can't re-attach a view over the WASM memory just freed.
+        invalidateTransformBuffer(this._bufferRef);
         this._bufferRef = createTransformBufferRef();
 
         if (!!this.map) {
