@@ -1,9 +1,11 @@
 import {RigidBodyHandle, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {QueryFilterFlags} from "../pipeline";
-import {RawBroadPhase, RawRayColliderIntersection} from "../raw";
+import {RawBroadPhase, wasmMemory} from "../raw";
+import {unpackBufferInfo} from "../transform_buffer";
 import {ColliderHandle} from "./collider";
 import {ColliderSet} from "./collider_set";
+import {FeatureType} from "./feature";
 import {InteractionGroups} from "./interaction_groups";
 import {NarrowPhase} from "./narrow_phase";
 import {PointColliderProjection} from "./point";
@@ -19,6 +21,15 @@ import {ColliderShapeCastHit} from "./toi";
  */
 export class BroadPhase {
     raw: RawBroadPhase;
+    /**
+     * View over the WASM-side scratch buffer query results are written to.
+     * Its address never changes, so it only ever has to be re-created after
+     * WASM memory growth detached it.
+     */
+    private resultsView: Float64Array | null = null;
+    private resultsPtr = 0;
+    private resultsLen = 0;
+    private wasmMemory: WebAssembly.Memory | null = null;
 
     /**
      * Release the WASM memory occupied by this broad-phase.
@@ -28,10 +39,58 @@ export class BroadPhase {
             this.raw.free();
         }
         this.raw = undefined!;
+        this.resultsView = null;
+        this.resultsPtr = 0;
     }
 
     constructor(raw?: RawBroadPhase) {
         this.raw = raw || new RawBroadPhase();
+    }
+
+    /**
+     * Returns a usable view over the query result buffer, re-creating it if
+     * WASM memory growth detached it.
+     */
+    private results(): Float64Array {
+        const view = this.resultsView;
+        if (view !== null && view.byteLength !== 0) return view;
+
+        if (this.resultsPtr === 0) {
+            const info = unpackBufferInfo(this.raw.queryResultBufferInfo());
+            this.resultsPtr = info.ptr;
+            this.resultsLen = info.len;
+            this.wasmMemory = wasmMemory() as unknown as WebAssembly.Memory;
+        }
+
+        return (this.resultsView = new Float64Array(
+            this.wasmMemory!.buffer,
+            this.resultsPtr,
+            this.resultsLen,
+        ));
+    }
+
+    /** Reads the ray intersection currently held by the result buffer. */
+    private rayIntersectionFromResults(colliders: ColliderSet): RayColliderIntersection {
+        const r = this.results();
+        return new RayColliderIntersection(
+            colliders.get(r[0])!,
+            r[1],
+            VectorOps.new(r[2], r[3]),
+            r[4] as FeatureType,
+            r[5] < 0 ? undefined : r[5],
+        );
+    }
+
+    /** Reads the point projection currently held by the result buffer. */
+    private pointProjectionFromResults(colliders: ColliderSet): PointColliderProjection {
+        const r = this.results();
+        return new PointColliderProjection(
+            colliders.get(r[0])!,
+            VectorOps.new(r[1], r[2]),
+            r[3] !== 0,
+            r[4] as FeatureType,
+            r[5] < 0 ? undefined : r[5],
+        );
     }
 
     /**
@@ -60,25 +119,27 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ): RayColliderHit | null {
-        return RayColliderHit.fromRaw(
-            colliders,
-            this.raw.castRay(
-                narrowPhase.raw,
-                bodies.raw,
-                colliders.raw,
-                ray.origin.x,
-                ray.origin.y,
-                ray.dir.x,
-                ray.dir.y,
-                maxToi,
-                solid,
-                filterFlags ?? 0,
-                filterGroups,
-                filterExcludeCollider,
-                filterExcludeRigidBody,
-                filterPredicate as unknown as Function,
-            )!,
+        const hit = this.raw.castRay(
+            narrowPhase.raw,
+            bodies.raw,
+            colliders.raw,
+            ray.origin.x,
+            ray.origin.y,
+            ray.dir.x,
+            ray.dir.y,
+            maxToi,
+            solid,
+            filterFlags ?? 0,
+            filterGroups,
+            filterExcludeCollider,
+            filterExcludeRigidBody,
+            filterPredicate as unknown as Function,
         );
+
+        if (!hit) return null;
+
+        const r = this.results();
+        return new RayColliderHit(colliders.get(r[0])!, r[1]);
     }
 
     /**
@@ -107,25 +168,26 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ): RayColliderIntersection | null {
-        return RayColliderIntersection.fromRaw(
-            colliders,
-            this.raw.castRayAndGetNormal(
-                narrowPhase.raw,
-                bodies.raw,
-                colliders.raw,
-                ray.origin.x,
-                ray.origin.y,
-                ray.dir.x,
-                ray.dir.y,
-                maxToi,
-                solid,
-                filterFlags ?? 0,
-                filterGroups,
-                filterExcludeCollider,
-                filterExcludeRigidBody,
-                filterPredicate as unknown as Function,
-            )!,
+        const hit = this.raw.castRayAndGetNormal(
+            narrowPhase.raw,
+            bodies.raw,
+            colliders.raw,
+            ray.origin.x,
+            ray.origin.y,
+            ray.dir.x,
+            ray.dir.y,
+            maxToi,
+            solid,
+            filterFlags ?? 0,
+            filterGroups,
+            filterExcludeCollider,
+            filterExcludeRigidBody,
+            filterPredicate as unknown as Function,
         );
+
+        if (!hit) return null;
+
+        return this.rayIntersectionFromResults(colliders);
     }
 
     /**
@@ -156,9 +218,8 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ) {
-        let rawCallback = (rawInter: RawRayColliderIntersection) => {
-            return callback(RayColliderIntersection.fromRaw(colliders, rawInter)!);
-        };
+        // Each hit is written to the result buffer right before this is called.
+        let rawCallback = () => callback(this.rayIntersectionFromResults(colliders));
 
         this.raw.intersectionsWithRay(
             narrowPhase.raw,
@@ -251,26 +312,23 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ): PointColliderProjection | null {
-        let rawPoint = VectorOps.intoRaw(point);
-        let result = PointColliderProjection.fromRaw(
-            colliders,
-            this.raw.projectPoint(
-                narrowPhase.raw,
-                bodies.raw,
-                colliders.raw,
-                rawPoint,
-                solid,
-                filterFlags ?? 0,
-                filterGroups,
-                filterExcludeCollider,
-                filterExcludeRigidBody,
-                filterPredicate as unknown as Function,
-            )!,
+        const hit = this.raw.projectPoint(
+            narrowPhase.raw,
+            bodies.raw,
+            colliders.raw,
+            point.x,
+            point.y,
+            solid,
+            filterFlags ?? 0,
+            filterGroups,
+            filterExcludeCollider,
+            filterExcludeRigidBody,
+            filterPredicate as unknown as Function,
         );
 
-        rawPoint.free();
+        if (!hit) return null;
 
-        return result;
+        return this.pointProjectionFromResults(colliders);
     }
 
     /**
@@ -292,25 +350,22 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ): PointColliderProjection | null {
-        let rawPoint = VectorOps.intoRaw(point);
-        let result = PointColliderProjection.fromRaw(
-            colliders,
-            this.raw.projectPointAndGetFeature(
-                narrowPhase.raw,
-                bodies.raw,
-                colliders.raw,
-                rawPoint,
-                filterFlags ?? 0,
-                filterGroups,
-                filterExcludeCollider,
-                filterExcludeRigidBody,
-                filterPredicate as unknown as Function,
-            )!,
+        const hit = this.raw.projectPointAndGetFeature(
+            narrowPhase.raw,
+            bodies.raw,
+            colliders.raw,
+            point.x,
+            point.y,
+            filterFlags ?? 0,
+            filterGroups,
+            filterExcludeCollider,
+            filterExcludeRigidBody,
+            filterPredicate as unknown as Function,
         );
 
-        rawPoint.free();
+        if (!hit) return null;
 
-        return result;
+        return this.pointProjectionFromResults(colliders);
     }
 
     /**
@@ -335,13 +390,12 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ) {
-        let rawPoint = VectorOps.intoRaw(point);
-
         this.raw.intersectionsWithPoint(
             narrowPhase.raw,
             bodies.raw,
             colliders.raw,
-            rawPoint,
+            point.x,
+            point.y,
             callback,
             filterFlags ?? 0,
             filterGroups,
@@ -349,8 +403,6 @@ export class BroadPhase {
             filterExcludeRigidBody,
             filterPredicate as unknown as Function,
         );
-
-        rawPoint.free();
     }
 
     /**

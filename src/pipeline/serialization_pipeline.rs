@@ -134,7 +134,7 @@ impl RawSerializationPipeline {
             gravity: Some(RawVector(d.gravity)),
             integrationParameters: Some(RawIntegrationParameters(d.integration_parameters)),
             islands: Some(RawIslandManager(d.islands)),
-            broadPhase: Some(RawBroadPhase(d.broad_phase)),
+            broadPhase: Some(RawBroadPhase::from_broad_phase(d.broad_phase)),
             narrowPhase: Some(RawNarrowPhase(d.narrow_phase)),
             bodies: Some(RawRigidBodySet {
                 bodies: d.bodies,

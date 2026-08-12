@@ -47,6 +47,7 @@ import {
     RawSerializationPipeline,
     RawDebugRenderPipeline,
 } from "../raw";
+import {invalidateTransformBuffer} from "../transform_buffer";
 import {DebugRenderBuffers, DebugRenderPipeline} from "./debug_render_pipeline";
 import {EventQueue} from "./event_queue";
 import {PhysicsHooks} from "./physics_hooks";
@@ -259,6 +260,9 @@ export class World {
      */
     public propagateModifiedBodyPositionsToColliders() {
         this.bodies.raw.propagateModifiedBodyPositionsToColliders(this.colliders.raw);
+        // Collider world positions changed without a step; force reads back onto
+        // the WASM path until the next step rebuilds the buffer.
+        invalidateTransformBuffer(this.colliders._bufferRef);
     }
 
     // TODO: This needs to trigger a broad-phase update but without emitting collision events?

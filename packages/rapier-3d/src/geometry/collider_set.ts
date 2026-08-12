@@ -1,25 +1,19 @@
 import {Coarena} from "../coarena";
 import {IslandManager, RigidBodyHandle} from "../dynamics";
 import {RigidBodySet} from "../dynamics";
-import {RotationOps, VectorOps} from "../math";
 import {RawColliderSet, wasmMemory} from "../raw";
+import {
+    createTransformBufferRef,
+    invalidateTransformBuffer,
+    refreshTransformBuffer,
+    type TransformBufferRef,
+} from "../transform_buffer";
 import {Collider, ColliderDesc, ColliderHandle} from "./collider";
 
 /**
  * @internal Container for the collider transform buffer, shared with Collider instances.
- *
- * The `buffer` is a view into WASM linear memory. It is `null` while invalidated
- * (e.g. after a collider is created or mutated) and becomes detached
- * (`byteLength === 0`) whenever WASM memory grows. Readers must treat both cases
- * as "no buffer" and fall back to the WASM path; `World.step()` rebuilds it.
  */
-export interface ColliderTransformBufferRef {
-    buffer: Float32Array | null;
-}
-
-// Scratch buffers for unpacking transformBufferInfo f64 → ptr + len
-const _infoBuf = new Float64Array(1);
-const _infoView = new Uint32Array(_infoBuf.buffer);
+export type ColliderTransformBufferRef = TransformBufferRef;
 
 /**
  * A set of rigid bodies that can be handled by a physics pipeline.
@@ -31,7 +25,7 @@ export class ColliderSet {
     raw: RawColliderSet;
     private map: Coarena<Collider>;
     /** @internal */
-    _bufferRef: ColliderTransformBufferRef = {buffer: null};
+    _bufferRef: ColliderTransformBufferRef = createTransformBufferRef();
     private _wasmMemory: WebAssembly.Memory | null = null;
 
     /**
@@ -42,7 +36,7 @@ export class ColliderSet {
             this.raw.free();
         }
         this.raw = undefined!;
-        this._bufferRef = {buffer: null};
+        this._bufferRef = createTransformBufferRef();
 
         if (!!this.map) {
             this.map.clear();
@@ -81,13 +75,10 @@ export class ColliderSet {
      * @internal
      */
     public syncTransformBuffer() {
-        _infoBuf[0] = this.raw.transformBufferInfo();
-        const ptr = _infoView[0]; // byte offset
-        const len = _infoView[1]; // element count
         if (!this._wasmMemory) {
             this._wasmMemory = wasmMemory() as unknown as WebAssembly.Memory;
         }
-        this._bufferRef.buffer = new Float32Array(this._wasmMemory.buffer, ptr, len);
+        refreshTransformBuffer(this._bufferRef, this.raw.transformBufferInfo(), this._wasmMemory);
     }
 
     /** @internal */
@@ -115,23 +106,35 @@ export class ColliderSet {
             );
 
         let rawShape = desc.shape.intoRaw();
-        let rawTra = VectorOps.intoRaw(desc.translation);
-        let rawRot = RotationOps.intoRaw(desc.rotation);
-        let rawCom = VectorOps.intoRaw(desc.centerOfMass);
 
-        let rawPrincipalInertia = VectorOps.intoRaw(desc.principalAngularInertia);
-        let rawInertiaFrame = RotationOps.intoRaw(desc.angularInertiaLocalFrame);
+        const tra = desc.translation;
+        const rot = desc.rotation;
+        const com = desc.centerOfMass;
+        const pai = desc.principalAngularInertia;
+        const aif = desc.angularInertiaLocalFrame;
 
         let handle = this.raw.createCollider(
             desc.enabled,
             rawShape,
-            rawTra,
-            rawRot,
+            tra.x,
+            tra.y,
+            tra.z,
+            rot.x,
+            rot.y,
+            rot.z,
+            rot.w,
             desc.massPropsMode,
             desc.mass,
-            rawCom,
-            rawPrincipalInertia,
-            rawInertiaFrame,
+            com.x,
+            com.y,
+            com.z,
+            pai.x,
+            pai.y,
+            pai.z,
+            aif.x,
+            aif.y,
+            aif.z,
+            aif.w,
             desc.density,
             desc.friction,
             desc.restitution,
@@ -151,15 +154,10 @@ export class ColliderSet {
         );
 
         rawShape.free();
-        rawTra.free();
-        rawRot.free();
-        rawCom.free();
 
-        rawPrincipalInertia.free();
-        rawInertiaFrame.free();
-
-        // Invalidate the buffer since WASM memory may have grown.
-        this._bufferRef.buffer = null;
+        // Invalidate the buffer: the new collider has no entry in it yet, and
+        // WASM memory may have grown.
+        invalidateTransformBuffer(this._bufferRef);
 
         let parent = hasParent ? bodies.get(parentHandle!) : null;
         let collider = new Collider(this, handle!, parent, desc.shape);

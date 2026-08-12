@@ -2,20 +2,15 @@ import {handleToIndex} from "../coarena";
 import {Collider, ColliderSet} from "../geometry";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {liveTransformBuffer, type TransformBufferRef} from "../transform_buffer";
+
+export type {TransformBufferRef};
 
 /**
  * Number of f32 values per body in the transform buffer.
  * Layout: translation(2) + rotation(1) + linvel(2) + angvel(1) = 6
  */
 export const BODY_TRANSFORM_STRIDE = 6;
-
-/**
- * @internal Shared container for the transform buffer, passed by reference
- * to RigidBody instances so they can read updated data without circular imports.
- */
-export interface TransformBufferRef {
-    buffer: Float32Array | null;
-}
 
 /** Shared scratch buffer for WASM fallback reads (single-threaded, safe to share). */
 const _scratch = new Float32Array(4);
@@ -96,25 +91,14 @@ export class RigidBody {
     /**
      * Returns the shared transform-buffer view if it is currently usable.
      *
-     * `_bufferRef.buffer` is a `Float32Array` view pointing directly into WASM
-     * linear memory. Whenever WASM memory grows — which can happen on any allocating
-     * operation between two `World.step()` calls (creating colliders/joints, scene
-     * queries or setters that go through `intoRaw()`, etc.) — the underlying
-     * `ArrayBuffer` is detached and this view becomes unusable: reads silently yield
-     * `NaN` and writes are silently dropped. A detached typed array reports a `length`
-     * of `0`, which we use to detect the situation, drop the stale view, and fall back
-     * to reading/writing directly through WASM until `World.step()` rebuilds it.
-     *
-     * (With shared memory — the threads/SIMD build — `grow` does not detach the old
-     * buffer, so the view stays valid and this check is a no-op.)
+     * See {@link TransformBufferRef}: a view detached by WASM memory growth is
+     * re-created on the spot, and `null` is only returned while the buffer
+     * contents are stale (until the next `World.step()` refills them).
      *
      * @internal
      */
     private liveBuffer(): Float32Array | null {
-        const view = this._bufferRef.buffer;
-        if (view !== null && view.length !== 0) return view;
-        if (view !== null) this._bufferRef.buffer = null;
-        return null;
+        return liveTransformBuffer(this._bufferRef);
     }
 
     /**

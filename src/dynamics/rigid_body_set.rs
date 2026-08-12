@@ -1,9 +1,8 @@
 use crate::dynamics::{RawImpulseJointSet, RawIslandManager, RawMultibodyJointSet};
 use crate::geometry::RawColliderSet;
-use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::{MassProperties, RigidBody, RigidBodyBuilder, RigidBodySet, RigidBodyType};
-use rapier::math::Pose;
+use rapier::math::{Pose, Rotation, Vector};
 use wasm_bindgen::prelude::*;
 
 /// Number of f32 values per body in the transform buffer.
@@ -72,25 +71,16 @@ impl RawRigidBodySet {
     /// Called internally from the physics pipeline step for cache locality.
     /// Not exposed via wasm-bindgen to avoid borrow tracking issues.
     pub(crate) fn sync_transform_data(&mut self) {
-        let mut max_index: usize = 0;
-        for (handle, _) in self.bodies.iter() {
-            let (index, _) = handle.0.into_raw_parts();
-            max_index = max_index.max(index as usize);
-        }
-
-        let required_len = if self.bodies.len() > 0 {
-            (max_index + 1) * BODY_STRIDE
-        } else {
-            0
-        };
-
-        if self.transform_data.len() < required_len {
-            self.transform_data.resize(required_len, 0.0);
-        }
-
+        // Handles are iterated in increasing index order, so the buffer only ever
+        // has to grow: a single pass can size it as it goes instead of doing an
+        // extra pass just to find the highest index.
         for (handle, body) in self.bodies.iter() {
             let (index, _) = handle.0.into_raw_parts();
             let offset = index as usize * BODY_STRIDE;
+
+            if self.transform_data.len() < offset + BODY_STRIDE {
+                self.transform_data.resize(offset + BODY_STRIDE, 0.0);
+            }
 
             let pos = body.position();
             let lv = body.linvel();
@@ -154,20 +144,42 @@ impl RawRigidBodySet {
         BODY_STRIDE
     }
 
+    /// Creates a rigid-body from plain scalars.
+    ///
+    /// Vectors and rotations are passed component-wise instead of as `RawVector`/
+    /// `RawRotation` handles: allocating those temporaries on the JS side costs
+    /// far more than the extra arguments (each one is a WASM allocation plus a
+    /// `FinalizationRegistry` registration).
     #[cfg(feature = "dim3")]
     pub fn createRigidBody(
         &mut self,
         enabled: bool,
-        translation: &RawVector,
-        rotation: &RawRotation,
+        translation_x: f32,
+        translation_y: f32,
+        translation_z: f32,
+        rotation_x: f32,
+        rotation_y: f32,
+        rotation_z: f32,
+        rotation_w: f32,
         gravityScale: f32,
         mass: f32,
         massOnly: bool,
-        centerOfMass: &RawVector,
-        linvel: &RawVector,
-        angvel: &RawVector,
-        principalAngularInertia: &RawVector,
-        angularInertiaFrame: &RawRotation,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
+        centerOfMass_z: f32,
+        linvel_x: f32,
+        linvel_y: f32,
+        linvel_z: f32,
+        angvel_x: f32,
+        angvel_y: f32,
+        angvel_z: f32,
+        principalAngularInertia_x: f32,
+        principalAngularInertia_y: f32,
+        principalAngularInertia_z: f32,
+        angularInertiaFrame_x: f32,
+        angularInertiaFrame_y: f32,
+        angularInertiaFrame_z: f32,
+        angularInertiaFrame_w: f32,
         translationEnabledX: bool,
         translationEnabledY: bool,
         translationEnabledZ: bool,
@@ -184,7 +196,10 @@ impl RawRigidBodySet {
         dominanceGroup: i8,
         additional_solver_iterations: usize,
     ) -> FlatHandle {
-        let pos = Pose::from_parts(translation.0, rotation.0);
+        let pos = Pose::from_parts(
+            Vector::new(translation_x, translation_y, translation_z),
+            Rotation::from_xyzw(rotation_x, rotation_y, rotation_z, rotation_w),
+        );
 
         let mut rigid_body = RigidBodyBuilder::new(rb_type.into())
             .enabled(enabled)
@@ -196,8 +211,8 @@ impl RawRigidBodySet {
                 translationEnabledZ,
             )
             .enabled_rotations(rotationEnabledX, rotationEnabledY, rotationEnabledZ)
-            .linvel(linvel.0)
-            .angvel(angvel.0)
+            .linvel(Vector::new(linvel_x, linvel_y, linvel_z))
+            .angvel(Vector::new(angvel_x, angvel_y, angvel_z))
             .linear_damping(linearDamping)
             .angular_damping(angularDamping)
             .can_sleep(canSleep)
@@ -211,10 +226,19 @@ impl RawRigidBodySet {
             rigid_body.additional_mass(mass)
         } else {
             let props = MassProperties::with_principal_inertia_frame(
-                centerOfMass.0.into(),
+                Vector::new(centerOfMass_x, centerOfMass_y, centerOfMass_z).into(),
                 mass,
-                principalAngularInertia.0,
-                angularInertiaFrame.0,
+                Vector::new(
+                    principalAngularInertia_x,
+                    principalAngularInertia_y,
+                    principalAngularInertia_z,
+                ),
+                Rotation::from_xyzw(
+                    angularInertiaFrame_x,
+                    angularInertiaFrame_y,
+                    angularInertiaFrame_z,
+                    angularInertiaFrame_w,
+                ),
             );
             rigid_body.additional_mass_properties(props)
         };
@@ -222,17 +246,23 @@ impl RawRigidBodySet {
         utils::flat_handle(self.bodies.insert(rigid_body.build()).0)
     }
 
+    /// Creates a rigid-body from plain scalars.
+    ///
+    /// See the 3D variant for why the components are passed individually.
     #[cfg(feature = "dim2")]
     pub fn createRigidBody(
         &mut self,
         enabled: bool,
-        translation: &RawVector,
-        rotation: &RawRotation,
+        translation_x: f32,
+        translation_y: f32,
+        rotation_angle: f32,
         gravityScale: f32,
         mass: f32,
         massOnly: bool,
-        centerOfMass: &RawVector,
-        linvel: &RawVector,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
+        linvel_x: f32,
+        linvel_y: f32,
         angvel: f32,
         principalAngularInertia: f32,
         translationEnabledX: bool,
@@ -248,13 +278,16 @@ impl RawRigidBodySet {
         dominanceGroup: i8,
         additional_solver_iterations: usize,
     ) -> FlatHandle {
-        let pos = Pose::from_parts(translation.0, rotation.0);
+        let pos = Pose::from_parts(
+            Vector::new(translation_x, translation_y),
+            Rotation::new(rotation_angle),
+        );
         let mut rigid_body = RigidBodyBuilder::new(rb_type.into())
             .enabled(enabled)
             .pose(pos)
             .gravity_scale(gravityScale)
             .enabled_translations(translationEnabledX, translationEnabledY)
-            .linvel(linvel.0)
+            .linvel(Vector::new(linvel_x, linvel_y))
             .angvel(angvel)
             .linear_damping(linearDamping)
             .angular_damping(angularDamping)
@@ -268,7 +301,11 @@ impl RawRigidBodySet {
         rigid_body = if massOnly {
             rigid_body.additional_mass(mass)
         } else {
-            let props = MassProperties::new(centerOfMass.0.into(), mass, principalAngularInertia);
+            let props = MassProperties::new(
+                Vector::new(centerOfMass_x, centerOfMass_y).into(),
+                mass,
+                principalAngularInertia,
+            );
             rigid_body.additional_mass_properties(props)
         };
 

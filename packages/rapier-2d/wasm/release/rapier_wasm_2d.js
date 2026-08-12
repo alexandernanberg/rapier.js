@@ -33,7 +33,7 @@ export class RawBroadPhase {
      * @param {number | null | undefined} filter_exclude_collider
      * @param {number | null | undefined} filter_exclude_rigid_body
      * @param {Function} filter_predicate
-     * @returns {RawRayColliderHit | undefined}
+     * @returns {boolean}
      */
     castRay(narrow_phase, bodies, colliders, ray_ox, ray_oy, ray_dx, ray_dy, maxToi, solid, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
         try {
@@ -41,7 +41,7 @@ export class RawBroadPhase {
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
             const ret = wasm.rawbroadphase_castRay(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, ray_ox, ray_oy, ray_dx, ray_dy, maxToi, solid, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
-            return ret === 0 ? undefined : RawRayColliderHit.__wrap(ret);
+            return ret !== 0;
         } finally {
             heap[stack_pointer++] = undefined;
         }
@@ -61,7 +61,7 @@ export class RawBroadPhase {
      * @param {number | null | undefined} filter_exclude_collider
      * @param {number | null | undefined} filter_exclude_rigid_body
      * @param {Function} filter_predicate
-     * @returns {RawRayColliderIntersection | undefined}
+     * @returns {boolean}
      */
     castRayAndGetNormal(narrow_phase, bodies, colliders, ray_ox, ray_oy, ray_dx, ray_dy, maxToi, solid, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
         try {
@@ -69,7 +69,7 @@ export class RawBroadPhase {
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
             const ret = wasm.rawbroadphase_castRayAndGetNormal(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, ray_ox, ray_oy, ray_dx, ray_dy, maxToi, solid, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
-            return ret === 0 ? undefined : RawRayColliderIntersection.__wrap(ret);
+            return ret !== 0;
         } finally {
             heap[stack_pointer++] = undefined;
         }
@@ -163,7 +163,8 @@ export class RawBroadPhase {
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
-     * @param {RawVector} point
+     * @param {number} point_x
+     * @param {number} point_y
      * @param {Function} callback
      * @param {number} filter_flags
      * @param {number | null | undefined} filter_groups
@@ -171,13 +172,12 @@ export class RawBroadPhase {
      * @param {number | null | undefined} filter_exclude_rigid_body
      * @param {Function} filter_predicate
      */
-    intersectionsWithPoint(narrow_phase, bodies, colliders, point, callback, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
+    intersectionsWithPoint(narrow_phase, bodies, colliders, point_x, point_y, callback, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
         try {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(point, RawVector);
-            wasm.rawbroadphase_intersectionsWithPoint(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point.__wbg_ptr, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            wasm.rawbroadphase_intersectionsWithPoint(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
             heap[stack_pointer++] = undefined;
@@ -249,23 +249,23 @@ export class RawBroadPhase {
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
-     * @param {RawVector} point
+     * @param {number} point_x
+     * @param {number} point_y
      * @param {boolean} solid
      * @param {number} filter_flags
      * @param {number | null | undefined} filter_groups
      * @param {number | null | undefined} filter_exclude_collider
      * @param {number | null | undefined} filter_exclude_rigid_body
      * @param {Function} filter_predicate
-     * @returns {RawPointColliderProjection | undefined}
+     * @returns {boolean}
      */
-    projectPoint(narrow_phase, bodies, colliders, point, solid, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
+    projectPoint(narrow_phase, bodies, colliders, point_x, point_y, solid, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
         try {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(point, RawVector);
-            const ret = wasm.rawbroadphase_projectPoint(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point.__wbg_ptr, solid, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
-            return ret === 0 ? undefined : RawPointColliderProjection.__wrap(ret);
+            const ret = wasm.rawbroadphase_projectPoint(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, solid, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            return ret !== 0;
         } finally {
             heap[stack_pointer++] = undefined;
         }
@@ -274,25 +274,34 @@ export class RawBroadPhase {
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
-     * @param {RawVector} point
+     * @param {number} point_x
+     * @param {number} point_y
      * @param {number} filter_flags
      * @param {number | null | undefined} filter_groups
      * @param {number | null | undefined} filter_exclude_collider
      * @param {number | null | undefined} filter_exclude_rigid_body
      * @param {Function} filter_predicate
-     * @returns {RawPointColliderProjection | undefined}
+     * @returns {boolean}
      */
-    projectPointAndGetFeature(narrow_phase, bodies, colliders, point, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
+    projectPointAndGetFeature(narrow_phase, bodies, colliders, point_x, point_y, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
         try {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(point, RawVector);
-            const ret = wasm.rawbroadphase_projectPointAndGetFeature(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point.__wbg_ptr, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
-            return ret === 0 ? undefined : RawPointColliderProjection.__wrap(ret);
+            const ret = wasm.rawbroadphase_projectPointAndGetFeature(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            return ret !== 0;
         } finally {
             heap[stack_pointer++] = undefined;
         }
+    }
+    /**
+     * Returns the query result buffer pointer and length packed into a single f64.
+     * Low 32 bits = byte offset in WASM memory, high 32 bits = f64 element count.
+     * @returns {number}
+     */
+    queryResultBufferInfo() {
+        const ret = wasm.rawbroadphase_queryResultBufferInfo(this.__wbg_ptr);
+        return ret;
     }
 }
 if (Symbol.dispose) RawBroadPhase.prototype[Symbol.dispose] = RawBroadPhase.prototype.free;
@@ -1157,13 +1166,21 @@ export class RawColliderSet {
         return ret !== 0;
     }
     /**
+     * Creates a collider from plain scalars.
+     *
+     * Vectors and rotations are passed component-wise instead of as `RawVector`/
+     * `RawRotation` handles: allocating those temporaries on the JS side costs
+     * far more than the extra arguments (each one is a WASM allocation plus a
+     * `FinalizationRegistry` registration).
      * @param {boolean} enabled
      * @param {RawShape} shape
-     * @param {RawVector} translation
-     * @param {RawRotation} rotation
+     * @param {number} translation_x
+     * @param {number} translation_y
+     * @param {number} rotation_angle
      * @param {number} massPropsMode
      * @param {number} mass
-     * @param {RawVector} centerOfMass
+     * @param {number} centerOfMass_x
+     * @param {number} centerOfMass_y
      * @param {number} principalAngularInertia
      * @param {number} density
      * @param {number} friction
@@ -1183,15 +1200,12 @@ export class RawColliderSet {
      * @param {RawRigidBodySet} bodies
      * @returns {number | undefined}
      */
-    createCollider(enabled, shape, translation, rotation, massPropsMode, mass, centerOfMass, principalAngularInertia, density, friction, restitution, frictionCombineRule, restitutionCombineRule, isSensor, collisionGroups, solverGroups, activeCollisionTypes, activeHooks, activeEvents, contactForceEventThreshold, contactSkin, hasParent, parent, bodies) {
+    createCollider(enabled, shape, translation_x, translation_y, rotation_angle, massPropsMode, mass, centerOfMass_x, centerOfMass_y, principalAngularInertia, density, friction, restitution, frictionCombineRule, restitutionCombineRule, isSensor, collisionGroups, solverGroups, activeCollisionTypes, activeHooks, activeEvents, contactForceEventThreshold, contactSkin, hasParent, parent, bodies) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
             _assertClass(shape, RawShape);
-            _assertClass(translation, RawVector);
-            _assertClass(rotation, RawRotation);
-            _assertClass(centerOfMass, RawVector);
             _assertClass(bodies, RawRigidBodySet);
-            wasm.rawcolliderset_createCollider(retptr, this.__wbg_ptr, enabled, shape.__wbg_ptr, translation.__wbg_ptr, rotation.__wbg_ptr, massPropsMode, mass, centerOfMass.__wbg_ptr, principalAngularInertia, density, friction, restitution, frictionCombineRule, restitutionCombineRule, isSensor, collisionGroups, solverGroups, activeCollisionTypes, activeHooks, activeEvents, contactForceEventThreshold, contactSkin, hasParent, parent, bodies.__wbg_ptr);
+            wasm.rawcolliderset_createCollider(retptr, this.__wbg_ptr, enabled, shape.__wbg_ptr, translation_x, translation_y, rotation_angle, massPropsMode, mass, centerOfMass_x, centerOfMass_y, principalAngularInertia, density, friction, restitution, frictionCombineRule, restitutionCombineRule, isSensor, collisionGroups, solverGroups, activeCollisionTypes, activeHooks, activeEvents, contactForceEventThreshold, contactSkin, hasParent, parent, bodies.__wbg_ptr);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
             return r0 === 0 ? undefined : r2;
@@ -3198,62 +3212,6 @@ export class RawPidController {
 }
 if (Symbol.dispose) RawPidController.prototype[Symbol.dispose] = RawPidController.prototype.free;
 
-export class RawPointColliderProjection {
-    static __wrap(ptr) {
-        ptr = ptr >>> 0;
-        const obj = Object.create(RawPointColliderProjection.prototype);
-        obj.__wbg_ptr = ptr;
-        RawPointColliderProjectionFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawPointColliderProjectionFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawpointcolliderprojection_free(ptr, 0);
-    }
-    /**
-     * @returns {number}
-     */
-    colliderHandle() {
-        const ret = wasm.rawpointcolliderprojection_colliderHandle(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {number | undefined}
-     */
-    featureId() {
-        const ret = wasm.rawpointcolliderprojection_featureId(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
-    }
-    /**
-     * @returns {RawFeatureType}
-     */
-    featureType() {
-        const ret = wasm.rawpointcolliderprojection_featureType(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {boolean}
-     */
-    isInside() {
-        const ret = wasm.rawpointcolliderprojection_isInside(this.__wbg_ptr);
-        return ret !== 0;
-    }
-    /**
-     * @returns {RawVector}
-     */
-    point() {
-        const ret = wasm.rawpointcolliderprojection_point(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-}
-if (Symbol.dispose) RawPointColliderProjection.prototype[Symbol.dispose] = RawPointColliderProjection.prototype.free;
-
 export class RawPointProjection {
     static __wrap(ptr) {
         ptr = ptr >>> 0;
@@ -3289,97 +3247,6 @@ export class RawPointProjection {
 }
 if (Symbol.dispose) RawPointProjection.prototype[Symbol.dispose] = RawPointProjection.prototype.free;
 
-export class RawRayColliderHit {
-    static __wrap(ptr) {
-        ptr = ptr >>> 0;
-        const obj = Object.create(RawRayColliderHit.prototype);
-        obj.__wbg_ptr = ptr;
-        RawRayColliderHitFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawRayColliderHitFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawraycolliderhit_free(ptr, 0);
-    }
-    /**
-     * @returns {number}
-     */
-    colliderHandle() {
-        const ret = wasm.rawcollidershapecasthit_colliderHandle(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {number}
-     */
-    timeOfImpact() {
-        const ret = wasm.rawcollidershapecasthit_time_of_impact(this.__wbg_ptr);
-        return ret;
-    }
-}
-if (Symbol.dispose) RawRayColliderHit.prototype[Symbol.dispose] = RawRayColliderHit.prototype.free;
-
-export class RawRayColliderIntersection {
-    static __wrap(ptr) {
-        ptr = ptr >>> 0;
-        const obj = Object.create(RawRayColliderIntersection.prototype);
-        obj.__wbg_ptr = ptr;
-        RawRayColliderIntersectionFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawRayColliderIntersectionFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawraycolliderintersection_free(ptr, 0);
-    }
-    /**
-     * @returns {number}
-     */
-    colliderHandle() {
-        const ret = wasm.rawpointcolliderprojection_colliderHandle(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {number | undefined}
-     */
-    featureId() {
-        const ret = wasm.rawpointcolliderprojection_featureId(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
-    }
-    /**
-     * @returns {RawFeatureType}
-     */
-    featureType() {
-        const ret = wasm.rawpointcolliderprojection_featureType(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {RawVector}
-     */
-    normal() {
-        const ret = wasm.rawcollidershapecasthit_witness1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {number}
-     */
-    time_of_impact() {
-        const ret = wasm.rawcollidershapecasthit_time_of_impact(this.__wbg_ptr);
-        return ret;
-    }
-}
-if (Symbol.dispose) RawRayColliderIntersection.prototype[Symbol.dispose] = RawRayColliderIntersection.prototype.free;
-
 export class RawRayIntersection {
     static __wrap(ptr) {
         ptr = ptr >>> 0;
@@ -3402,14 +3269,14 @@ export class RawRayIntersection {
      * @returns {number | undefined}
      */
     featureId() {
-        const ret = wasm.rawpointcolliderprojection_featureId(this.__wbg_ptr);
+        const ret = wasm.rawrayintersection_featureId(this.__wbg_ptr);
         return ret === 0x100000001 ? undefined : ret;
     }
     /**
      * @returns {RawFeatureType}
      */
     featureType() {
-        const ret = wasm.rawpointcolliderprojection_featureType(this.__wbg_ptr);
+        const ret = wasm.rawrayintersection_featureType(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -3457,14 +3324,20 @@ export class RawRigidBodySet {
         return ret !== 0;
     }
     /**
+     * Creates a rigid-body from plain scalars.
+     *
+     * See the 3D variant for why the components are passed individually.
      * @param {boolean} enabled
-     * @param {RawVector} translation
-     * @param {RawRotation} rotation
+     * @param {number} translation_x
+     * @param {number} translation_y
+     * @param {number} rotation_angle
      * @param {number} gravityScale
      * @param {number} mass
      * @param {boolean} massOnly
-     * @param {RawVector} centerOfMass
-     * @param {RawVector} linvel
+     * @param {number} centerOfMass_x
+     * @param {number} centerOfMass_y
+     * @param {number} linvel_x
+     * @param {number} linvel_y
      * @param {number} angvel
      * @param {number} principalAngularInertia
      * @param {boolean} translationEnabledX
@@ -3481,12 +3354,8 @@ export class RawRigidBodySet {
      * @param {number} additional_solver_iterations
      * @returns {number}
      */
-    createRigidBody(enabled, translation, rotation, gravityScale, mass, massOnly, centerOfMass, linvel, angvel, principalAngularInertia, translationEnabledX, translationEnabledY, rotationsEnabled, linearDamping, angularDamping, rb_type, canSleep, sleeping, softCcdPrediciton, ccdEnabled, dominanceGroup, additional_solver_iterations) {
-        _assertClass(translation, RawVector);
-        _assertClass(rotation, RawRotation);
-        _assertClass(centerOfMass, RawVector);
-        _assertClass(linvel, RawVector);
-        const ret = wasm.rawrigidbodyset_createRigidBody(this.__wbg_ptr, enabled, translation.__wbg_ptr, rotation.__wbg_ptr, gravityScale, mass, massOnly, centerOfMass.__wbg_ptr, linvel.__wbg_ptr, angvel, principalAngularInertia, translationEnabledX, translationEnabledY, rotationsEnabled, linearDamping, angularDamping, rb_type, canSleep, sleeping, softCcdPrediciton, ccdEnabled, dominanceGroup, additional_solver_iterations);
+    createRigidBody(enabled, translation_x, translation_y, rotation_angle, gravityScale, mass, massOnly, centerOfMass_x, centerOfMass_y, linvel_x, linvel_y, angvel, principalAngularInertia, translationEnabledX, translationEnabledY, rotationsEnabled, linearDamping, angularDamping, rb_type, canSleep, sleeping, softCcdPrediciton, ccdEnabled, dominanceGroup, additional_solver_iterations) {
+        const ret = wasm.rawrigidbodyset_createRigidBody(this.__wbg_ptr, enabled, translation_x, translation_y, rotation_angle, gravityScale, mass, massOnly, centerOfMass_x, centerOfMass_y, linvel_x, linvel_y, angvel, principalAngularInertia, translationEnabledX, translationEnabledY, rotationsEnabled, linearDamping, angularDamping, rb_type, canSleep, sleeping, softCcdPrediciton, ccdEnabled, dominanceGroup, additional_solver_iterations);
         return ret;
     }
     /**
@@ -4842,7 +4711,7 @@ export class RawShapeContact {
      * @returns {RawVector}
      */
     point2() {
-        const ret = wasm.rawpointcolliderprojection_point(this.__wbg_ptr);
+        const ret = wasm.rawshapecontact_point2(this.__wbg_ptr);
         return RawVector.__wrap(ret);
     }
 }
@@ -5026,6 +4895,10 @@ function __wbg_get_imports() {
         __wbg___wbindgen_throw_be289d5034ed271b: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
+        __wbg_call_389efe28435a9388: function() { return handleError(function (arg0, arg1) {
+            const ret = getObject(arg0).call(getObject(arg1));
+            return addHeapObject(ret);
+        }, arguments); },
         __wbg_call_41bedb84c3e5c0c9: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5) {
             const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3), getObject(arg4), getObject(arg5));
             return addHeapObject(ret);
@@ -5059,10 +4932,6 @@ function __wbg_get_imports() {
         },
         __wbg_rawcontactforceevent_new: function(arg0) {
             const ret = RawContactForceEvent.__wrap(arg0);
-            return addHeapObject(ret);
-        },
-        __wbg_rawraycolliderintersection_new: function(arg0) {
-            const ret = RawRayColliderIntersection.__wrap(arg0);
             return addHeapObject(ret);
         },
         __wbg_set_f8edeec46569cc70: function(arg0, arg1, arg2) {
@@ -5146,18 +5015,9 @@ const RawPhysicsPipelineFinalization = (typeof FinalizationRegistry === 'undefin
 const RawPidControllerFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawpidcontroller_free(ptr >>> 0, 1));
-const RawPointColliderProjectionFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawpointcolliderprojection_free(ptr >>> 0, 1));
 const RawPointProjectionFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawpointprojection_free(ptr >>> 0, 1));
-const RawRayColliderHitFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawraycolliderhit_free(ptr >>> 0, 1));
-const RawRayColliderIntersectionFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawraycolliderintersection_free(ptr >>> 0, 1));
 const RawRayIntersectionFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawrayintersection_free(ptr >>> 0, 1));
