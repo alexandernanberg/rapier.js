@@ -1383,7 +1383,7 @@ export class RawContactForceEvent {
      * @returns {RawVector}
      */
     max_force_direction() {
-        const ret = wasm.rawcharactercollision_translationDeltaApplied(this.__wbg_ptr);
+        const ret = wasm.rawcollidershapecasthit_normal1(this.__wbg_ptr);
         return RawVector.__wrap(ret);
     }
     /**
@@ -1492,6 +1492,17 @@ export class RawContactManifold {
         return ret;
     }
     /**
+     * The effective friction coefficient of this manifold's contacts.
+     *
+     * Since rapier 0.35 friction is stored per-manifold instead of per solver-contact,
+     * so it is identical for every contact of this manifold.
+     * @returns {number}
+     */
+    friction() {
+        const ret = wasm.rawcontactmanifold_friction(this.__wbg_ptr);
+        return ret;
+    }
+    /**
      * @returns {RawVector}
      */
     local_n1() {
@@ -1527,6 +1538,40 @@ export class RawContactManifold {
         return ret >>> 0;
     }
     /**
+     * The effective restitution coefficient of this manifold's contacts.
+     *
+     * Since rapier 0.35 restitution is stored per-manifold instead of per solver-contact,
+     * so it is identical for every contact of this manifold.
+     * @returns {number}
+     */
+    restitution() {
+        const ret = wasm.rawcontactmanifold_restitution(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * The contact point on the first body's surface.
+     *
+     * Since rapier 0.35 this is expressed in that body's center-of-mass-centered local
+     * frame, or in world-space when the first side has no solver body (no rigid-body, or
+     * world-attached by dominance — fixed bodies included).
+     * @param {number} i
+     * @returns {RawVector | undefined}
+     */
+    solver_contact_anchor1(i) {
+        const ret = wasm.rawcontactmanifold_solver_contact_anchor1(this.__wbg_ptr, i);
+        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    }
+    /**
+     * The contact point on the second body's surface, expressed like
+     * [`Self::solver_contact_anchor1`].
+     * @param {number} i
+     * @returns {RawVector | undefined}
+     */
+    solver_contact_anchor2(i) {
+        const ret = wasm.rawcontactmanifold_solver_contact_anchor2(this.__wbg_ptr, i);
+        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    }
+    /**
      * @param {number} i
      * @returns {number}
      */
@@ -1536,35 +1581,11 @@ export class RawContactManifold {
     }
     /**
      * @param {number} i
-     * @returns {number}
-     */
-    solver_contact_friction(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_friction(this.__wbg_ptr, i);
-        return ret;
-    }
-    /**
-     * @param {number} i
      * @returns {RawVector | undefined}
-     */
-    solver_contact_point(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_point(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
-    }
-    /**
-     * @param {number} i
-     * @returns {number}
-     */
-    solver_contact_restitution(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_restitution(this.__wbg_ptr, i);
-        return ret;
-    }
-    /**
-     * @param {number} i
-     * @returns {RawVector}
      */
     solver_contact_tangent_velocity(i) {
         const ret = wasm.rawcontactmanifold_solver_contact_tangent_velocity(this.__wbg_ptr, i);
-        return RawVector.__wrap(ret);
+        return ret === 0 ? undefined : RawVector.__wrap(ret);
     }
     /**
      * @returns {number}
@@ -2252,7 +2273,7 @@ export class RawIntegrationParameters {
      * @returns {number}
      */
     get dt() {
-        const ret = wasm.rawcollidershapecasthit_time_of_impact(this.__wbg_ptr);
+        const ret = wasm.rawintegrationparameters_dt(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -2267,13 +2288,6 @@ export class RawIntegrationParameters {
      */
     get maxCcdSubsteps() {
         const ret = wasm.rawintegrationparameters_maxCcdSubsteps(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get minIslandSize() {
-        const ret = wasm.rawintegrationparameters_minIslandSize(this.__wbg_ptr);
         return ret >>> 0;
     }
     constructor() {
@@ -2293,7 +2307,7 @@ export class RawIntegrationParameters {
      * @returns {number}
      */
     get normalizedPredictionDistance() {
-        const ret = wasm.rawcontactforceevent_total_force_magnitude(this.__wbg_ptr);
+        const ret = wasm.rawcharactercollision_toi(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -2333,12 +2347,6 @@ export class RawIntegrationParameters {
      */
     set maxCcdSubsteps(value) {
         wasm.rawintegrationparameters_set_maxCcdSubsteps(this.__wbg_ptr, value);
-    }
-    /**
-     * @param {number} value
-     */
-    set minIslandSize(value) {
-        wasm.rawintegrationparameters_set_minIslandSize(this.__wbg_ptr, value);
     }
     /**
      * @param {number} value
@@ -4227,7 +4235,7 @@ export class RawSerializationPipeline {
         return ret === 0 ? undefined : RawDeserializedWorld.__wrap(ret);
     }
     constructor() {
-        const ret = wasm.rawccdsolver_new();
+        const ret = wasm.rawserializationpipeline_new();
         this.__wbg_ptr = ret >>> 0;
         RawSerializationPipelineFinalization.register(this, this.__wbg_ptr, this);
         return this;
@@ -4683,7 +4691,7 @@ export class RawShapeContact {
      * @returns {number}
      */
     distance() {
-        const ret = wasm.rawcontactforceevent_total_force_magnitude(this.__wbg_ptr);
+        const ret = wasm.rawintegrationparameters_normalizedAllowedLinearError(this.__wbg_ptr);
         return ret;
     }
     /**
