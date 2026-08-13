@@ -28,7 +28,7 @@
 
 This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) with performance improvements and modernized tooling.
 
-- Rapier 0.32 with glam math library
+- Rapier 0.35 with glam math library
 - pnpm monorepo with tsdown bundler
 - Contiguous transform buffer (body reads with zero WASM crossings)
 - Zero-allocation getters (optional target parameter)
