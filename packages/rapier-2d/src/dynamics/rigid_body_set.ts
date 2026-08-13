@@ -1,8 +1,12 @@
-import type {TransformBufferRef} from "./rigid_body";
 import {Coarena} from "../coarena";
 import {ColliderSet} from "../geometry";
-import {VectorOps, RotationOps} from "../math";
 import {RawRigidBodySet, RawRigidBodyType, wasmMemory} from "../raw";
+import {
+    createTransformBufferRef,
+    invalidateTransformBuffer,
+    refreshTransformBuffer,
+    type TransformBufferRef,
+} from "../transform_buffer";
 import {ImpulseJointSet} from "./impulse_joint_set";
 import {IslandManager} from "./island_manager";
 import {MultibodyJointSet} from "./multibody_joint_set";
@@ -14,15 +18,11 @@ import {RigidBody, RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
  * To avoid leaking WASM resources, this MUST be freed manually with `rigidBodySet.free()`
  * once you are done using it (and all the rigid-bodies it created).
  */
-// Scratch buffers for unpacking transformBufferInfo f64 → ptr + len
-const _infoBuf = new Float64Array(1);
-const _infoView = new Uint32Array(_infoBuf.buffer);
-
 export class RigidBodySet {
     raw: RawRigidBodySet;
     private map: Coarena<RigidBody>;
     /** @internal */
-    _bufferRef: TransformBufferRef = {buffer: null};
+    _bufferRef: TransformBufferRef = createTransformBufferRef();
     private _wasmMemory: WebAssembly.Memory | null = null;
 
     /**
@@ -33,7 +33,10 @@ export class RigidBodySet {
             this.raw.free();
         }
         this.raw = undefined!;
-        this._bufferRef = {buffer: null};
+        // Bodies/colliders handed out earlier still hold the old ref: mark it
+        // stale so they can't re-attach a view over the WASM memory just freed.
+        invalidateTransformBuffer(this._bufferRef);
+        this._bufferRef = createTransformBufferRef();
 
         if (!!this.map) {
             this.map.clear();
@@ -71,13 +74,10 @@ export class RigidBodySet {
      * @internal
      */
     public syncTransformBuffer() {
-        _infoBuf[0] = this.raw.transformBufferInfo();
-        const ptr = _infoView[0]; // byte offset
-        const len = _infoView[1]; // element count
         if (!this._wasmMemory) {
             this._wasmMemory = wasmMemory() as unknown as WebAssembly.Memory;
         }
-        this._bufferRef.buffer = new Float32Array(this._wasmMemory.buffer, ptr, len);
+        refreshTransformBuffer(this._bufferRef, this.raw.transformBufferInfo(), this._wasmMemory);
     }
 
     /**
@@ -86,20 +86,22 @@ export class RigidBodySet {
      * @param desc - The description of the rigid-body to create.
      */
     public createRigidBody(colliderSet: ColliderSet, desc: RigidBodyDesc): RigidBody {
-        let rawTra = VectorOps.intoRaw(desc.translation);
-        let rawRot = RotationOps.intoRaw(desc.rotation);
-        let rawLv = VectorOps.intoRaw(desc.linvel);
-        let rawCom = VectorOps.intoRaw(desc.centerOfMass);
+        const tra = desc.translation;
+        const com = desc.centerOfMass;
+        const lv = desc.linvel;
 
         let handle = this.raw.createRigidBody(
             desc.enabled,
-            rawTra,
-            rawRot,
+            tra.x,
+            tra.y,
+            desc.rotation,
             desc.gravityScale,
             desc.mass,
             desc.massOnly,
-            rawCom,
-            rawLv,
+            com.x,
+            com.y,
+            lv.x,
+            lv.y,
             desc.angvel,
             desc.principalAngularInertia,
             desc.translationsEnabledX,
@@ -116,13 +118,9 @@ export class RigidBodySet {
             desc.additionalSolverIterations,
         );
 
-        rawTra.free();
-        rawRot.free();
-        rawLv.free();
-        rawCom.free();
-
-        // Invalidate the buffer since WASM memory may have grown
-        this._bufferRef.buffer = null;
+        // Invalidate the buffer: the new body has no entry in it yet, and WASM
+        // memory may have grown.
+        invalidateTransformBuffer(this._bufferRef);
 
         const body = new RigidBody(this.raw, this._bufferRef, colliderSet, handle);
         body.userData = desc.userData;

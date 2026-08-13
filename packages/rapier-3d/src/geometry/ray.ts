@@ -1,7 +1,6 @@
 import {Vector, VectorOps} from "../math";
-import {RawRayColliderIntersection, RawRayColliderHit, RawRayIntersection} from "../raw";
+import {RawRayIntersection} from "../raw";
 import {Collider} from "./collider";
-import {ColliderSet} from "./collider_set";
 import {FeatureType} from "./feature";
 
 /**
@@ -130,23 +129,6 @@ export class RayColliderIntersection {
         if (featureId !== undefined) this.featureId = featureId;
         if (featureType !== undefined) this.featureType = featureType;
     }
-
-    public static fromRaw(
-        colliderSet: ColliderSet,
-        raw: RawRayColliderIntersection,
-    ): RayColliderIntersection | null {
-        if (!raw) return null;
-
-        const result = new RayColliderIntersection(
-            colliderSet.get(raw.colliderHandle())!,
-            raw.time_of_impact(),
-            VectorOps.fromRaw(raw.normal())!,
-            raw.featureType() as number as FeatureType,
-            raw.featureId(),
-        );
-        raw.free();
-        return result;
-    }
 }
 
 /**
@@ -167,16 +149,5 @@ export class RayColliderHit {
     constructor(collider: Collider, timeOfImpact: number) {
         this.collider = collider;
         this.timeOfImpact = timeOfImpact;
-    }
-
-    public static fromRaw(colliderSet: ColliderSet, raw: RawRayColliderHit): RayColliderHit | null {
-        if (!raw) return null;
-
-        const result = new RayColliderHit(
-            colliderSet.get(raw.colliderHandle())!,
-            raw.timeOfImpact(),
-        );
-        raw.free();
-        return result;
     }
 }

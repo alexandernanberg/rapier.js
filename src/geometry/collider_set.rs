@@ -1,6 +1,5 @@
 use crate::dynamics::{RawIslandManager, RawRigidBodySet};
 use crate::geometry::RawShape;
-use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
 use rapier::math::Pose;
 use rapier::prelude::*;
@@ -97,25 +96,15 @@ impl RawColliderSet {
     /// to per-collider WASM calls whenever the view is invalidated (a collider was
     /// created or mutated) or detached (WASM memory growth).
     pub(crate) fn sync_transform_data(&mut self) {
-        let mut max_index: usize = 0;
-        for (handle, _) in self.0.iter() {
-            let (index, _) = handle.0.into_raw_parts();
-            max_index = max_index.max(index as usize);
-        }
-
-        let required_len = if self.0.len() > 0 {
-            (max_index + 1) * COLLIDER_STRIDE
-        } else {
-            0
-        };
-
-        if self.1.len() < required_len {
-            self.1.resize(required_len, 0.0);
-        }
-
+        // Handles are iterated in increasing index order, so the buffer only ever
+        // has to grow: a single pass can size it as it goes instead of doing an
+        // extra pass just to find the highest index.
         for (handle, collider) in self.0.iter() {
             let (index, _) = handle.0.into_raw_parts();
             let offset = index as usize * COLLIDER_STRIDE;
+            if self.1.len() < offset + COLLIDER_STRIDE {
+                self.1.resize(offset + COLLIDER_STRIDE, 0.0);
+            }
             Self::write_collider_transform(&mut self.1, offset, collider);
         }
     }
@@ -128,14 +117,27 @@ impl RawColliderSet {
         &mut self,
         enabled: bool,
         shape: &RawShape,
-        translation: &RawVector,
-        rotation: &RawRotation,
+        translation_x: f32,
+        translation_y: f32,
+        #[cfg(feature = "dim3")] translation_z: f32,
+        #[cfg(feature = "dim2")] rotation_angle: f32,
+        #[cfg(feature = "dim3")] rotation_x: f32,
+        #[cfg(feature = "dim3")] rotation_y: f32,
+        #[cfg(feature = "dim3")] rotation_z: f32,
+        #[cfg(feature = "dim3")] rotation_w: f32,
         massPropsMode: u32,
         mass: f32,
-        centerOfMass: &RawVector,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
+        #[cfg(feature = "dim3")] centerOfMass_z: f32,
         #[cfg(feature = "dim2")] principalAngularInertia: f32,
-        #[cfg(feature = "dim3")] principalAngularInertia: &RawVector,
-        #[cfg(feature = "dim3")] angularInertiaFrame: &RawRotation,
+        #[cfg(feature = "dim3")] principalAngularInertia_x: f32,
+        #[cfg(feature = "dim3")] principalAngularInertia_y: f32,
+        #[cfg(feature = "dim3")] principalAngularInertia_z: f32,
+        #[cfg(feature = "dim3")] angularInertiaFrame_x: f32,
+        #[cfg(feature = "dim3")] angularInertiaFrame_y: f32,
+        #[cfg(feature = "dim3")] angularInertiaFrame_z: f32,
+        #[cfg(feature = "dim3")] angularInertiaFrame_w: f32,
         density: f32,
         friction: f32,
         restitution: f32,
@@ -153,7 +155,17 @@ impl RawColliderSet {
         parent: FlatHandle,
         bodies: &mut RawRigidBodySet,
     ) -> Option<FlatHandle> {
-        let pos = Pose::from_parts(translation.0, rotation.0);
+        #[cfg(feature = "dim2")]
+        let pos = Pose::from_parts(
+            Vector::new(translation_x, translation_y),
+            Rotation::new(rotation_angle),
+        );
+        #[cfg(feature = "dim3")]
+        let pos = Pose::from_parts(
+            Vector::new(translation_x, translation_y, translation_z),
+            Rotation::from_xyzw(rotation_x, rotation_y, rotation_z, rotation_w),
+        );
+
         let mut builder = ColliderBuilder::new(shape.0.clone())
             .enabled(enabled)
             .position(pos)
@@ -175,13 +187,26 @@ impl RawColliderSet {
 
         if massPropsMode == MassPropsMode::MassProps as u32 {
             #[cfg(feature = "dim2")]
-            let mprops = MassProperties::new(centerOfMass.0.into(), mass, principalAngularInertia);
+            let mprops = MassProperties::new(
+                Vector::new(centerOfMass_x, centerOfMass_y).into(),
+                mass,
+                principalAngularInertia,
+            );
             #[cfg(feature = "dim3")]
             let mprops = MassProperties::with_principal_inertia_frame(
-                centerOfMass.0.into(),
+                Vector::new(centerOfMass_x, centerOfMass_y, centerOfMass_z).into(),
                 mass,
-                principalAngularInertia.0,
-                angularInertiaFrame.0,
+                Vector::new(
+                    principalAngularInertia_x,
+                    principalAngularInertia_y,
+                    principalAngularInertia_z,
+                ),
+                Rotation::from_xyzw(
+                    angularInertiaFrame_x,
+                    angularInertiaFrame_y,
+                    angularInertiaFrame_z,
+                    angularInertiaFrame_w,
+                ),
             );
             builder = builder.mass_properties(mprops);
         } else if massPropsMode == MassPropsMode::Density as u32 {
@@ -233,16 +258,24 @@ impl RawColliderSet {
         self.0.get(utils::collider_handle(handle)).is_some()
     }
 
+    /// Creates a collider from plain scalars.
+    ///
+    /// Vectors and rotations are passed component-wise instead of as `RawVector`/
+    /// `RawRotation` handles: allocating those temporaries on the JS side costs
+    /// far more than the extra arguments (each one is a WASM allocation plus a
+    /// `FinalizationRegistry` registration).
     #[cfg(feature = "dim2")]
     pub fn createCollider(
         &mut self,
         enabled: bool,
         shape: &RawShape,
-        translation: &RawVector,
-        rotation: &RawRotation,
+        translation_x: f32,
+        translation_y: f32,
+        rotation_angle: f32,
         massPropsMode: u32,
         mass: f32,
-        centerOfMass: &RawVector,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
         principalAngularInertia: f32,
         density: f32,
         friction: f32,
@@ -264,11 +297,13 @@ impl RawColliderSet {
         self.do_create_collider(
             enabled,
             shape,
-            translation,
-            rotation,
+            translation_x,
+            translation_y,
+            rotation_angle,
             massPropsMode,
             mass,
-            centerOfMass,
+            centerOfMass_x,
+            centerOfMass_y,
             principalAngularInertia,
             density,
             friction,
@@ -289,18 +324,33 @@ impl RawColliderSet {
         )
     }
 
+    /// Creates a collider from plain scalars.
+    ///
+    /// See the 2D variant for why the components are passed individually.
     #[cfg(feature = "dim3")]
     pub fn createCollider(
         &mut self,
         enabled: bool,
         shape: &RawShape,
-        translation: &RawVector,
-        rotation: &RawRotation,
+        translation_x: f32,
+        translation_y: f32,
+        translation_z: f32,
+        rotation_x: f32,
+        rotation_y: f32,
+        rotation_z: f32,
+        rotation_w: f32,
         massPropsMode: u32,
         mass: f32,
-        centerOfMass: &RawVector,
-        principalAngularInertia: &RawVector,
-        angularInertiaFrame: &RawRotation,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
+        centerOfMass_z: f32,
+        principalAngularInertia_x: f32,
+        principalAngularInertia_y: f32,
+        principalAngularInertia_z: f32,
+        angularInertiaFrame_x: f32,
+        angularInertiaFrame_y: f32,
+        angularInertiaFrame_z: f32,
+        angularInertiaFrame_w: f32,
         density: f32,
         friction: f32,
         restitution: f32,
@@ -321,13 +371,25 @@ impl RawColliderSet {
         self.do_create_collider(
             enabled,
             shape,
-            translation,
-            rotation,
+            translation_x,
+            translation_y,
+            translation_z,
+            rotation_x,
+            rotation_y,
+            rotation_z,
+            rotation_w,
             massPropsMode,
             mass,
-            centerOfMass,
-            principalAngularInertia,
-            angularInertiaFrame,
+            centerOfMass_x,
+            centerOfMass_y,
+            centerOfMass_z,
+            principalAngularInertia_x,
+            principalAngularInertia_y,
+            principalAngularInertia_z,
+            angularInertiaFrame_x,
+            angularInertiaFrame_y,
+            angularInertiaFrame_z,
+            angularInertiaFrame_w,
             density,
             friction,
             restitution,

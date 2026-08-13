@@ -101,4 +101,22 @@ describe("World", () => {
         world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
         world.free();
     });
+
+    test("reading a transform after world.free() throws instead of reading freed memory", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 2));
+        const collider = world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+        world.step();
+
+        // Populates the shared transform buffers.
+        expect(body.translation().y).toBeCloseTo(2, 1);
+        expect(collider.translation().y).toBeCloseTo(2, 1);
+
+        world.free();
+
+        // The buffers point into WASM memory that has just been freed, so reads
+        // must not silently return whatever is left there.
+        expect(() => body.translation()).toThrow();
+        expect(() => collider.translation()).toThrow();
+    });
 });

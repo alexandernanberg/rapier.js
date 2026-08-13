@@ -88,7 +88,7 @@ describe("collider transform buffer sync", () => {
         world.free();
     });
 
-    test("detached buffer view falls back to the WASM path", () => {
+    test("detached buffer view is re-attached", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 2, 3));
         const collider = world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
@@ -106,8 +106,31 @@ describe("collider transform buffer sync", () => {
         expect(detached.byteLength).toBe(0);
         world.colliders._bufferRef.buffer = detached;
 
-        // `liveBuffer()` must drop the stale view and fall back to the WASM path,
-        // yielding the same values as the buffer path (not undefined/garbage).
+        // The buffer contents are still valid, so `liveBuffer()` must re-create
+        // the view rather than fall back to the WASM path, and yield the same
+        // values as before (not undefined/garbage).
+        const t = collider.translation();
+        expect(t.x).toBeCloseTo(expected.x, 4);
+        expect(t.y).toBeCloseTo(expected.y, 4);
+        expect(t.z).toBeCloseTo(expected.z, 4);
+        expect(world.colliders._bufferRef.buffer!.byteLength).toBeGreaterThan(0);
+
+        world.free();
+    });
+
+    test("invalidated buffer falls back to the WASM path", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 2, 3));
+        const collider = world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+        world.step();
+
+        const expected = collider.translation();
+
+        // `ptr === 0` marks the contents as stale: reads must go through WASM
+        // and must not resurrect the view.
+        world.colliders._bufferRef.buffer = null;
+        world.colliders._bufferRef.ptr = 0;
+
         const t = collider.translation();
         expect(t.x).toBeCloseTo(expected.x, 4);
         expect(t.y).toBeCloseTo(expected.y, 4);
@@ -133,7 +156,9 @@ describe("collider transform buffer sync", () => {
         const scratch = {x: 0, y: 0, z: 0};
         for (const c of colliders) {
             const fromBuffer = c.translation();
-            world.colliders._bufferRef.buffer = null; // force WASM fallback
+            // Force the WASM fallback.
+            world.colliders._bufferRef.buffer = null;
+            world.colliders._bufferRef.ptr = 0;
             c.translation(scratch);
             world.colliders.syncTransformBuffer(); // restore
             expect(fromBuffer.x).toBeCloseTo(scratch.x, 4);
