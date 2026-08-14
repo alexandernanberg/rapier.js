@@ -1,5 +1,4 @@
 import {copyFileSync} from "node:fs";
-import {resolve} from "node:path";
 import {defineConfig} from "tsdown";
 
 const common = {
@@ -23,25 +22,5 @@ export default defineConfig([
     {
         ...common,
         entry: {compat: "./src/rapier-compat.ts"},
-    },
-    {
-        ...common,
-        entry: {simd: "./src/rapier-simd.ts"},
-        alias: {
-            [resolve("./src/raw")]: resolve("./src/raw-simd"),
-        },
-        onSuccess: () => {
-            copyFileSync(
-                "./wasm/release-simd/rapier_wasm_2d_bg.wasm",
-                "./dist/rapier_wasm_2d_simd_bg.wasm",
-            );
-        },
-    },
-    {
-        ...common,
-        entry: {"compat-simd": "./src/rapier-compat-simd.ts"},
-        alias: {
-            [resolve("./src/raw")]: resolve("./src/raw-simd"),
-        },
     },
 ]);

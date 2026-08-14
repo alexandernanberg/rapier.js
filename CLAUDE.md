@@ -37,25 +37,25 @@ packages/
 
 ## Package Variants
 
-Each package (`rapier-2d`, `rapier-3d`) ships 4 variants:
+Each package (`rapier-2d`, `rapier-3d`) ships 2 variants:
 
-| Import Path                  | WASM Loading         | SIMD |
-| ---------------------------- | -------------------- | ---- |
-| `@.../rapier-2d`             | `fetch()` at runtime | No   |
-| `@.../rapier-2d/simd`        | `fetch()` at runtime | Yes  |
-| `@.../rapier-2d/compat`      | Embedded base64      | No   |
-| `@.../rapier-2d/compat-simd` | Embedded base64      | Yes  |
+| Import Path             | WASM Loading         |
+| ----------------------- | -------------------- |
+| `@.../rapier-2d`        | `fetch()` at runtime |
+| `@.../rapier-2d/compat` | Embedded base64      |
+
+Both variants are built with WASM SIMD (`simd128`) enabled.
 
 **Usage**:
 
-- Default/SIMD: Best for web apps (smaller bundle, parallel loading)
-- Compat variants: For environments without `fetch()` (SSR, workers, tests)
+- Default: Best for web apps (smaller bundle, parallel loading)
+- Compat: For environments without `fetch()` (SSR, workers, tests)
 
 ## Build Commands
 
 ```bash
 pnpm build              # Full build (WASM + TypeScript)
-pnpm build:wasm         # All WASM variants
+pnpm build:wasm         # WASM for 2D + 3D
 pnpm build:ts           # TypeScript packages only
 pnpm build:2d           # 2D only (WASM + TS)
 pnpm build:3d           # 3D only (WASM + TS)

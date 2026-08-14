@@ -10,12 +10,12 @@ pub struct RawPhysicsHooks {
     // pub modify_solver_contacts: &'a js_sys::Function,
 }
 
-// HACK: the RawPhysicsHooks is no longer Send+Sync because the JS objects are
-//       no longer Send+Sync since https://github.com/rustwasm/wasm-bindgen/pull/955
-//       As far as this is confined to the bindings this should be fine since we
-//       never use threading in wasm.
-unsafe impl Send for RawPhysicsHooks {}
-unsafe impl Sync for RawPhysicsHooks {}
+// NOTE: `RawPhysicsHooks` holds JS values, which are not `Send`/`Sync` (see
+//       https://github.com/rustwasm/wasm-bindgen/pull/955). We used to paper over
+//       that with `unsafe impl Send`/`Sync`, justified only by wasm being
+//       single-threaded. Since rapier 0.35 the `unsync-callbacks` feature drops the
+//       `Sync` bound from `PhysicsHooks` (via `utils::MaybeSync`), so the hooks are
+//       accepted as-is and no unsafe assertion is needed.
 
 #[wasm_bindgen]
 extern "C" {
