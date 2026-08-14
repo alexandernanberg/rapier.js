@@ -25,7 +25,7 @@ differently-featured — it ran the same code paths scalar. Measured on a 3000-b
 11.00ms vs 16.81ms per step; median 13.70ms vs 18.35ms). Keeping a scalar build as
 the default meant most users silently got the slow path.
 
-`simd128` is supported in Chrome 91+, Firefox 89+, Safari 16.4+ and Node 16+. If
+`simd128` is supported in Chrome 91+, Firefox 89+, Safari 16.4+ and Node 16.4+. If
 you need to target something older, pin to a previous release.
 
 The CI check that asserts SIMD opcodes are present now guards the default build

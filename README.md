@@ -135,7 +135,7 @@ SIMD (`simd128`) enabled:
 - **Compat**: For environments without `fetch()` (SSR, workers, tests)
 
 Both variants require [simd128 support](https://caniuse.com/?search=simd), which is
-available in Chrome 91+, Firefox 89+, Safari 16.4+ and Node 16+. Since Rapier 0.35
+available in Chrome 91+, Firefox 89+, Safari 16.4+ and Node 16.4+. Since Rapier 0.35
 SIMD is always compiled in, so a non-SIMD build would run the same code paths
 scalar — measurably slower (~1.5x on contact-heavy 3D scenes) rather than smaller.
 
