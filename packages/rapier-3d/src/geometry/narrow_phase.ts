@@ -1,6 +1,10 @@
+import {RigidBodySet} from "../dynamics";
 import {Vector, VectorOps} from "../math";
 import {RawNarrowPhase, RawContactManifold} from "../raw";
 import {ColliderHandle} from "./collider";
+
+/** Shared scratch buffer for WASM vector reads (single-threaded, safe to share). */
+const _scratch = new Float32Array(3);
 
 /**
  * The narrow-phase used for precise collision-detection.
@@ -53,6 +57,8 @@ export class NarrowPhase {
      *
      * @param collider1 - The first collider involved in the contact.
      * @param collider2 - The second collider involved in the contact.
+     * @param bodies - The set of rigid-bodies the colliders are attached to. Solver contacts are
+     *                 anchored in body-local space, so this is needed to read them back in world-space.
      * @param f - Closure that will be called on each contact manifold between the two colliders. If the second argument
      *            passed to this closure is `true`, then the contact manifold data is flipped, i.e., methods like `localNormal1`
      *            actually apply to the `collider2` and fields like `localNormal2` apply to the `collider1`.
@@ -60,6 +66,7 @@ export class NarrowPhase {
     public contactPair(
         collider1: ColliderHandle,
         collider2: ColliderHandle,
+        bodies: RigidBodySet,
         f: (manifold: TempContactManifold, flipped: boolean) => void,
     ) {
         const rawPair = this.raw.contact_pair(collider1, collider2);
@@ -69,6 +76,7 @@ export class NarrowPhase {
 
             let i;
             for (i = 0; i < rawPair.numContactManifolds(); ++i) {
+                this.tempManifold.bodies = bodies;
                 this.tempManifold.raw = rawPair.contactManifold(i)!;
                 if (!!this.tempManifold.raw) {
                     f(this.tempManifold, flipped);
@@ -95,6 +103,8 @@ export class NarrowPhase {
 
 export class TempContactManifold {
     raw: RawContactManifold;
+    /** The bodies the manifold's solver contacts are anchored to. */
+    bodies: RigidBodySet;
 
     public free() {
         if (!!this.raw) {
@@ -103,20 +113,24 @@ export class TempContactManifold {
         this.raw = undefined!;
     }
 
-    constructor(raw: RawContactManifold) {
+    constructor(raw: RawContactManifold, bodies?: RigidBodySet) {
         this.raw = raw;
+        this.bodies = bodies!;
     }
 
     public normal(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.raw.normal(), target)!;
+        this.raw.normal(_scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     public localNormal1(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.raw.local_n1(), target)!;
+        this.raw.local_n1(_scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     public localNormal2(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.raw.local_n2(), target)!;
+        this.raw.local_n2(_scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     public subshape1(): number {
@@ -132,11 +146,13 @@ export class TempContactManifold {
     }
 
     public localContactPoint1(i: number, target?: Vector): Vector | null {
-        return VectorOps.fromRaw(this.raw.contact_local_p1(i)!, target);
+        if (!this.raw.contact_local_p1(i, _scratch)) return null;
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     public localContactPoint2(i: number, target?: Vector): Vector | null {
-        return VectorOps.fromRaw(this.raw.contact_local_p2(i)!, target);
+        if (!this.raw.contact_local_p2(i, _scratch)) return null;
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     public contactDist(i: number): number {
@@ -174,16 +190,28 @@ export class TempContactManifold {
      * world-space when the first side has no solver body (no rigid-body, or world-attached
      * by dominance — fixed bodies included).
      */
-    public solverContactAnchor1(i: number, target?: Vector): Vector {
-        return VectorOps.fromRaw(this.raw.solver_contact_anchor1(i)!, target)!;
+    public solverContactAnchor1(i: number, target?: Vector): Vector | null {
+        if (!this.raw.solver_contact_anchor1(i, _scratch)) return null;
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
      * The contact point on the second body's surface, expressed like
      * {@link solverContactAnchor1}.
      */
-    public solverContactAnchor2(i: number, target?: Vector): Vector {
-        return VectorOps.fromRaw(this.raw.solver_contact_anchor2(i)!, target)!;
+    public solverContactAnchor2(i: number, target?: Vector): Vector | null {
+        if (!this.raw.solver_contact_anchor2(i, _scratch)) return null;
+        return VectorOps.fromBuffer(_scratch, target);
+    }
+
+    /**
+     * The world-space contact point the solver acts on, midway between both surfaces.
+     *
+     * Returns `null` if `i` is out of bounds.
+     */
+    public solverContactPoint(i: number, target?: Vector): Vector | null {
+        if (!this.raw.solver_contact_point(this.bodies.raw, i, _scratch)) return null;
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     public solverContactDist(i: number): number {
@@ -208,7 +236,8 @@ export class TempContactManifold {
         return this.raw.restitution();
     }
 
-    public solverContactTangentVelocity(i: number, target?: Vector): Vector {
-        return VectorOps.fromRaw(this.raw.solver_contact_tangent_velocity(i)!, target)!;
+    public solverContactTangentVelocity(i: number, target?: Vector): Vector | null {
+        if (!this.raw.solver_contact_tangent_velocity(i, _scratch)) return null;
+        return VectorOps.fromBuffer(_scratch, target);
     }
 }

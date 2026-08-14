@@ -1,4 +1,3 @@
-use crate::math::RawVector;
 use rapier::parry::query;
 use wasm_bindgen::prelude::*;
 
@@ -9,23 +8,39 @@ pub struct RawShapeContact {
 
 #[wasm_bindgen]
 impl RawShapeContact {
-    pub fn distance(&self) -> f32 {
-        self.contact.dist
-    }
+    /// Writes this contact into the given buffer, in a single call.
+    ///
+    /// Layout: `[distance, point1, point2, normal1, normal2]`.
+    pub fn getComponents(&self, buffer: &js_sys::Float32Array) {
+        buffer.set_index(0, self.contact.dist);
 
-    pub fn point1(&self) -> RawVector {
-        self.contact.point1.into()
-    }
+        #[cfg(feature = "dim2")]
+        {
+            let components = [
+                self.contact.point1,
+                self.contact.point2,
+                self.contact.normal1,
+                self.contact.normal2,
+            ];
+            for (i, u) in components.iter().enumerate() {
+                buffer.set_index(1 + i as u32 * 2, u.x);
+                buffer.set_index(2 + i as u32 * 2, u.y);
+            }
+        }
 
-    pub fn point2(&self) -> RawVector {
-        self.contact.point2.into()
-    }
-
-    pub fn normal1(&self) -> RawVector {
-        self.contact.normal1.into()
-    }
-
-    pub fn normal2(&self) -> RawVector {
-        self.contact.normal2.into()
+        #[cfg(feature = "dim3")]
+        {
+            let components = [
+                self.contact.point1,
+                self.contact.point2,
+                self.contact.normal1,
+                self.contact.normal2,
+            ];
+            for (i, u) in components.iter().enumerate() {
+                buffer.set_index(1 + i as u32 * 3, u.x);
+                buffer.set_index(2 + i as u32 * 3, u.y);
+                buffer.set_index(3 + i as u32 * 3, u.z);
+            }
+        }
     }
 }

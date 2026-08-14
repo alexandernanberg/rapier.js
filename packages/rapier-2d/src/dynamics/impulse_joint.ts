@@ -39,6 +39,16 @@ export enum MotorModel {
 }
 
 /**
+ * An enum representing a single joint axis, used to configure per-axis joint
+ * properties.
+ */
+export enum JointAxis {
+    LinX,
+    LinY,
+    AngX,
+}
+
+/**
  * An enum representing the possible joint axes of a generic joint.
  * They can be ORed together, like:
  * JointAxesMask.LinX || JointAxesMask.LinY
@@ -173,6 +183,50 @@ export class ImpulseJoint {
     }
 
     /**
+     * Sets the angular part of this joint's local frame relative to the first
+     * rigid-body it is attached to.
+     */
+    public setFrameX1(rot: Rotation) {
+        const rawRot = RotationOps.intoRaw(rot);
+        this.rawSet.jointSetFrameX1(this.handle, rawRot);
+        rawRot.free();
+    }
+
+    /**
+     * Sets the angular part of this joint's local frame relative to the second
+     * rigid-body it is attached to.
+     */
+    public setFrameX2(rot: Rotation) {
+        const rawRot = RotationOps.intoRaw(rot);
+        this.rawSet.jointSetFrameX2(this.handle, rawRot);
+        rawRot.free();
+    }
+
+    /**
+     * Sets the full local frame (anchor position and rotation) of this joint
+     * relative to the first rigid-body it is attached to.
+     */
+    public setLocalFrame1(anchor: Vector, rot: Rotation) {
+        const rawAnchor = VectorOps.intoRaw(anchor);
+        const rawRot = RotationOps.intoRaw(rot);
+        this.rawSet.jointSetLocalFrame1(this.handle, rawAnchor, rawRot);
+        rawAnchor.free();
+        rawRot.free();
+    }
+
+    /**
+     * Sets the full local frame (anchor position and rotation) of this joint
+     * relative to the second rigid-body it is attached to.
+     */
+    public setLocalFrame2(anchor: Vector, rot: Rotation) {
+        const rawAnchor = VectorOps.intoRaw(anchor);
+        const rawRot = RotationOps.intoRaw(rot);
+        this.rawSet.jointSetLocalFrame2(this.handle, rawAnchor, rawRot);
+        rawAnchor.free();
+        rawRot.free();
+    }
+
+    /**
      * Controls whether contacts are computed between colliders attached
      * to the rigid-bodies linked by this joint.
      */
@@ -234,6 +288,16 @@ export class UnitImpulseJoint extends ImpulseJoint {
             this.rawAxis(),
             model as number as RawMotorModel,
         );
+    }
+
+    /**
+     * Sets the maximum force (or torque, for an angular axis) the motor of this
+     * joint can deliver.
+     *
+     * @param maxForce - The maximum force the motor can deliver.
+     */
+    public setMotorMaxForce(maxForce: number) {
+        this.rawSet.jointSetMotorMaxForce(this.handle, this.rawAxis(), maxForce);
     }
 
     public configureMotorVelocity(targetVel: number, factor: number) {

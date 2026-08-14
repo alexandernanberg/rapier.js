@@ -53,6 +53,13 @@ export class VectorOps {
         target.y = buffer[1];
         return target;
     }
+
+    public static fromBufferAt(buffer: Float32Array, offset: number, target?: Vector): Vector {
+        target ??= VectorOps.zeros();
+        target.x = buffer[offset];
+        target.y = buffer[offset + 1];
+        return target;
+    }
 }
 
 /**

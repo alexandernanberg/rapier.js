@@ -2,6 +2,9 @@ import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {RawPidController} from "../raw";
 
+/** Shared scratch buffer for WASM reads (single-threaded, safe to share). */
+const _scratch = new Float32Array(3);
+
 // TODO: unify with the JointAxesMask
 /**
  * An enum representing the possible joint axes controlled by a PidController.
@@ -111,39 +114,47 @@ export class PidController {
         rawVel.free();
     }
 
-    public linearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector): Vector {
+    public linearCorrection(
+        body: RigidBody,
+        targetPosition: Vector,
+        targetLinvel: Vector,
+        target?: Vector,
+    ): Vector {
         let rawPos = VectorOps.intoRaw(targetPosition);
         let rawVel = VectorOps.intoRaw(targetLinvel);
-        let correction = this.raw.linear_correction(
+        this.raw.linear_correction(
             this.params.dt,
             this.bodies.raw,
             body.handle,
             rawPos,
             rawVel,
+            _scratch,
         );
         rawPos.free();
         rawVel.free();
 
-        return VectorOps.fromRaw(correction)!;
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     public angularCorrection(
         body: RigidBody,
         targetRotation: Rotation,
         targetAngVel: Vector,
+        target?: Vector,
     ): Vector {
         let rawPos = RotationOps.intoRaw(targetRotation);
         let rawVel = VectorOps.intoRaw(targetAngVel);
-        let correction = this.raw.angular_correction(
+        this.raw.angular_correction(
             this.params.dt,
             this.bodies.raw,
             body.handle,
             rawPos,
             rawVel,
+            _scratch,
         );
         rawPos.free();
         rawVel.free();
 
-        return VectorOps.fromRaw(correction)!;
+        return VectorOps.fromBuffer(_scratch, target);
     }
 }

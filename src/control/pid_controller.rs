@@ -213,15 +213,26 @@ impl RawPidController {
         rb_handle: FlatHandle,
         target_translation: &RawVector,
         target_linvel: &RawVector,
-    ) -> RawVector {
+        buffer: &js_sys::Float32Array,
+    ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
-        let Some(rb) = bodies.bodies.get(rb_handle) else {
-            return RawVector(Vector::ZERO);
-        };
+        let correction = bodies
+            .bodies
+            .get(rb_handle)
+            .map(|rb| {
+                self.controller.linear_rigid_body_correction(
+                    dt,
+                    rb,
+                    target_translation.0.into(),
+                    target_linvel.0,
+                )
+            })
+            .unwrap_or(Vector::ZERO);
 
-        self.controller
-            .linear_rigid_body_correction(dt, rb, target_translation.0.into(), target_linvel.0)
-            .into()
+        buffer.set_index(0, correction.x);
+        buffer.set_index(1, correction.y);
+        #[cfg(feature = "dim3")]
+        buffer.set_index(2, correction.z);
     }
 
     #[cfg(feature = "dim2")]
@@ -254,14 +265,24 @@ impl RawPidController {
         rb_handle: FlatHandle,
         target_rotation: &RawRotation,
         target_angvel: &RawVector,
-    ) -> RawVector {
+        buffer: &js_sys::Float32Array,
+    ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
-        let Some(rb) = bodies.bodies.get(rb_handle) else {
-            return RawVector(Vector::ZERO);
-        };
+        let correction = bodies
+            .bodies
+            .get(rb_handle)
+            .map(|rb| {
+                self.controller.angular_rigid_body_correction(
+                    dt,
+                    rb,
+                    target_rotation.0,
+                    target_angvel.0,
+                )
+            })
+            .unwrap_or(Vector::ZERO);
 
-        self.controller
-            .angular_rigid_body_correction(dt, rb, target_rotation.0, target_angvel.0)
-            .into()
+        buffer.set_index(0, correction.x);
+        buffer.set_index(1, correction.y);
+        buffer.set_index(2, correction.z);
     }
 }

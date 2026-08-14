@@ -41,6 +41,19 @@ export enum MotorModel {
 }
 
 /**
+ * An enum representing a single joint axis, used to configure per-axis joint
+ * properties like the motors of a spherical joint.
+ */
+export enum JointAxis {
+    LinX,
+    LinY,
+    LinZ,
+    AngX,
+    AngY,
+    AngZ,
+}
+
+/**
  * An enum representing the possible joint axes of a generic joint.
  * They can be ORed together, like:
  * JointAxesMask.LinX || JointAxesMask.LinY
@@ -193,6 +206,50 @@ export class ImpulseJoint {
     }
 
     /**
+     * Sets the angular part of this joint's local frame relative to the first
+     * rigid-body it is attached to.
+     */
+    public setFrameX1(rot: Rotation) {
+        const rawRot = RotationOps.intoRaw(rot);
+        this.rawSet.jointSetFrameX1(this.handle, rawRot);
+        rawRot.free();
+    }
+
+    /**
+     * Sets the angular part of this joint's local frame relative to the second
+     * rigid-body it is attached to.
+     */
+    public setFrameX2(rot: Rotation) {
+        const rawRot = RotationOps.intoRaw(rot);
+        this.rawSet.jointSetFrameX2(this.handle, rawRot);
+        rawRot.free();
+    }
+
+    /**
+     * Sets the full local frame (anchor position and rotation) of this joint
+     * relative to the first rigid-body it is attached to.
+     */
+    public setLocalFrame1(anchor: Vector, rot: Rotation) {
+        const rawAnchor = VectorOps.intoRaw(anchor);
+        const rawRot = RotationOps.intoRaw(rot);
+        this.rawSet.jointSetLocalFrame1(this.handle, rawAnchor, rawRot);
+        rawAnchor.free();
+        rawRot.free();
+    }
+
+    /**
+     * Sets the full local frame (anchor position and rotation) of this joint
+     * relative to the second rigid-body it is attached to.
+     */
+    public setLocalFrame2(anchor: Vector, rot: Rotation) {
+        const rawAnchor = VectorOps.intoRaw(anchor);
+        const rawRot = RotationOps.intoRaw(rot);
+        this.rawSet.jointSetLocalFrame2(this.handle, rawAnchor, rawRot);
+        rawAnchor.free();
+        rawRot.free();
+    }
+
+    /**
      * Controls whether contacts are computed between colliders attached
      * to the rigid-bodies linked by this joint.
      */
@@ -256,6 +313,16 @@ export class UnitImpulseJoint extends ImpulseJoint {
         );
     }
 
+    /**
+     * Sets the maximum force (or torque, for an angular axis) the motor of this
+     * joint can deliver.
+     *
+     * @param maxForce - The maximum force the motor can deliver.
+     */
+    public setMotorMaxForce(maxForce: number) {
+        this.rawSet.jointSetMotorMaxForce(this.handle, this.rawAxis(), maxForce);
+    }
+
     public configureMotorVelocity(targetVel: number, factor: number) {
         this.rawSet.jointConfigureMotorVelocity(this.handle, this.rawAxis(), targetVel, factor);
     }
@@ -308,32 +375,103 @@ export class RevoluteImpulseJoint extends UnitImpulseJoint {
 export class GenericImpulseJoint extends ImpulseJoint {}
 
 export class SphericalImpulseJoint extends ImpulseJoint {
-    /* Unsupported by this alpha release.
-    public configureMotorModel(model: MotorModel) {
-        this.rawSet.jointConfigureMotorModel(this.handle, model);
-    }
-
-    public configureMotorVelocity(targetVel: Vector, factor: number) {
-        this.rawSet.jointConfigureBallMotorVelocity(this.handle, targetVel.x, targetVel.y, targetVel.z, factor);
-    }
-
-    public configureMotorPosition(targetPos: Quaternion, stiffness: number, damping: number) {
-        this.rawSet.jointConfigureBallMotorPosition(this.handle, targetPos.w, targetPos.x, targetPos.y, targetPos.z, stiffness, damping);
-    }
-
-    public configureMotor(targetPos: Quaternion, targetVel: Vector, stiffness: number, damping: number) {
-        this.rawSet.jointConfigureBallMotor(this.handle,
-            targetPos.w, targetPos.x, targetPos.y, targetPos.z,
-            targetVel.x, targetVel.y, targetVel.z,
-            stiffness, damping);
-    }
+    /**
+     * Sets the motor model of one of this joint's angular axes.
+     *
+     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
+     * @param model - The motor model to apply to that axis.
      */
+    public configureMotorModel(axis: JointAxis, model: MotorModel) {
+        this.rawSet.jointConfigureMotorModel(
+            this.handle,
+            axis as number as RawJointAxis,
+            model as number as RawMotorModel,
+        );
+    }
+
+    /**
+     * Sets the maximum torque the motor of the given angular axis can deliver.
+     *
+     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
+     * @param maxForce - The maximum torque the axis motor can deliver.
+     */
+    public setMotorMaxForce(axis: JointAxis, maxForce: number) {
+        this.rawSet.jointSetMotorMaxForce(this.handle, axis as number as RawJointAxis, maxForce);
+    }
+
+    /**
+     * Makes the motor of the given angular axis target a specific angular velocity.
+     *
+     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
+     * @param targetVel - The target angular velocity along the axis, in radians per second.
+     * @param factor - The strength used to reach the target velocity (a damping coefficient).
+     */
+    public configureMotorVelocity(axis: JointAxis, targetVel: number, factor: number) {
+        this.rawSet.jointConfigureMotorVelocity(
+            this.handle,
+            axis as number as RawJointAxis,
+            targetVel,
+            factor,
+        );
+    }
+
+    /**
+     * Makes the motor of the given angular axis target a specific angle.
+     *
+     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
+     * @param targetPos - The target angle along the axis, in radians.
+     * @param stiffness - The spring-like stiffness used to reach the target angle.
+     * @param damping - The damping applied to the axis' angular velocity.
+     */
+    public configureMotorPosition(
+        axis: JointAxis,
+        targetPos: number,
+        stiffness: number,
+        damping: number,
+    ) {
+        this.rawSet.jointConfigureMotorPosition(
+            this.handle,
+            axis as number as RawJointAxis,
+            targetPos,
+            stiffness,
+            damping,
+        );
+    }
+
+    /**
+     * Configures the motor of the given angular axis with both an angle and an
+     * angular-velocity target.
+     *
+     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
+     * @param targetPos - The target angle along the axis, in radians.
+     * @param targetVel - The target angular velocity along the axis, in radians per second.
+     * @param stiffness - The spring-like stiffness used to reach the target angle.
+     * @param damping - The damping applied to the axis' angular velocity.
+     */
+    public configureMotor(
+        axis: JointAxis,
+        targetPos: number,
+        targetVel: number,
+        stiffness: number,
+        damping: number,
+    ) {
+        this.rawSet.jointConfigureMotor(
+            this.handle,
+            axis as number as RawJointAxis,
+            targetPos,
+            targetVel,
+            stiffness,
+            damping,
+        );
+    }
 }
 
 export class JointData {
     anchor1!: Vector;
     anchor2!: Vector;
     axis!: Vector;
+    axis1?: Vector;
+    axis2?: Vector;
     frame1!: Rotation;
     frame2!: Rotation;
     jointType!: JointType;
@@ -492,6 +630,36 @@ export class JointData {
         return res;
     }
 
+    /**
+     * Create a new joint descriptor that builds Revolute joints with independent
+     * local axes for each attached rigid-body.
+     *
+     * This is useful when the same world-space hinge axis is represented by
+     * different local axes on the two bodies.
+     *
+     * @param anchor1 - Point where the joint is attached on the first rigid-body affected by this joint. Expressed in the
+     *                  local-space of the rigid-body.
+     * @param anchor2 - Point where the joint is attached on the second rigid-body affected by this joint. Expressed in the
+     *                  local-space of the rigid-body.
+     * @param axis1 - Axis of the joint, expressed in the local-space of the first rigid-body.
+     * @param axis2 - Axis of the joint, expressed in the local-space of the second rigid-body.
+     */
+    public static revoluteWithAxes(
+        anchor1: Vector,
+        anchor2: Vector,
+        axis1: Vector,
+        axis2: Vector,
+    ): JointData {
+        let res = new JointData();
+        res.anchor1 = anchor1;
+        res.anchor2 = anchor2;
+        res.axis = axis1;
+        res.axis1 = axis1;
+        res.axis2 = axis2;
+        res.jointType = JointType.Revolute;
+        return res;
+    }
+
     public intoRaw(): RawGenericJoint {
         let rawA1 = VectorOps.intoRaw(this.anchor1);
         let rawA2 = VectorOps.intoRaw(this.anchor2);
@@ -552,9 +720,17 @@ export class JointData {
                 result = RawGenericJoint.spherical(rawA1, rawA2);
                 break;
             case JointType.Revolute:
-                rawAx = VectorOps.intoRaw(this.axis);
-                result = RawGenericJoint.revolute(rawA1, rawA2, rawAx);
-                rawAx.free();
+                if (!!this.axis1 && !!this.axis2) {
+                    const rawAx1 = VectorOps.intoRaw(this.axis1);
+                    const rawAx2 = VectorOps.intoRaw(this.axis2);
+                    result = RawGenericJoint.revoluteWithAxes(rawA1, rawA2, rawAx1, rawAx2);
+                    rawAx1.free();
+                    rawAx2.free();
+                } else {
+                    rawAx = VectorOps.intoRaw(this.axis);
+                    result = RawGenericJoint.revolute(rawA1, rawA2, rawAx);
+                    rawAx.free();
+                }
                 break;
         }
 

@@ -1,5 +1,8 @@
 import {Vector, VectorOps} from "../math";
 import {RawShapeCastHit, RawColliderShapeCastHit} from "../raw";
+
+/** Shared scratch buffer for WASM reads (single-threaded, safe to share). */
+const _scratch = new Float32Array(13);
 import {Collider} from "./collider";
 import {ColliderSet} from "./collider_set";
 
@@ -52,14 +55,24 @@ export class ShapeCastHit {
     ): ShapeCastHit | null {
         if (!raw) return null;
 
-        const result = new ShapeCastHit(
-            raw.time_of_impact(),
-            VectorOps.fromRaw(raw.witness1())!,
-            VectorOps.fromRaw(raw.witness2())!,
-            VectorOps.fromRaw(raw.normal1())!,
-            VectorOps.fromRaw(raw.normal2())!,
-        );
+        raw.getComponents(_scratch);
         raw.free();
+
+        const result = new ShapeCastHit(
+            _scratch[0],
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+        );
+        result.witness1.x = _scratch[1];
+        result.witness1.y = _scratch[2];
+        result.witness2.x = _scratch[3];
+        result.witness2.y = _scratch[4];
+        result.normal1.x = _scratch[5];
+        result.normal1.y = _scratch[6];
+        result.normal2.x = _scratch[7];
+        result.normal2.y = _scratch[8];
         return result;
     }
 }
@@ -91,15 +104,26 @@ export class ColliderShapeCastHit extends ShapeCastHit {
     ): ColliderShapeCastHit | null {
         if (!raw) return null;
 
-        const result = new ColliderShapeCastHit(
-            colliderSet.get(raw.colliderHandle())!,
-            raw.time_of_impact(),
-            VectorOps.fromRaw(raw.witness1())!,
-            VectorOps.fromRaw(raw.witness2())!,
-            VectorOps.fromRaw(raw.normal1())!,
-            VectorOps.fromRaw(raw.normal2())!,
-        );
+        const collider = colliderSet.get(raw.colliderHandle())!;
+        raw.getComponents(_scratch);
         raw.free();
+
+        const result = new ColliderShapeCastHit(
+            collider,
+            _scratch[0],
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+        );
+        result.witness1.x = _scratch[1];
+        result.witness1.y = _scratch[2];
+        result.witness2.x = _scratch[3];
+        result.witness2.y = _scratch[4];
+        result.normal1.x = _scratch[5];
+        result.normal1.y = _scratch[6];
+        result.normal2.x = _scratch[7];
+        result.normal2.y = _scratch[8];
         return result;
     }
 }

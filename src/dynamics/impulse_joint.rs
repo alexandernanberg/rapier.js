@@ -2,6 +2,7 @@ use crate::dynamics::{RawImpulseJointSet, RawJointAxis, RawJointType, RawMotorMo
 use crate::math::{RawRotation, RawVector};
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::JointAxis;
+use rapier::math::Pose;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -61,6 +62,44 @@ impl RawImpulseJointSet {
         })
     }
 
+    /// Sets the angular part of the joint's local frame relative to the first rigid-body.
+    pub fn jointSetFrameX1(&mut self, handle: FlatHandle, newRot: &RawRotation) {
+        self.map_mut(handle, |j| {
+            j.data.local_frame1.rotation = newRot.0;
+        });
+    }
+
+    /// Sets the angular part of the joint's local frame relative to the second rigid-body.
+    pub fn jointSetFrameX2(&mut self, handle: FlatHandle, newRot: &RawRotation) {
+        self.map_mut(handle, |j| {
+            j.data.local_frame2.rotation = newRot.0;
+        });
+    }
+
+    /// Sets the full local frame (anchor + rotation) for the first rigid-body attachment.
+    pub fn jointSetLocalFrame1(
+        &mut self,
+        handle: FlatHandle,
+        anchor: &RawVector,
+        rot: &RawRotation,
+    ) {
+        self.map_mut(handle, |j| {
+            j.data.set_local_frame1(Pose::from_parts(anchor.0, rot.0));
+        });
+    }
+
+    /// Sets the full local frame (anchor + rotation) for the second rigid-body attachment.
+    pub fn jointSetLocalFrame2(
+        &mut self,
+        handle: FlatHandle,
+        anchor: &RawVector,
+        rot: &RawRotation,
+    ) {
+        self.map_mut(handle, |j| {
+            j.data.set_local_frame2(Pose::from_parts(anchor.0, rot.0));
+        });
+    }
+
     /// Are contacts between the rigid-bodies attached by this joint enabled?
     pub fn jointContactsEnabled(&self, handle: FlatHandle) -> bool {
         self.map(handle, |j| j.data.contacts_enabled)
@@ -105,6 +144,14 @@ impl RawImpulseJointSet {
     ) {
         self.map_mut(handle, |j| {
             j.data.motors[axis as usize].model = model.into()
+        })
+    }
+
+    /// Sets the maximum force (or torque, for angular axes) the motor of the
+    /// given axis can deliver.
+    pub fn jointSetMotorMaxForce(&mut self, handle: FlatHandle, axis: RawJointAxis, maxForce: f32) {
+        self.map_mut(handle, |j| {
+            j.data.set_motor_max_force(axis.into(), maxForce);
         })
     }
 
