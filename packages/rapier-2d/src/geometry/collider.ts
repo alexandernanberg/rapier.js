@@ -2,6 +2,7 @@ import {handleToIndex} from "../coarena";
 import {CoefficientCombineRule, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
+import {RawShape, RawVHACDParameters} from "../raw";
 import {invalidateTransformBuffer, liveTransformBuffer} from "../transform_buffer";
 import {ColliderSet} from "./collider_set";
 import {ShapeContact} from "./contact";
@@ -10,6 +11,7 @@ import {PointProjection} from "./point";
 import {Ray, RayIntersection} from "./ray";
 import {
     Shape,
+    Compound,
     Cuboid,
     Ball,
     ShapeType,
@@ -1060,6 +1062,58 @@ export enum MassPropsMode {
     MassProps,
 }
 
+/**
+ * Parameters of the VHACD convex-decomposition algorithm.
+ *
+ * Every parameter is optional; omitted ones keep the default used by the underlying
+ * Rapier/Parry implementation.
+ */
+export interface VHACDParameters {
+    /**
+     * Bias toward clipping along symmetry planes. Range: `[0, 1]`.
+     */
+    alpha?: number;
+
+    /**
+     * Bias toward clipping along revolution planes. Range: `[0, 1]`. Useful for objects
+     * with cylindrical or rotational features.
+     */
+    beta?: number;
+
+    /**
+     * Maximum allowed deviation from convexity. Range: `[0, 1]`. Lower values produce more
+     * convex parts, fitting the input mesh more tightly.
+     */
+    concavity?: number;
+
+    /**
+     * Granularity of the search for the optimal clipping plane. Lower values test more
+     * planes: slower, but more accurate.
+     */
+    planeDownsampling?: number;
+
+    /**
+     * Precision of the convex-hull generation. Lower values use more voxels per hull.
+     */
+    convexHullDownsampling?: number;
+
+    /**
+     * Maximum number of convex parts to generate.
+     */
+    maxConvexHulls?: number;
+
+    /**
+     * Resolution of the voxel grid used for the decomposition. Higher values capture more
+     * detail, at the cost of speed.
+     */
+    resolution?: number;
+
+    /**
+     * Whether to approximate the convex hulls. Faster, with little impact on quality.
+     */
+    convexHullApproximation?: boolean;
+}
+
 export class ColliderDesc {
     enabled: boolean;
     shape: Shape;
@@ -1539,5 +1593,66 @@ export class ColliderDesc {
     public setContactForceEventThreshold(threshold: number): ColliderDesc {
         this.contactForceEventThreshold = threshold;
         return this;
+    }
+
+    /**
+     * Creates a new collider descriptor with a compound shape.
+     *
+     * @param shapes - The shapes composing this compound. Must not be empty, and must not
+     *                 contain other compound shapes (nested compounds are not allowed).
+     * @param positions - The position of each sub-shape, relative to the compound's origin.
+     * @param rotations - The rotation of each sub-shape, relative to the compound's orientation.
+     */
+    public static compound(
+        shapes: Shape[],
+        positions: Vector[],
+        rotations: Rotation[],
+    ): ColliderDesc {
+        return new ColliderDesc(new Compound(shapes, positions, rotations));
+    }
+
+    /**
+     * Creates a new collider descriptor with a compound shape built from a convex
+     * decomposition of the given polyline.
+     *
+     * @param vertices - The coordinates of the mesh's vertices.
+     * @param indices - The indices of the mesh's segments.
+     * @param params - Parameters tuning the decomposition.
+     * @returns The collider descriptor, or `null` if the decomposition did not produce any
+     *          convex part (e.g. because the input mesh is degenerate).
+     */
+    public static convexDecomposition(
+        vertices: Float32Array,
+        indices: Uint32Array,
+        params?: VHACDParameters,
+    ): ColliderDesc | null {
+        let rawShape: RawShape | undefined;
+
+        if (params) {
+            const rawParams = new RawVHACDParameters();
+            if (params.alpha !== undefined) rawParams.alpha = params.alpha;
+            if (params.beta !== undefined) rawParams.beta = params.beta;
+            if (params.concavity !== undefined) rawParams.concavity = params.concavity;
+            if (params.planeDownsampling !== undefined)
+                rawParams.plane_downsampling = params.planeDownsampling;
+            if (params.convexHullDownsampling !== undefined)
+                rawParams.convex_hull_downsampling = params.convexHullDownsampling;
+            if (params.maxConvexHulls !== undefined)
+                rawParams.max_convex_hulls = params.maxConvexHulls;
+            if (params.resolution !== undefined) rawParams.resolution = params.resolution;
+            if (params.convexHullApproximation !== undefined)
+                rawParams.convex_hull_approximation = params.convexHullApproximation;
+
+            rawShape = RawShape.convexDecompositionWithParams(vertices, indices, rawParams);
+            rawParams.free();
+        } else {
+            rawShape = RawShape.convexDecomposition(vertices, indices);
+        }
+
+        if (!rawShape) {
+            return null;
+        }
+
+        return new ColliderDesc(Shape.fromRawShape(rawShape));
     }
 }

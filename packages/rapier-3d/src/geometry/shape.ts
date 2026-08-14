@@ -18,7 +18,16 @@ export abstract class Shape {
      * instant mode without cache
      */
     public static fromRaw(rawSet: RawColliderSet, handle: ColliderHandle): Shape {
-        const rawType = rawSet.coShapeType(handle);
+        return Shape.fromRawShape(rawSet.coShape(handle));
+    }
+
+    /**
+     * Reconstructs a shape from its raw representation.
+     *
+     * This takes ownership of `rawShape` and always frees it before returning.
+     */
+    public static fromRawShape(rawShape: RawShape): Shape {
+        const rawType = rawShape.shapeType();
 
         let extents: Vector;
         let borderRadius: number;
@@ -26,115 +35,139 @@ export abstract class Shape {
         let indices: Uint32Array;
         let halfHeight: number;
         let radius: number;
-        let normal: Vector;
 
-        switch (rawType) {
-            case RawShapeType.Ball:
-                return new Ball(rawSet.coRadius(handle)!);
-            case RawShapeType.Cuboid:
-                extents = rawSet.coHalfExtents(handle)!;
+        try {
+            switch (rawType) {
+                case RawShapeType.Ball:
+                    return new Ball(rawShape.radius()!);
+                case RawShapeType.Cuboid:
+                    extents = VectorOps.fromRaw(rawShape.halfExtents()!)!;
+                    return new Cuboid(extents.x, extents.y, extents.z);
 
-                return new Cuboid(extents.x, extents.y, extents.z);
+                case RawShapeType.RoundCuboid:
+                    extents = VectorOps.fromRaw(rawShape.halfExtents()!)!;
+                    borderRadius = rawShape.roundRadius()!;
+                    return new RoundCuboid(extents.x, extents.y, extents.z, borderRadius);
 
-            case RawShapeType.RoundCuboid:
-                extents = rawSet.coHalfExtents(handle)!;
-                borderRadius = rawSet.coRoundRadius(handle)!;
+                case RawShapeType.Capsule:
+                    halfHeight = rawShape.halfHeight()!;
+                    radius = rawShape.radius()!;
+                    return new Capsule(halfHeight, radius);
 
-                return new RoundCuboid(extents.x, extents.y, extents.z, borderRadius);
+                case RawShapeType.Segment:
+                    vs = rawShape.vertices()!;
+                    return new Segment(
+                        VectorOps.new(vs[0], vs[1], vs[2]),
+                        VectorOps.new(vs[3], vs[4], vs[5]),
+                    );
 
-            case RawShapeType.Capsule:
-                halfHeight = rawSet.coHalfHeight(handle)!;
-                radius = rawSet.coRadius(handle)!;
-                return new Capsule(halfHeight, radius);
-            case RawShapeType.Segment:
-                vs = rawSet.coVertices(handle)!;
+                case RawShapeType.Polyline:
+                    vs = rawShape.vertices()!;
+                    indices = rawShape.indices()!;
+                    return new Polyline(vs, indices);
 
-                return new Segment(
-                    VectorOps.new(vs[0], vs[1], vs[2]),
-                    VectorOps.new(vs[3], vs[4], vs[5]),
-                );
+                case RawShapeType.Triangle:
+                    vs = rawShape.vertices()!;
+                    return new Triangle(
+                        VectorOps.new(vs[0], vs[1], vs[2]),
+                        VectorOps.new(vs[3], vs[4], vs[5]),
+                        VectorOps.new(vs[6], vs[7], vs[8]),
+                    );
 
-            case RawShapeType.Polyline:
-                vs = rawSet.coVertices(handle)!;
-                indices = rawSet.coIndices(handle)!;
-                return new Polyline(vs, indices);
-            case RawShapeType.Triangle:
-                vs = rawSet.coVertices(handle)!;
+                case RawShapeType.RoundTriangle:
+                    vs = rawShape.vertices()!;
+                    borderRadius = rawShape.roundRadius()!;
+                    return new RoundTriangle(
+                        VectorOps.new(vs[0], vs[1], vs[2]),
+                        VectorOps.new(vs[3], vs[4], vs[5]),
+                        VectorOps.new(vs[6], vs[7], vs[8]),
+                        borderRadius,
+                    );
 
-                return new Triangle(
-                    VectorOps.new(vs[0], vs[1], vs[2]),
-                    VectorOps.new(vs[3], vs[4], vs[5]),
-                    VectorOps.new(vs[6], vs[7], vs[8]),
-                );
+                case RawShapeType.HalfSpace:
+                    return new HalfSpace(VectorOps.fromRaw(rawShape.halfspaceNormal()!)!);
 
-            case RawShapeType.RoundTriangle:
-                vs = rawSet.coVertices(handle)!;
-                borderRadius = rawSet.coRoundRadius(handle)!;
+                case RawShapeType.Voxels:
+                    return new Voxels(
+                        rawShape.voxelData()!,
+                        VectorOps.fromRaw(rawShape.voxelSize()!)!,
+                    );
 
-                return new RoundTriangle(
-                    VectorOps.new(vs[0], vs[1], vs[2]),
-                    VectorOps.new(vs[3], vs[4], vs[5]),
-                    VectorOps.new(vs[6], vs[7], vs[8]),
-                    borderRadius,
-                );
+                case RawShapeType.TriMesh:
+                    vs = rawShape.vertices()!;
+                    indices = rawShape.indices()!;
+                    return new TriMesh(vs, indices, rawShape.triMeshFlags());
 
-            case RawShapeType.HalfSpace:
-                normal = VectorOps.fromRaw(rawSet.coHalfspaceNormal(handle)!)!;
-                return new HalfSpace(normal);
+                case RawShapeType.HeightField:
+                    return new Heightfield(
+                        rawShape.heightfieldNRows()!,
+                        rawShape.heightfieldNCols()!,
+                        rawShape.heightfieldHeights()!,
+                        VectorOps.fromRaw(rawShape.heightfieldScale()!)!,
+                        rawShape.heightFieldFlags(),
+                    );
 
-            case RawShapeType.Voxels:
-                const vox_data = rawSet.coVoxelData(handle)!;
-                const vox_size = rawSet.coVoxelSize(handle)!;
-                return new Voxels(vox_data, vox_size);
+                case RawShapeType.ConvexPolyhedron: {
+                    const mesh = rawShape.convexMeshData();
+                    if (!mesh) {
+                        throw new Error(
+                            "Failed to compute the convex hull of a convex polyhedron shape.",
+                        );
+                    }
+                    vs = mesh.vertices;
+                    indices = mesh.indices;
+                    mesh.free();
+                    return new ConvexPolyhedron(vs, indices);
+                }
 
-            case RawShapeType.TriMesh:
-                vs = rawSet.coVertices(handle)!;
-                indices = rawSet.coIndices(handle)!;
-                const tri_flags = rawSet.coTriMeshFlags(handle);
-                return new TriMesh(vs, indices, tri_flags);
+                case RawShapeType.RoundConvexPolyhedron: {
+                    const mesh = rawShape.convexMeshData();
+                    if (!mesh) {
+                        throw new Error(
+                            "Failed to compute the convex hull of a convex polyhedron shape.",
+                        );
+                    }
+                    vs = mesh.vertices;
+                    indices = mesh.indices;
+                    mesh.free();
+                    return new RoundConvexPolyhedron(vs, indices, rawShape.roundRadius()!);
+                }
 
-            case RawShapeType.HeightField:
-                const scale = rawSet.coHeightfieldScale(handle)!;
-                const heights = rawSet.coHeightfieldHeights(handle)!;
+                case RawShapeType.Cylinder:
+                    halfHeight = rawShape.halfHeight()!;
+                    radius = rawShape.radius()!;
+                    return new Cylinder(halfHeight, radius);
 
-                const nrows = rawSet.coHeightfieldNRows(handle)!;
-                const ncols = rawSet.coHeightfieldNCols(handle)!;
-                const hf_flags = rawSet.coHeightFieldFlags(handle);
-                return new Heightfield(nrows, ncols, heights, scale, hf_flags);
+                case RawShapeType.RoundCylinder:
+                    halfHeight = rawShape.halfHeight()!;
+                    radius = rawShape.radius()!;
+                    borderRadius = rawShape.roundRadius()!;
+                    return new RoundCylinder(halfHeight, radius, borderRadius);
 
-            case RawShapeType.ConvexPolyhedron:
-                vs = rawSet.coVertices(handle)!;
-                indices = rawSet.coIndices(handle)!;
-                return new ConvexPolyhedron(vs, indices);
-            case RawShapeType.RoundConvexPolyhedron:
-                vs = rawSet.coVertices(handle)!;
-                indices = rawSet.coIndices(handle)!;
-                borderRadius = rawSet.coRoundRadius(handle)!;
-                return new RoundConvexPolyhedron(vs, indices, borderRadius);
-            case RawShapeType.Cylinder:
-                halfHeight = rawSet.coHalfHeight(handle)!;
-                radius = rawSet.coRadius(handle)!;
-                return new Cylinder(halfHeight, radius);
-            case RawShapeType.RoundCylinder:
-                halfHeight = rawSet.coHalfHeight(handle)!;
-                radius = rawSet.coRadius(handle)!;
-                borderRadius = rawSet.coRoundRadius(handle)!;
-                return new RoundCylinder(halfHeight, radius, borderRadius);
-            case RawShapeType.Cone:
-                halfHeight = rawSet.coHalfHeight(handle)!;
-                radius = rawSet.coRadius(handle)!;
-                return new Cone(halfHeight, radius);
-            case RawShapeType.RoundCone:
-                halfHeight = rawSet.coHalfHeight(handle)!;
-                radius = rawSet.coRadius(handle)!;
-                borderRadius = rawSet.coRoundRadius(handle)!;
-                return new RoundCone(halfHeight, radius, borderRadius);
+                case RawShapeType.Cone:
+                    halfHeight = rawShape.halfHeight()!;
+                    radius = rawShape.radius()!;
+                    return new Cone(halfHeight, radius);
 
-            default:
-                throw new Error("unknown shape type: " + rawType);
+                case RawShapeType.RoundCone:
+                    halfHeight = rawShape.halfHeight()!;
+                    radius = rawShape.radius()!;
+                    borderRadius = rawShape.roundRadius()!;
+                    return new RoundCone(halfHeight, radius, borderRadius);
+
+                case RawShapeType.Compound:
+                    // `Compound.fromRawShape` takes ownership of `rawShape`.
+                    return Compound.fromRawShape(rawShape);
+
+                default:
+                    throw new Error("unknown shape type: " + rawType);
+            }
+        } finally {
+            if (rawType !== RawShapeType.Compound) {
+                rawShape.free();
+            }
         }
     }
-
     /**
      * Computes the time of impact between two moving shapes.
      * @param shapePos1 - The initial position of this sahpe.
@@ -405,7 +438,7 @@ export enum ShapeType {
     Triangle = 5,
     TriMesh = 6,
     HeightField = 7,
-    // Compound = 8,
+    Compound = 8,
     ConvexPolyhedron = 9,
     Cylinder = 10,
     Cone = 11,
@@ -870,6 +903,105 @@ export class Voxels extends Shape {
 
         voxelSize.free();
         return result;
+    }
+}
+
+/**
+ * A compound shape, made of multiple sub-shapes placed at fixed relative poses.
+ */
+export class Compound extends Shape {
+    readonly type = ShapeType.Compound;
+
+    /**
+     * The shapes composing this compound shape.
+     */
+    shapes: Shape[];
+
+    /**
+     * The position of each sub-shape, relative to the compound's origin.
+     */
+    positions: Vector[];
+
+    /**
+     * The rotation of each sub-shape, relative to the compound's orientation.
+     */
+    rotations: Rotation[];
+
+    /**
+     * Creates a new compound shape.
+     *
+     * @param shapes - The shapes composing this compound. Must not be empty, and must not
+     *                 contain other compound shapes (nested compounds are not allowed).
+     * @param positions - The position of each sub-shape.
+     * @param rotations - The rotation of each sub-shape.
+     */
+    constructor(shapes: Shape[], positions: Vector[], rotations: Rotation[]) {
+        super();
+
+        if (shapes.length !== positions.length || shapes.length !== rotations.length) {
+            throw new Error("shapes, positions, and rotations must have the same length");
+        }
+
+        if (shapes.length === 0) {
+            throw new Error("a compound shape must contain at least one shape");
+        }
+
+        if (shapes.some((shape) => shape.type === ShapeType.Compound)) {
+            throw new Error("nested compound shapes are not allowed");
+        }
+
+        this.shapes = shapes;
+        this.positions = positions;
+        this.rotations = rotations;
+    }
+
+    /**
+     * Reconstructs a compound shape from its raw representation.
+     *
+     * This takes ownership of `rawShape` and always frees it before returning.
+     */
+    public static fromRawShape(rawShape: RawShape): Compound {
+        try {
+            const numShapes = rawShape.compoundLen();
+            if (numShapes == null) {
+                throw new Error("expected a raw compound shape");
+            }
+
+            const shapes = new Array<Shape>(numShapes);
+            const positions = new Array<Vector>(numShapes);
+            const rotations = new Array<Rotation>(numShapes);
+
+            for (let i = 0; i < numShapes; i++) {
+                shapes[i] = Shape.fromRawShape(rawShape.compoundShape(i)!);
+                positions[i] = VectorOps.fromRaw(rawShape.compoundTranslation(i)!)!;
+                rotations[i] = RotationOps.fromRaw(rawShape.compoundRotation(i)!)!;
+            }
+
+            return new Compound(shapes, positions, rotations);
+        } finally {
+            rawShape.free();
+        }
+    }
+
+    public intoRaw(): RawShape {
+        const rawShapes = this.shapes.map((shape) => shape.intoRaw());
+
+        const positions = new Float32Array(this.positions.length * 3);
+        this.positions.forEach((pos, i) => {
+            positions[i * 3] = pos.x;
+            positions[i * 3 + 1] = pos.y;
+            positions[i * 3 + 2] = pos.z;
+        });
+
+        const rotations = new Float32Array(this.rotations.length * 4);
+        this.rotations.forEach((rot, i) => {
+            rotations[i * 4] = rot.x;
+            rotations[i * 4 + 1] = rot.y;
+            rotations[i * 4 + 2] = rot.z;
+            rotations[i * 4 + 3] = rot.w;
+        });
+
+        return RawShape.compound(rawShapes, positions, rotations);
     }
 }
 
