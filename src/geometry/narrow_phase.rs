@@ -184,12 +184,28 @@ impl RawContactManifold {
         unsafe { (*self.0).data.solver_contacts.len() }
     }
 
-    pub fn solver_contact_point(&self, i: usize) -> Option<RawVector> {
+    /// The contact point on the first body's surface.
+    ///
+    /// Since rapier 0.35 this is expressed in that body's center-of-mass-centered local
+    /// frame, or in world-space when the first side has no solver body (no rigid-body, or
+    /// world-attached by dominance — fixed bodies included).
+    pub fn solver_contact_anchor1(&self, i: usize) -> Option<RawVector> {
         unsafe {
             (&(*self.0).data)
                 .solver_contacts
                 .get(i)
-                .map(|c| c.point.into())
+                .map(|c| c.anchor1.into())
+        }
+    }
+
+    /// The contact point on the second body's surface, expressed like
+    /// [`Self::solver_contact_anchor1`].
+    pub fn solver_contact_anchor2(&self, i: usize) -> Option<RawVector> {
+        unsafe {
+            (&(*self.0).data)
+                .solver_contacts
+                .get(i)
+                .map(|c| c.anchor2.into())
         }
     }
 
@@ -203,15 +219,28 @@ impl RawContactManifold {
         }
     }
 
-    pub fn solver_contact_friction(&self, i: usize) -> Real {
-        unsafe { (&(*self.0).data).solver_contacts[i].friction }
+    /// The effective friction coefficient of this manifold's contacts.
+    ///
+    /// Since rapier 0.35 friction is stored per-manifold instead of per solver-contact,
+    /// so it is identical for every contact of this manifold.
+    pub fn friction(&self) -> Real {
+        unsafe { (*self.0).data.friction }
     }
 
-    pub fn solver_contact_restitution(&self, i: usize) -> Real {
-        unsafe { (&(*self.0).data).solver_contacts[i].restitution }
+    /// The effective restitution coefficient of this manifold's contacts.
+    ///
+    /// Since rapier 0.35 restitution is stored per-manifold instead of per solver-contact,
+    /// so it is identical for every contact of this manifold.
+    pub fn restitution(&self) -> Real {
+        unsafe { (*self.0).data.restitution }
     }
 
-    pub fn solver_contact_tangent_velocity(&self, i: usize) -> RawVector {
-        unsafe { (&(*self.0).data).solver_contacts[i].tangent_velocity.into() }
+    pub fn solver_contact_tangent_velocity(&self, i: usize) -> Option<RawVector> {
+        unsafe {
+            (&(*self.0).data)
+                .solver_contacts
+                .get(i)
+                .map(|c| c.tangent_velocity.into())
+        }
     }
 }

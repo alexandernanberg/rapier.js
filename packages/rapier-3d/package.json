@@ -30,14 +30,6 @@
         "./compat": {
             "types": "./dist/compat.d.mts",
             "default": "./dist/compat.mjs"
-        },
-        "./simd": {
-            "types": "./dist/simd.d.mts",
-            "default": "./dist/simd.mjs"
-        },
-        "./compat-simd": {
-            "types": "./dist/compat-simd.d.mts",
-            "default": "./dist/compat-simd.mjs"
         }
     },
     "publishConfig": {

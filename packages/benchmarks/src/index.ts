@@ -28,15 +28,11 @@ async function importRapier(dim: "2d" | "3d", simd: boolean, official: boolean) 
                 : await import("@dimforge/rapier3d-compat");
         }
     }
-    // Our fork
+    // Our fork — always SIMD, so `--simd` only selects the official variant above.
     if (dim === "2d") {
-        return simd
-            ? await import("@alexandernanberg/rapier2d/compat-simd")
-            : await import("@alexandernanberg/rapier2d/compat");
+        return await import("@alexandernanberg/rapier2d/compat");
     } else {
-        return simd
-            ? await import("@alexandernanberg/rapier3d/compat-simd")
-            : await import("@alexandernanberg/rapier3d/compat");
+        return await import("@alexandernanberg/rapier3d/compat");
     }
 }
 
@@ -67,7 +63,8 @@ Usage: pnpm bench [options]
 Options:
   --dim=2d          Run 2D benchmarks
   --dim=3d          Run 3D benchmarks (default)
-  --simd            Use SIMD variant (requires simd128 support)
+  --simd            Use the SIMD build of the official packages (--official only;
+                    this fork is always SIMD)
   --official        Use official @dimforge/rapier packages instead of fork
   --quick           Run with fewer bodies (faster setup, same measurement precision)
   --save-baseline   Save current results as new baseline
@@ -76,7 +73,7 @@ Options:
 
 Examples:
   pnpm bench                    # Run fork and compare against baseline
-  pnpm bench --simd             # Run fork with SIMD and compare
+  pnpm bench --official --simd  # Run official @dimforge SIMD build
   pnpm bench --official         # Run with official @dimforge packages
   pnpm bench --save-baseline    # Save current results as new baseline
   pnpm bench --no-compare       # Run without baseline comparison
@@ -96,7 +93,7 @@ async function main() {
 
     const modifiers = [
         quick ? "quick mode" : null,
-        simd ? "SIMD" : null,
+        simd && official ? "SIMD" : null,
         official ? "official @dimforge" : null,
     ].filter(Boolean);
     const modifierStr = modifiers.length > 0 ? ` (${modifiers.join(", ")})` : "";

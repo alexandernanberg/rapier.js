@@ -111,10 +111,10 @@ impl<'a> DebugRenderBackend for CopyToBuffersBackend<'a> {
                     && self.filter.test(self.bodies, pair.collider2, co2)
             }
             DebugRenderObject::ImpulseJoint(_, joint) => {
-                let Some(rb1) = self.bodies.get(joint.body1) else {
+                let Some(rb1) = self.bodies.get(joint.body1()) else {
                     return false;
                 };
-                let Some(rb2) = self.bodies.get(joint.body2) else {
+                let Some(rb2) = self.bodies.get(joint.body2()) else {
                     return false;
                 };
                 test_rigid_body(rb1) && test_rigid_body(rb2)

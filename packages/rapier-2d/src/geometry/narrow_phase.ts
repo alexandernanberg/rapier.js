@@ -163,20 +163,45 @@ export class TempContactManifold {
         return this.raw.num_solver_contacts();
     }
 
-    public solverContactPoint(i: number, target?: Vector): Vector {
-        return VectorOps.fromRaw(this.raw.solver_contact_point(i)!, target)!;
+    /**
+     * The contact point on the first body's surface.
+     *
+     * This is expressed in that body's center-of-mass-centered local frame, or in
+     * world-space when the first side has no solver body (no rigid-body, or world-attached
+     * by dominance — fixed bodies included).
+     */
+    public solverContactAnchor1(i: number, target?: Vector): Vector {
+        return VectorOps.fromRaw(this.raw.solver_contact_anchor1(i)!, target)!;
+    }
+
+    /**
+     * The contact point on the second body's surface, expressed like
+     * {@link solverContactAnchor1}.
+     */
+    public solverContactAnchor2(i: number, target?: Vector): Vector {
+        return VectorOps.fromRaw(this.raw.solver_contact_anchor2(i)!, target)!;
     }
 
     public solverContactDist(i: number): number {
         return this.raw.solver_contact_dist(i);
     }
 
-    public solverContactFriction(i: number): number {
-        return this.raw.solver_contact_friction(i);
+    /**
+     * The effective friction coefficient of this manifold's contacts.
+     *
+     * Friction is stored per-manifold, so it is identical for every contact of this manifold.
+     */
+    public friction(): number {
+        return this.raw.friction();
     }
 
-    public solverContactRestitution(i: number): number {
-        return this.raw.solver_contact_restitution(i);
+    /**
+     * The effective restitution coefficient of this manifold's contacts.
+     *
+     * Restitution is stored per-manifold, so it is identical for every contact of this manifold.
+     */
+    public restitution(): number {
+        return this.raw.restitution();
     }
 
     public solverContactTangentVelocity(i: number, target?: Vector): Vector {

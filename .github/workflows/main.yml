@@ -83,16 +83,16 @@ jobs:
               run: pnpm typecheck
             - name: Install wabt
               run: sudo apt-get install -y wabt
-            - name: Check 2D SIMD build contains SIMD instructions
+            - name: Check 2D build contains SIMD instructions
               run: |
-                  if ! wasm-objdump -d packages/rapier-2d/wasm/release-simd/rapier_wasm_2d_bg.wasm | grep ':\sfd' ; then
-                    echo "ERROR: 2D SIMD build does not include SIMD opcode prefix." >&2
+                  if ! wasm-objdump -d packages/rapier-2d/wasm/release/rapier_wasm_2d_bg.wasm | grep ':\sfd' ; then
+                    echo "ERROR: 2D build does not include SIMD opcode prefix." >&2
                     exit 1
                   fi
-            - name: Check 3D SIMD build contains SIMD instructions
+            - name: Check 3D build contains SIMD instructions
               run: |
-                  if ! wasm-objdump -d packages/rapier-3d/wasm/release-simd/rapier_wasm_3d_bg.wasm | grep ':\sfd' ; then
-                    echo "ERROR: 3D SIMD build does not include SIMD opcode prefix." >&2
+                  if ! wasm-objdump -d packages/rapier-3d/wasm/release/rapier_wasm_3d_bg.wasm | grep ':\sfd' ; then
+                    echo "ERROR: 3D build does not include SIMD opcode prefix." >&2
                     exit 1
                   fi
             - name: Upload build artifacts

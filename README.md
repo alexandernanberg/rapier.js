@@ -28,13 +28,13 @@
 
 This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) with performance improvements and modernized tooling.
 
-- Rapier 0.32 with glam math library
+- Rapier 0.35 with glam math library
 - pnpm monorepo with tsdown bundler
 - Contiguous transform buffer (body reads with zero WASM crossings)
 - Zero-allocation getters (optional target parameter)
 - Batch transform setters (`setTransform`, `setNextKinematicTransform`)
 - Built-in benchmarks
-- Simplified package variants (4 per dimension)
+- Simplified package variants (2 per dimension, SIMD by default)
 
 ### Benchmarks
 
@@ -121,20 +121,23 @@ console.log(body.translation()); // { x: 0, y: ~9.99 }
 
 ## Package Variants
 
-Each package ships 4 variants via subpath exports:
+Each package ships 2 variants via subpath exports. Both are built with WASM
+SIMD (`simd128`) enabled:
 
-| Import Path                              | WASM Loading         | SIMD |
-| ---------------------------------------- | -------------------- | ---- |
-| `@alexandernanberg/rapier2d`             | `fetch()` at runtime | No   |
-| `@alexandernanberg/rapier2d/simd`        | `fetch()` at runtime | Yes  |
-| `@alexandernanberg/rapier2d/compat`      | Embedded base64      | No   |
-| `@alexandernanberg/rapier2d/compat-simd` | Embedded base64      | Yes  |
+| Import Path                         | WASM Loading         |
+| ----------------------------------- | -------------------- |
+| `@alexandernanberg/rapier2d`        | `fetch()` at runtime |
+| `@alexandernanberg/rapier2d/compat` | Embedded base64      |
 
 **When to use which:**
 
-- **Default/SIMD**: Best for web apps (smaller bundle, parallel loading)
-- **Compat variants**: For environments without `fetch()` (SSR, workers, tests)
-- **SIMD variants**: Better performance, requires [simd128 support](https://caniuse.com/?search=simd)
+- **Default**: Best for web apps (smaller bundle, parallel loading)
+- **Compat**: For environments without `fetch()` (SSR, workers, tests)
+
+Both variants require [simd128 support](https://caniuse.com/?search=simd), which is
+available in Chrome 91+, Firefox 89+, Safari 16.4+ and Node 16.4+. Since Rapier 0.35
+SIMD is always compiled in, so a non-SIMD build would run the same code paths
+scalar — measurably slower (~1.5x on contact-heavy 3D scenes) rather than smaller.
 
 ## Building from Source
 
@@ -150,7 +153,7 @@ Each package ships 4 variants via subpath exports:
 ```bash
 pnpm install            # Install dependencies
 pnpm build              # Full build (WASM + TypeScript)
-pnpm build:wasm         # WASM only (all variants)
+pnpm build:wasm         # WASM only (2D + 3D)
 pnpm build:ts           # TypeScript only
 pnpm build:2d           # 2D package only
 pnpm build:3d           # 3D package only

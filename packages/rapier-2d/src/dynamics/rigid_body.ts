@@ -193,9 +193,13 @@ export class RigidBody {
     }
 
     /**
-     * Enable or disable CCD (Continuous Collision Detection) for this rigid-body.
+     * Enable or disable "bullet" Continuous Collision Detection (CCD) for this rigid-body.
      *
-     * @param enabled - If `true`, CCD will be enabled for this rigid-body.
+     * Fast-moving dynamic bodies always run CCD against fixed colliders. Enabling this
+     * upgrades the body to a "bullet" that additionally sweeps against kinematic and
+     * dynamic bodies. To disable CCD entirely, set `World.maxCcdSubsteps` to `0`.
+     *
+     * @param enabled - If `true`, this rigid-body will also sweep against non-fixed bodies.
      */
     public enableCcd(enabled: boolean) {
         this.rawSet.rbEnableCcd(this.handle, enabled);
@@ -1182,9 +1186,15 @@ export class RigidBodyDesc {
     }
 
     /**
-     * Sets whether Continuous Collision Detection (CCD) is enabled for this rigid-body.
+     * Sets whether this rigid-body is treated as a "bullet" by Continuous Collision
+     * Detection (CCD).
      *
-     * @param enabled - true if the rigid-body has CCD enabled.
+     * Fast-moving dynamic bodies always run CCD against fixed colliders. Enabling this
+     * upgrades the body to a "bullet" that additionally sweeps against kinematic and
+     * dynamic bodies. To disable CCD entirely, set
+     * `World.maxCcdSubsteps`/`IntegrationParameters.maxCcdSubsteps` to `0`.
+     *
+     * @param enabled - true if the rigid-body should also sweep against non-fixed bodies.
      */
     public setCcdEnabled(enabled: boolean): RigidBodyDesc {
         this.ccdEnabled = enabled;

@@ -37,7 +37,7 @@ export class IntegrationParameters {
     }
 
     /**
-     * Normalized amount of penetration the engine won’t attempt to correct (default: `0.001m`).
+     * Normalized amount of penetration the engine won’t attempt to correct (default: `0.005m`).
      *
      * This threshold considered by the physics engine is this value multiplied by the `lengthUnit`.
      */
@@ -46,7 +46,7 @@ export class IntegrationParameters {
     }
 
     /**
-     * The maximal normalized distance separating two objects that will generate predictive contacts (default: `0.002`).
+     * The maximal normalized distance separating two objects that will generate predictive contacts (default: `0.02`).
      *
      * This threshold considered by the physics engine is this value multiplied by the `lengthUnit`.
      */
@@ -66,13 +66,6 @@ export class IntegrationParameters {
      */
     get numInternalPgsIterations(): number {
         return this.raw.numInternalPgsIterations;
-    }
-
-    /**
-     * Minimum number of dynamic bodies in each active island (default: `128`).
-     */
-    get minIslandSize(): number {
-        return this.raw.minIslandSize;
     }
 
     /**
@@ -114,10 +107,6 @@ export class IntegrationParameters {
      */
     set numInternalPgsIterations(value: number) {
         this.raw.numInternalPgsIterations = value;
-    }
-
-    set minIslandSize(value: number) {
-        this.raw.minIslandSize = value;
     }
 
     set maxCcdSubsteps(value: number) {

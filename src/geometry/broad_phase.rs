@@ -723,7 +723,7 @@ impl RawBroadPhase {
                 query_filter,
             );
 
-            query_pipeline.project_point_and_get_feature(point)
+            query_pipeline.project_point_and_get_feature(point, f32::MAX)
         });
 
         let Some((handle, proj, feature)) = projection else {
