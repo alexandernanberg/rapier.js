@@ -1,6 +1,8 @@
 import * as CCD from "./demos/ccd";
 import * as CharacterController from "./demos/characterController";
 import * as CollisionGroups from "./demos/collisionGroups";
+import * as CompoundShapes from "./demos/compoundShapes";
+import * as ConvexDecomposition from "./demos/convexDecomposition";
 import * as ConvexPolyhedron from "./demos/convexPolyhedron";
 import * as Damping from "./demos/damping";
 import * as Fountain from "./demos/fountain";
@@ -23,6 +25,8 @@ import("@alexandernanberg/rapier3d/compat").then(async (RAPIER) => {
     let builders = new Map([
         ["collision groups", CollisionGroups.initWorld],
         ["character controller", CharacterController.initWorld],
+        ["compound shapes", CompoundShapes.initWorld],
+        ["convex decomposition", ConvexDecomposition.initWorld],
         ["convex polyhedron", ConvexPolyhedron.initWorld],
         ["CCD", CCD.initWorld],
         ["damping", Damping.initWorld],
