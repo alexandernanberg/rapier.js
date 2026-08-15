@@ -2598,6 +2598,10 @@ export class RawKinematicCharacterController {
     }
     /**
      * The movement computed by the last `computeColliderMovement` call, written to a buffer.
+     *
+     * Component-wise rather than `copy_from`: this shares its buffer with
+     * `RawCharacterCollision::getComponents`, which writes far more components,
+     * and `copy_from` asserts an exact length match.
      * @param {Float32Array} buffer
      */
     computedMovement(buffer) {
@@ -5029,6 +5033,9 @@ export class RawShapeContact {
      * Writes this contact into the given buffer, in a single call.
      *
      * Layout: `[distance, point1, point2, normal1, normal2]`.
+     *
+     * The components are staged in a stack array and handed over in a single
+     * `copy_from`: every `set_index` would otherwise be its own call out to JS.
      * @param {Float32Array} buffer
      */
     getComponents(buffer) {
