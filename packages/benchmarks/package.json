@@ -11,14 +11,14 @@
     "dependencies": {
         "@alexandernanberg/rapier2d": "workspace:*",
         "@alexandernanberg/rapier3d": "workspace:*",
-        "@dimforge/rapier2d-compat": "^0.19.3",
-        "@dimforge/rapier2d-simd-compat": "^0.19.3",
-        "@dimforge/rapier3d-compat": "^0.19.3",
-        "@dimforge/rapier3d-simd-compat": "^0.19.3"
+        "@dimforge/rapier2d-compat": "^0.20.0",
+        "@dimforge/rapier2d-simd-compat": "^0.20.0",
+        "@dimforge/rapier3d-compat": "^0.20.0",
+        "@dimforge/rapier3d-simd-compat": "^0.20.0"
     },
     "devDependencies": {
-        "@types/node": "^22.19.7",
+        "@types/node": "^26.2.0",
         "mitata": "^1.0.34",
-        "tsx": "^4.21.0"
+        "tsx": "^4.23.12"
     }
 }
