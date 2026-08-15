@@ -73,10 +73,10 @@ export class NarrowPhase {
 
         if (!!rawPair) {
             const flipped = rawPair.collider1() != collider1;
+            this.tempManifold.bodies = bodies;
 
             let i;
             for (i = 0; i < rawPair.numContactManifolds(); ++i) {
-                this.tempManifold.bodies = bodies;
                 this.tempManifold.raw = rawPair.contactManifold(i)!;
                 if (!!this.tempManifold.raw) {
                     f(this.tempManifold, flipped);
