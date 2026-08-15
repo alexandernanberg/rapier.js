@@ -58,6 +58,14 @@ export class VectorOps {
         target.z = buffer[2];
         return target;
     }
+
+    public static fromBufferAt(buffer: Float32Array, offset: number, target?: Vector): Vector {
+        target ??= VectorOps.zeros();
+        target.x = buffer[offset];
+        target.y = buffer[offset + 1];
+        target.z = buffer[offset + 2];
+        return target;
+    }
 }
 
 export interface Rotation {

@@ -185,13 +185,6 @@ impl RawVector {
         Self(Vector::new(self.0.y, self.0.x))
     }
 
-    /// Create a new 2D vector from this vector with its components rearranged as `{z, y}`.
-    #[cfg(feature = "dim2")]
-    #[cfg(feature = "dim3")]
-    pub fn zy(&self) -> Self {
-        Self(self.0.zy())
-    }
-
     /// Create a new 3D vector from this vector with its components rearranged as `{x, y, z}`.
     ///
     /// This will effectively return a copy of `this`. This method exist for completeness with the

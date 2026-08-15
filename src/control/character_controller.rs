@@ -211,8 +211,13 @@ impl RawKinematicCharacterController {
         }
     }
 
-    pub fn computedMovement(&self) -> RawVector {
-        self.result.translation.into()
+    /// The movement computed by the last `computeColliderMovement` call, written to a buffer.
+    pub fn computedMovement(&self, buffer: &js_sys::Float32Array) {
+        let t = self.result.translation;
+        buffer.set_index(0, t.x);
+        buffer.set_index(1, t.y);
+        #[cfg(feature = "dim3")]
+        buffer.set_index(2, t.z);
     }
 
     pub fn computedGrounded(&self) -> bool {
@@ -259,31 +264,38 @@ impl RawCharacterCollision {
         utils::flat_handle(self.0.handle.0)
     }
 
-    pub fn translationDeltaApplied(&self) -> RawVector {
-        self.0.translation_applied.into()
-    }
-
-    pub fn translationDeltaRemaining(&self) -> RawVector {
-        self.0.translation_remaining.into()
-    }
-
     pub fn toi(&self) -> Real {
         self.0.hit.time_of_impact
     }
 
-    pub fn worldWitness1(&self) -> RawVector {
-        self.0.hit.witness1.into() // Already in world-space.
-    }
+    /// Writes this collision into the given buffer, in a single call.
+    ///
+    /// Layout: `[toi, translationDeltaApplied, translationDeltaRemaining,
+    /// worldWitness1, worldWitness2, worldNormal1, worldNormal2]`. Witnesses and
+    /// normals are all expressed in world-space.
+    pub fn getComponents(&self, buffer: &js_sys::Float32Array) {
+        buffer.set_index(0, self.0.hit.time_of_impact);
 
-    pub fn worldWitness2(&self) -> RawVector {
-        (self.0.character_pos * self.0.hit.witness2).into()
-    }
+        let components = [
+            self.0.translation_applied,
+            self.0.translation_remaining,
+            self.0.hit.witness1, // Already in world-space.
+            self.0.character_pos * self.0.hit.witness2,
+            self.0.hit.normal1, // Already in world-space.
+            self.0.character_pos.rotation * self.0.hit.normal2,
+        ];
 
-    pub fn worldNormal1(&self) -> RawVector {
-        self.0.hit.normal1.into() // Already in world-space.
-    }
+        #[cfg(feature = "dim2")]
+        for (i, u) in components.iter().enumerate() {
+            buffer.set_index(1 + i as u32 * 2, u.x);
+            buffer.set_index(2 + i as u32 * 2, u.y);
+        }
 
-    pub fn worldNormal2(&self) -> RawVector {
-        (self.0.character_pos.rotation * self.0.hit.normal2).into()
+        #[cfg(feature = "dim3")]
+        for (i, u) in components.iter().enumerate() {
+            buffer.set_index(1 + i as u32 * 3, u.x);
+            buffer.set_index(2 + i as u32 * 3, u.y);
+            buffer.set_index(3 + i as u32 * 3, u.z);
+        }
     }
 }

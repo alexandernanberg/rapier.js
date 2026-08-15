@@ -338,6 +338,21 @@ export class RawCharacterCollision {
         wasm.__wbg_rawcharactercollision_free(ptr, 0);
     }
     /**
+     * Writes this collision into the given buffer, in a single call.
+     *
+     * Layout: `[toi, translationDeltaApplied, translationDeltaRemaining,
+     * worldWitness1, worldWitness2, worldNormal1, worldNormal2]`. Witnesses and
+     * normals are all expressed in world-space.
+     * @param {Float32Array} buffer
+     */
+    getComponents(buffer) {
+        try {
+            wasm.rawcharactercollision_getComponents(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
+    }
+    /**
      * @returns {number}
      */
     handle() {
@@ -356,48 +371,6 @@ export class RawCharacterCollision {
     toi() {
         const ret = wasm.rawcharactercollision_toi(this.__wbg_ptr);
         return ret;
-    }
-    /**
-     * @returns {RawVector}
-     */
-    translationDeltaApplied() {
-        const ret = wasm.rawcharactercollision_translationDeltaApplied(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    translationDeltaRemaining() {
-        const ret = wasm.rawcharactercollision_translationDeltaRemaining(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    worldNormal1() {
-        const ret = wasm.rawcharactercollision_worldNormal1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    worldNormal2() {
-        const ret = wasm.rawcharactercollision_worldNormal2(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    worldWitness1() {
-        const ret = wasm.rawcharactercollision_worldWitness1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    worldWitness2() {
-        const ret = wasm.rawcharactercollision_worldWitness2(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
     }
 }
 if (Symbol.dispose) RawCharacterCollision.prototype[Symbol.dispose] = RawCharacterCollision.prototype.free;
@@ -1047,6 +1020,15 @@ export class RawColliderSet {
         wasm.rawcolliderset_coSetVoxel(this.__wbg_ptr, handle, ix, iy, filled);
     }
     /**
+     * The shape of this collider.
+     * @param {number} handle
+     * @returns {RawShape}
+     */
+    coShape(handle) {
+        const ret = wasm.rawcolliderset_coShape(this.__wbg_ptr, handle);
+        return RawShape.__wrap(ret);
+    }
+    /**
      * The type of the shape of this collider.
      * @param {number} handle
      * @returns {RawShapeType}
@@ -1307,39 +1289,17 @@ export class RawColliderShapeCastHit {
         return ret;
     }
     /**
-     * @returns {RawVector}
+     * Writes this hit into the given buffer, in a single call.
+     *
+     * Layout: `[time_of_impact, witness1, witness2, normal1, normal2]`.
+     * @param {Float32Array} buffer
      */
-    normal1() {
-        const ret = wasm.rawcollidershapecasthit_normal1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    normal2() {
-        const ret = wasm.rawcollidershapecasthit_normal2(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {number}
-     */
-    time_of_impact() {
-        const ret = wasm.rawcollidershapecasthit_time_of_impact(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {RawVector}
-     */
-    witness1() {
-        const ret = wasm.rawcollidershapecasthit_witness1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    witness2() {
-        const ret = wasm.rawcollidershapecasthit_witness2(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    getComponents(buffer) {
+        try {
+            wasm.rawcollidershapecasthit_getComponents(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
 }
 if (Symbol.dispose) RawColliderShapeCastHit.prototype[Symbol.dispose] = RawColliderShapeCastHit.prototype.free;
@@ -1379,12 +1339,16 @@ export class RawContactForceEvent {
         return ret;
     }
     /**
-     * The world-space (unit) direction of the force with strongest magnitude.
-     * @returns {RawVector}
+     * The world-space (unit) direction of the force with strongest magnitude,
+     * written to a buffer.
+     * @param {Float32Array} buffer
      */
-    max_force_direction() {
-        const ret = wasm.rawcollidershapecasthit_normal1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    max_force_direction(buffer) {
+        try {
+            wasm.rawcontactforceevent_max_force_direction(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * The magnitude of the largest force at a contact point of this contact pair.
@@ -1395,12 +1359,15 @@ export class RawContactForceEvent {
         return ret;
     }
     /**
-     * The sum of all the forces between the two colliders.
-     * @returns {RawVector}
+     * The sum of all the forces between the two colliders, written to a buffer.
+     * @param {Float32Array} buffer
      */
-    total_force() {
-        const ret = wasm.rawcontactforceevent_total_force(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    total_force(buffer) {
+        try {
+            wasm.rawcontactforceevent_total_force(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * The sum of the magnitudes of each force between the two colliders.
@@ -1469,19 +1436,29 @@ export class RawContactManifold {
     }
     /**
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @param {Float32Array} buffer
+     * @returns {boolean}
      */
-    contact_local_p1(i) {
-        const ret = wasm.rawcontactmanifold_contact_local_p1(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    contact_local_p1(i, buffer) {
+        try {
+            const ret = wasm.rawcontactmanifold_contact_local_p1(this.__wbg_ptr, i, addBorrowedObject(buffer));
+            return ret !== 0;
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @param {Float32Array} buffer
+     * @returns {boolean}
      */
-    contact_local_p2(i) {
-        const ret = wasm.rawcontactmanifold_contact_local_p2(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    contact_local_p2(i, buffer) {
+        try {
+            const ret = wasm.rawcontactmanifold_contact_local_p2(this.__wbg_ptr, i, addBorrowedObject(buffer));
+            return ret !== 0;
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * @param {number} i
@@ -1503,25 +1480,34 @@ export class RawContactManifold {
         return ret;
     }
     /**
-     * @returns {RawVector}
+     * @param {Float32Array} buffer
      */
-    local_n1() {
-        const ret = wasm.rawcontactmanifold_local_n1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    local_n1(buffer) {
+        try {
+            wasm.rawcontactmanifold_local_n1(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
-     * @returns {RawVector}
+     * @param {Float32Array} buffer
      */
-    local_n2() {
-        const ret = wasm.rawcontactmanifold_local_n2(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    local_n2(buffer) {
+        try {
+            wasm.rawcontactmanifold_local_n2(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
-     * @returns {RawVector}
+     * @param {Float32Array} buffer
      */
-    normal() {
-        const ret = wasm.rawcontactmanifold_normal(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    normal(buffer) {
+        try {
+            wasm.rawcontactmanifold_normal(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * @returns {number}
@@ -1555,21 +1541,31 @@ export class RawContactManifold {
      * frame, or in world-space when the first side has no solver body (no rigid-body, or
      * world-attached by dominance — fixed bodies included).
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @param {Float32Array} buffer
+     * @returns {boolean}
      */
-    solver_contact_anchor1(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_anchor1(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    solver_contact_anchor1(i, buffer) {
+        try {
+            const ret = wasm.rawcontactmanifold_solver_contact_anchor1(this.__wbg_ptr, i, addBorrowedObject(buffer));
+            return ret !== 0;
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * The contact point on the second body's surface, expressed like
      * [`Self::solver_contact_anchor1`].
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @param {Float32Array} buffer
+     * @returns {boolean}
      */
-    solver_contact_anchor2(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_anchor2(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    solver_contact_anchor2(i, buffer) {
+        try {
+            const ret = wasm.rawcontactmanifold_solver_contact_anchor2(this.__wbg_ptr, i, addBorrowedObject(buffer));
+            return ret !== 0;
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * @param {number} i
@@ -1580,12 +1576,37 @@ export class RawContactManifold {
         return ret;
     }
     /**
+     * The world-space contact point the solver acts on, midway between both surfaces.
+     *
+     * Solver contacts store one body-local anchor per surface (the two differ by the
+     * current separation along the normal), so resolving them back to world-space needs
+     * the bodies they are anchored to.
+     * @param {RawRigidBodySet} bodies
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @param {Float32Array} buffer
+     * @returns {boolean}
      */
-    solver_contact_tangent_velocity(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_tangent_velocity(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    solver_contact_point(bodies, i, buffer) {
+        try {
+            _assertClass(bodies, RawRigidBodySet);
+            const ret = wasm.rawcontactmanifold_solver_contact_point(this.__wbg_ptr, bodies.__wbg_ptr, i, addBorrowedObject(buffer));
+            return ret !== 0;
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
+    }
+    /**
+     * @param {number} i
+     * @param {Float32Array} buffer
+     * @returns {boolean}
+     */
+    solver_contact_tangent_velocity(i, buffer) {
+        try {
+            const ret = wasm.rawcontactmanifold_solver_contact_tangent_velocity(this.__wbg_ptr, i, addBorrowedObject(buffer));
+            return ret !== 0;
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * @returns {number}
@@ -2203,6 +2224,24 @@ export class RawImpulseJointSet {
         wasm.rawimpulsejointset_jointSetContactsEnabled(this.__wbg_ptr, handle, enabled);
     }
     /**
+     * Sets the angular part of the joint's local frame relative to the first rigid-body.
+     * @param {number} handle
+     * @param {RawRotation} newRot
+     */
+    jointSetFrameX1(handle, newRot) {
+        _assertClass(newRot, RawRotation);
+        wasm.rawimpulsejointset_jointSetFrameX1(this.__wbg_ptr, handle, newRot.__wbg_ptr);
+    }
+    /**
+     * Sets the angular part of the joint's local frame relative to the second rigid-body.
+     * @param {number} handle
+     * @param {RawRotation} newRot
+     */
+    jointSetFrameX2(handle, newRot) {
+        _assertClass(newRot, RawRotation);
+        wasm.rawimpulsejointset_jointSetFrameX2(this.__wbg_ptr, handle, newRot.__wbg_ptr);
+    }
+    /**
      * Enables and sets the joint limits
      * @param {number} handle
      * @param {RawJointAxis} axis
@@ -2211,6 +2250,38 @@ export class RawImpulseJointSet {
      */
     jointSetLimits(handle, axis, min, max) {
         wasm.rawimpulsejointset_jointSetLimits(this.__wbg_ptr, handle, axis, min, max);
+    }
+    /**
+     * Sets the full local frame (anchor + rotation) for the first rigid-body attachment.
+     * @param {number} handle
+     * @param {RawVector} anchor
+     * @param {RawRotation} rot
+     */
+    jointSetLocalFrame1(handle, anchor, rot) {
+        _assertClass(anchor, RawVector);
+        _assertClass(rot, RawRotation);
+        wasm.rawimpulsejointset_jointSetLocalFrame1(this.__wbg_ptr, handle, anchor.__wbg_ptr, rot.__wbg_ptr);
+    }
+    /**
+     * Sets the full local frame (anchor + rotation) for the second rigid-body attachment.
+     * @param {number} handle
+     * @param {RawVector} anchor
+     * @param {RawRotation} rot
+     */
+    jointSetLocalFrame2(handle, anchor, rot) {
+        _assertClass(anchor, RawVector);
+        _assertClass(rot, RawRotation);
+        wasm.rawimpulsejointset_jointSetLocalFrame2(this.__wbg_ptr, handle, anchor.__wbg_ptr, rot.__wbg_ptr);
+    }
+    /**
+     * Sets the maximum force (or torque, for angular axes) the motor of the
+     * given axis can deliver.
+     * @param {number} handle
+     * @param {RawJointAxis} axis
+     * @param {number} maxForce
+     */
+    jointSetMotorMaxForce(handle, axis, maxForce) {
+        wasm.rawimpulsejointset_jointSetMotorMaxForce(this.__wbg_ptr, handle, axis, maxForce);
     }
     /**
      * The type of this joint.
@@ -2526,11 +2597,15 @@ export class RawKinematicCharacterController {
         return ret !== 0;
     }
     /**
-     * @returns {RawVector}
+     * The movement computed by the last `computeColliderMovement` call, written to a buffer.
+     * @param {Float32Array} buffer
      */
-    computedMovement() {
-        const ret = wasm.rawkinematiccharactercontroller_computedMovement(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    computedMovement(buffer) {
+        try {
+            wasm.rawkinematiccharactercontroller_computedMovement(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     disableAutostep() {
         wasm.rawkinematiccharactercontroller_disableAutostep(this.__wbg_ptr);
@@ -2658,7 +2733,7 @@ export class RawKinematicCharacterController {
      * @returns {RawVector}
      */
     up() {
-        const ret = wasm.rawcollidershapecasthit_normal2(this.__wbg_ptr);
+        const ret = wasm.rawkinematiccharactercontroller_up(this.__wbg_ptr);
         return RawVector.__wrap(ret);
     }
 }
@@ -3166,14 +3241,17 @@ export class RawPidController {
      * @param {number} rb_handle
      * @param {RawVector} target_translation
      * @param {RawVector} target_linvel
-     * @returns {RawVector}
+     * @param {Float32Array} buffer
      */
-    linear_correction(dt, bodies, rb_handle, target_translation, target_linvel) {
-        _assertClass(bodies, RawRigidBodySet);
-        _assertClass(target_translation, RawVector);
-        _assertClass(target_linvel, RawVector);
-        const ret = wasm.rawpidcontroller_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_translation.__wbg_ptr, target_linvel.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    linear_correction(dt, bodies, rb_handle, target_translation, target_linvel, buffer) {
+        try {
+            _assertClass(bodies, RawRigidBodySet);
+            _assertClass(target_translation, RawVector);
+            _assertClass(target_linvel, RawVector);
+            wasm.rawpidcontroller_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_translation.__wbg_ptr, target_linvel.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
     /**
      * @param {number} kp
@@ -3291,14 +3369,14 @@ export class RawRayIntersection {
      * @returns {RawVector}
      */
     normal() {
-        const ret = wasm.rawcollidershapecasthit_witness1(this.__wbg_ptr);
+        const ret = wasm.rawrayintersection_normal(this.__wbg_ptr);
         return RawVector.__wrap(ret);
     }
     /**
      * @returns {number}
      */
     time_of_impact() {
-        const ret = wasm.rawcollidershapecasthit_time_of_impact(this.__wbg_ptr);
+        const ret = wasm.rawrayintersection_time_of_impact(this.__wbg_ptr);
         return ret;
     }
 }
@@ -4276,6 +4354,12 @@ export class RawShape {
         RawShapeFinalization.register(obj, obj.__wbg_ptr, obj);
         return obj;
     }
+    static __unwrap(jsValue) {
+        if (!(jsValue instanceof RawShape)) {
+            return 0;
+        }
+        return jsValue.__destroy_into_raw();
+    }
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
@@ -4362,6 +4446,61 @@ export class RawShape {
         return ret === 0 ? undefined : RawShapeCastHit.__wrap(ret);
     }
     /**
+     * Builds a compound shape from the given sub-shapes and their local poses.
+     *
+     * `positions` must contain `DIM` entries per shape. `rotations` must contain one
+     * angle per shape in 2D, and one `{x, y, z, w}` quaternion (4 entries) per shape in 3D.
+     * @param {RawShape[]} shapes
+     * @param {Float32Array} positions
+     * @param {Float32Array} rotations
+     * @returns {RawShape}
+     */
+    static compound(shapes, positions, rotations) {
+        const ptr0 = passArrayJsValueToWasm0(shapes, wasm.__wbindgen_export3);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArrayF32ToWasm0(positions, wasm.__wbindgen_export3);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passArrayF32ToWasm0(rotations, wasm.__wbindgen_export3);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.rawshape_compound(ptr0, len0, ptr1, len1, ptr2, len2);
+        return RawShape.__wrap(ret);
+    }
+    /**
+     * The number of sub-shapes of this shape, if it is a compound shape.
+     * @returns {number | undefined}
+     */
+    compoundLen() {
+        const ret = wasm.rawshape_compoundLen(this.__wbg_ptr);
+        return ret === 0x100000001 ? undefined : ret;
+    }
+    /**
+     * The rotation of the `index`-th sub-shape of this compound shape.
+     * @param {number} index
+     * @returns {RawRotation | undefined}
+     */
+    compoundRotation(index) {
+        const ret = wasm.rawshape_compoundRotation(this.__wbg_ptr, index);
+        return ret === 0 ? undefined : RawRotation.__wrap(ret);
+    }
+    /**
+     * The `index`-th sub-shape of this compound shape.
+     * @param {number} index
+     * @returns {RawShape | undefined}
+     */
+    compoundShape(index) {
+        const ret = wasm.rawshape_compoundShape(this.__wbg_ptr, index);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
+    }
+    /**
+     * The translation of the `index`-th sub-shape of this compound shape.
+     * @param {number} index
+     * @returns {RawVector | undefined}
+     */
+    compoundTranslation(index) {
+        const ret = wasm.rawshape_compoundTranslation(this.__wbg_ptr, index);
+        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    }
+    /**
      * @param {RawVector} shapePos1
      * @param {RawRotation} shapeRot1
      * @param {RawShape} shape2
@@ -4393,6 +4532,38 @@ export class RawShape {
         return ret !== 0;
     }
     /**
+     * Decomposes the given mesh into a compound of convex parts, using VHACD with its
+     * default parameters.
+     * @param {Float32Array} vertices
+     * @param {Uint32Array} indices
+     * @returns {RawShape | undefined}
+     */
+    static convexDecomposition(vertices, indices) {
+        const ptr0 = passArrayF32ToWasm0(vertices, wasm.__wbindgen_export3);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray32ToWasm0(indices, wasm.__wbindgen_export3);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.rawshape_convexDecomposition(ptr0, len0, ptr1, len1);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
+    }
+    /**
+     * Decomposes the given mesh into a compound of convex parts, using VHACD with the
+     * given parameters.
+     * @param {Float32Array} vertices
+     * @param {Uint32Array} indices
+     * @param {RawVHACDParameters} params
+     * @returns {RawShape | undefined}
+     */
+    static convexDecompositionWithParams(vertices, indices, params) {
+        const ptr0 = passArrayF32ToWasm0(vertices, wasm.__wbindgen_export3);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray32ToWasm0(indices, wasm.__wbindgen_export3);
+        const len1 = WASM_VECTOR_LEN;
+        _assertClass(params, RawVHACDParameters);
+        const ret = wasm.rawshape_convexDecompositionWithParams(ptr0, len0, ptr1, len1, params.__wbg_ptr);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
+    }
+    /**
      * @param {Float32Array} points
      * @returns {RawShape | undefined}
      */
@@ -4422,6 +4593,22 @@ export class RawShape {
         return RawShape.__wrap(ret);
     }
     /**
+     * The half-extents of this shape if it is a cuboid or round cuboid.
+     * @returns {RawVector | undefined}
+     */
+    halfExtents() {
+        const ret = wasm.rawshape_halfExtents(this.__wbg_ptr);
+        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    }
+    /**
+     * The half-height of this shape if it is a capsule, cylinder or cone.
+     * @returns {number | undefined}
+     */
+    halfHeight() {
+        const ret = wasm.rawshape_halfHeight(this.__wbg_ptr);
+        return ret === 0x100000001 ? undefined : ret;
+    }
+    /**
      * @param {RawVector} normal
      * @returns {RawShape}
      */
@@ -4429,6 +4616,14 @@ export class RawShape {
         _assertClass(normal, RawVector);
         const ret = wasm.rawshape_halfspace(normal.__wbg_ptr);
         return RawShape.__wrap(ret);
+    }
+    /**
+     * The outward normal of this shape if it is a half-space.
+     * @returns {RawVector | undefined}
+     */
+    halfspaceNormal() {
+        const ret = wasm.rawshape_halfspaceNormal(this.__wbg_ptr);
+        return ret === 0 ? undefined : RawVector.__wrap(ret);
     }
     /**
      * @param {Float32Array} heights
@@ -4441,6 +4636,55 @@ export class RawShape {
         _assertClass(scale, RawVector);
         const ret = wasm.rawshape_heightfield(ptr0, len0, scale.__wbg_ptr);
         return RawShape.__wrap(ret);
+    }
+    /**
+     * @returns {Float32Array | undefined}
+     */
+    heightfieldHeights() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawshape_heightfieldHeights(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getArrayF32FromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export2(r0, r1 * 4, 4);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {RawVector | undefined}
+     */
+    heightfieldScale() {
+        const ret = wasm.rawshape_heightfieldScale(this.__wbg_ptr);
+        return ret === 0 ? undefined : RawVector.__wrap(ret);
+    }
+    /**
+     * The indices of this shape, if it is an indexed mesh.
+     *
+     * For convex polyhedra, the indices refer to the convex hull recomputed with
+     * `try_convex_hull` (matching `vertices`), not to the original input mesh.
+     * @returns {Uint32Array | undefined}
+     */
+    indices() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawshape_indices(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getArrayU32FromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export2(r0, r1 * 4, 4);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * @param {RawVector} shapePos
@@ -4503,6 +4747,14 @@ export class RawShape {
         return RawPointProjection.__wrap(ret);
     }
     /**
+     * The radius of this shape if it is a ball, capsule, cylinder or cone.
+     * @returns {number | undefined}
+     */
+    radius() {
+        const ret = wasm.rawshape_radius(this.__wbg_ptr);
+        return ret === 0x100000001 ? undefined : ret;
+    }
+    /**
      * @param {Float32Array} points
      * @param {number} borderRadius
      * @returns {RawShape | undefined}
@@ -4535,6 +4787,14 @@ export class RawShape {
         return RawShape.__wrap(ret);
     }
     /**
+     * The border radius of this shape if it is a round shape.
+     * @returns {number | undefined}
+     */
+    roundRadius() {
+        const ret = wasm.rawshape_roundRadius(this.__wbg_ptr);
+        return ret === 0x100000001 ? undefined : ret;
+    }
+    /**
      * @param {RawVector} p1
      * @param {RawVector} p2
      * @param {RawVector} p3
@@ -4558,6 +4818,20 @@ export class RawShape {
         _assertClass(p2, RawVector);
         const ret = wasm.rawshape_segment(p1.__wbg_ptr, p2.__wbg_ptr);
         return RawShape.__wrap(ret);
+    }
+    /**
+     * @returns {RawShapeType}
+     */
+    shapeType() {
+        const ret = wasm.rawshape_shapeType(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number | undefined}
+     */
+    triMeshFlags() {
+        const ret = wasm.rawshape_triMeshFlags(this.__wbg_ptr);
+        return ret === 0x100000001 ? undefined : ret;
     }
     /**
      * @param {RawVector} p1
@@ -4585,6 +4859,60 @@ export class RawShape {
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.rawshape_trimesh(ptr0, len0, ptr1, len1, flags);
         return ret === 0 ? undefined : RawShape.__wrap(ret);
+    }
+    /**
+     * The vertices of this shape, if it is vertex-based.
+     *
+     * For convex polyhedra, this returns the vertices of a convex hull recomputed with
+     * `try_convex_hull` (so they may differ in count and order from the points the shape
+     * was built from), ensuring the result can be fed back to `RawShape::convexMesh`.
+     * If both `vertices` and `indices` are needed, prefer `convexMeshData`, which computes
+     * the convex hull only once.
+     * @returns {Float32Array | undefined}
+     */
+    vertices() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawshape_vertices(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getArrayF32FromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export2(r0, r1 * 4, 4);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * The grid coordinates of this shape's non-empty voxels, if it is a voxels shape.
+     * @returns {Int32Array | undefined}
+     */
+    voxelData() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawshape_voxelData(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            let v1;
+            if (r0 !== 0) {
+                v1 = getArrayI32FromWasm0(r0, r1).slice();
+                wasm.__wbindgen_export2(r0, r1 * 4, 4);
+            }
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * The size of a single voxel, if this shape is a voxels shape.
+     * @returns {RawVector | undefined}
+     */
+    voxelSize() {
+        const ret = wasm.rawshape_voxelSize(this.__wbg_ptr);
+        return ret === 0 ? undefined : RawVector.__wrap(ret);
     }
     /**
      * @param {RawVector} voxel_size
@@ -4632,39 +4960,17 @@ export class RawShapeCastHit {
         wasm.__wbg_rawshapecasthit_free(ptr, 0);
     }
     /**
-     * @returns {RawVector}
+     * Writes this hit into the given buffer, in a single call.
+     *
+     * Layout: `[time_of_impact, witness1, witness2, normal1, normal2]`.
+     * @param {Float32Array} buffer
      */
-    normal1() {
-        const ret = wasm.rawcollidershapecasthit_witness2(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    normal2() {
-        const ret = wasm.rawcollidershapecasthit_normal1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {number}
-     */
-    time_of_impact() {
-        const ret = wasm.rawrotation_re(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {RawVector}
-     */
-    witness1() {
-        const ret = wasm.rawshapecasthit_witness1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    witness2() {
-        const ret = wasm.rawcollidershapecasthit_witness1(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    getComponents(buffer) {
+        try {
+            wasm.rawshapecasthit_getComponents(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
 }
 if (Symbol.dispose) RawShapeCastHit.prototype[Symbol.dispose] = RawShapeCastHit.prototype.free;
@@ -4688,39 +4994,17 @@ export class RawShapeContact {
         wasm.__wbg_rawshapecontact_free(ptr, 0);
     }
     /**
-     * @returns {number}
+     * Writes this contact into the given buffer, in a single call.
+     *
+     * Layout: `[distance, point1, point2, normal1, normal2]`.
+     * @param {Float32Array} buffer
      */
-    distance() {
-        const ret = wasm.rawintegrationparameters_normalizedAllowedLinearError(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {RawVector}
-     */
-    normal1() {
-        const ret = wasm.rawcontactforceevent_total_force(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    normal2() {
-        const ret = wasm.rawcharactercollision_translationDeltaApplied(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    point1() {
-        const ret = wasm.rawpointprojection_point(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {RawVector}
-     */
-    point2() {
-        const ret = wasm.rawshapecontact_point2(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    getComponents(buffer) {
+        try {
+            wasm.rawshapecontact_getComponents(this.__wbg_ptr, addBorrowedObject(buffer));
+        } finally {
+            heap[stack_pointer++] = undefined;
+        }
     }
 }
 if (Symbol.dispose) RawShapeContact.prototype[Symbol.dispose] = RawShapeContact.prototype.free;
@@ -4745,6 +5029,133 @@ export const RawShapeType = Object.freeze({
     HalfSpace: 13, "13": "HalfSpace",
     Voxels: 14, "14": "Voxels",
 });
+
+/**
+ * Parameters of the VHACD convex-decomposition algorithm.
+ */
+export class RawVHACDParameters {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        RawVHACDParametersFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_rawvhacdparameters_free(ptr, 0);
+    }
+    /**
+     * @returns {number}
+     */
+    get alpha() {
+        const ret = wasm.rawkinematiccharactercontroller_offset(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get beta() {
+        const ret = wasm.rawrayintersection_time_of_impact(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get concavity() {
+        const ret = wasm.rawrotation_re(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {boolean}
+     */
+    get convex_hull_approximation() {
+        const ret = wasm.rawvhacdparameters_convex_hull_approximation(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get convex_hull_downsampling() {
+        const ret = wasm.rawvhacdparameters_convex_hull_downsampling(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get max_convex_hulls() {
+        const ret = wasm.rawcolliderset_len(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    constructor() {
+        const ret = wasm.rawvhacdparameters_new();
+        this.__wbg_ptr = ret >>> 0;
+        RawVHACDParametersFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * @returns {number}
+     */
+    get plane_downsampling() {
+        const ret = wasm.rawvhacdparameters_plane_downsampling(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get resolution() {
+        const ret = wasm.rawvhacdparameters_resolution(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @param {number} val
+     */
+    set alpha(val) {
+        wasm.rawvhacdparameters_set_alpha(this.__wbg_ptr, val);
+    }
+    /**
+     * @param {number} val
+     */
+    set beta(val) {
+        wasm.rawvhacdparameters_set_beta(this.__wbg_ptr, val);
+    }
+    /**
+     * @param {number} val
+     */
+    set concavity(val) {
+        wasm.rawvhacdparameters_set_concavity(this.__wbg_ptr, val);
+    }
+    /**
+     * @param {boolean} val
+     */
+    set convex_hull_approximation(val) {
+        wasm.rawvhacdparameters_set_convex_hull_approximation(this.__wbg_ptr, val);
+    }
+    /**
+     * @param {number} val
+     */
+    set convex_hull_downsampling(val) {
+        wasm.rawvhacdparameters_set_convex_hull_downsampling(this.__wbg_ptr, val);
+    }
+    /**
+     * @param {number} val
+     */
+    set max_convex_hulls(val) {
+        wasm.rawvhacdparameters_set_max_convex_hulls(this.__wbg_ptr, val);
+    }
+    /**
+     * @param {number} val
+     */
+    set plane_downsampling(val) {
+        wasm.rawvhacdparameters_set_plane_downsampling(this.__wbg_ptr, val);
+    }
+    /**
+     * @param {number} val
+     */
+    set resolution(val) {
+        wasm.rawvhacdparameters_set_resolution(this.__wbg_ptr, val);
+    }
+}
+if (Symbol.dispose) RawVHACDParameters.prototype[Symbol.dispose] = RawVHACDParameters.prototype.free;
 
 /**
  * A vector.
@@ -4942,6 +5353,10 @@ function __wbg_get_imports() {
             const ret = RawContactForceEvent.__wrap(arg0);
             return addHeapObject(ret);
         },
+        __wbg_rawshape_unwrap: function(arg0) {
+            const ret = RawShape.__unwrap(getObject(arg0));
+            return ret;
+        },
         __wbg_set_f8edeec46569cc70: function(arg0, arg1, arg2) {
             getObject(arg0).set(getArrayF32FromWasm0(arg1, arg2));
         },
@@ -5047,6 +5462,9 @@ const RawShapeCastHitFinalization = (typeof FinalizationRegistry === 'undefined'
 const RawShapeContactFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawshapecontact_free(ptr >>> 0, 1));
+const RawVHACDParametersFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawvhacdparameters_free(ptr >>> 0, 1));
 const RawVectorFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawvector_free(ptr >>> 0, 1));
@@ -5173,6 +5591,16 @@ function passArrayF32ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 4, 4) >>> 0;
     getFloat32ArrayMemory0().set(arg, ptr / 4);
     WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArrayJsValueToWasm0(array, malloc) {
+    const ptr = malloc(array.length * 4, 4) >>> 0;
+    const mem = getDataViewMemory0();
+    for (let i = 0; i < array.length; i++) {
+        mem.setUint32(ptr + 4 * i, addHeapObject(array[i]), true);
+    }
+    WASM_VECTOR_LEN = array.length;
     return ptr;
 }
 

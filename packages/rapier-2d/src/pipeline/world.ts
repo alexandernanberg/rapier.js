@@ -1028,7 +1028,7 @@ export class World {
         collider2: Collider,
         f: (manifold: TempContactManifold, flipped: boolean) => void,
     ) {
-        this.narrowPhase.contactPair(collider1.handle, collider2.handle, f);
+        this.narrowPhase.contactPair(collider1.handle, collider2.handle, this.bodies, f);
     }
 
     /**

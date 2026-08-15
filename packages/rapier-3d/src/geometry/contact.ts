@@ -1,6 +1,9 @@
 import {Vector, VectorOps} from "../math";
 import {RawShapeContact} from "../raw";
 
+/** Shared scratch buffer for WASM reads (single-threaded, safe to share). */
+const _scratch = new Float32Array(13);
+
 /**
  * The contact info between two shapes.
  */
@@ -43,14 +46,28 @@ export class ShapeContact {
     public static fromRaw(raw: RawShapeContact): ShapeContact | null {
         if (!raw) return null;
 
-        const result = new ShapeContact(
-            raw.distance(),
-            VectorOps.fromRaw(raw.point1())!,
-            VectorOps.fromRaw(raw.point2())!,
-            VectorOps.fromRaw(raw.normal1())!,
-            VectorOps.fromRaw(raw.normal2())!,
-        );
+        raw.getComponents(_scratch);
         raw.free();
+
+        const result = new ShapeContact(
+            _scratch[0],
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+            VectorOps.zeros(),
+        );
+        result.point1.x = _scratch[1];
+        result.point1.y = _scratch[2];
+        result.point1.z = _scratch[3];
+        result.point2.x = _scratch[4];
+        result.point2.y = _scratch[5];
+        result.point2.z = _scratch[6];
+        result.normal1.x = _scratch[7];
+        result.normal1.y = _scratch[8];
+        result.normal1.z = _scratch[9];
+        result.normal2.x = _scratch[10];
+        result.normal2.y = _scratch[11];
+        result.normal2.z = _scratch[12];
         return result;
     }
 }

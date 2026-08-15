@@ -1,10 +1,27 @@
 use crate::geometry::{RawPointProjection, RawRayIntersection, RawShapeCastHit, RawShapeContact};
 use crate::math::{RawRotation, RawVector};
 use rapier::geometry::{Shape, SharedShape, TriMeshFlags};
-use rapier::math::{IVector, Pose, Vector, DIM};
+use rapier::math::{IVector, Pose, Rotation, Vector, DIM};
 use rapier::parry::query;
 use rapier::parry::query::{Ray, ShapeCastOptions};
+use rapier::parry::transformation::vhacd::{VHACDParameters, VHACD};
 use wasm_bindgen::prelude::*;
+
+/// The vertices and indices of a convex polyhedron's convex hull, recomputed with
+/// `try_convex_hull` so that they are consistent with each other.
+///
+/// The points a `ConvexPolyhedron` stores and the triangulation it exposes don't
+/// necessarily agree (collinear boundary vertices are dropped from one but not the
+/// other), so reading them separately can yield a mesh that can't be rebuilt.
+#[cfg(feature = "dim3")]
+pub(crate) fn normalized_convex_polyhedron_mesh(
+    polyhedron: &rapier::parry::shape::ConvexPolyhedron,
+) -> Option<(Vec<Vector>, Vec<u32>)> {
+    let (points, indices) =
+        rapier::parry::transformation::try_convex_hull(polyhedron.points()).ok()?;
+    let flat_indices = indices.iter().flat_map(|tri| tri.iter()).copied().collect();
+    Some((points, flat_indices))
+}
 
 pub trait SharedShapeUtility {
     fn castShape(
@@ -187,11 +204,443 @@ pub enum RawShapeType {
     Voxels = 18,
 }
 
+/// Parameters of the VHACD convex-decomposition algorithm.
+#[wasm_bindgen]
+pub struct RawVHACDParameters(pub(crate) VHACDParameters);
+
+#[wasm_bindgen]
+impl RawVHACDParameters {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self(VHACDParameters::default())
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn concavity(&self) -> f32 {
+        self.0.concavity
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_concavity(&mut self, val: f32) {
+        self.0.concavity = val.clamp(0.0, 1.0);
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn alpha(&self) -> f32 {
+        self.0.alpha
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_alpha(&mut self, val: f32) {
+        self.0.alpha = val.clamp(0.0, 1.0);
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn beta(&self) -> f32 {
+        self.0.beta
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_beta(&mut self, val: f32) {
+        self.0.beta = val.clamp(0.0, 1.0);
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn resolution(&self) -> u32 {
+        self.0.resolution
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_resolution(&mut self, val: u32) {
+        self.0.resolution = val;
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn plane_downsampling(&self) -> u32 {
+        self.0.plane_downsampling
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_plane_downsampling(&mut self, val: u32) {
+        self.0.plane_downsampling = val;
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn convex_hull_downsampling(&self) -> u32 {
+        self.0.convex_hull_downsampling
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_convex_hull_downsampling(&mut self, val: u32) {
+        self.0.convex_hull_downsampling = val;
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn max_convex_hulls(&self) -> u32 {
+        self.0.max_convex_hulls
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_max_convex_hulls(&mut self, val: u32) {
+        self.0.max_convex_hulls = val;
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn convex_hull_approximation(&self) -> bool {
+        self.0.convex_hull_approximation
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_convex_hull_approximation(&mut self, val: bool) {
+        self.0.convex_hull_approximation = val;
+    }
+}
+
+/// The vertex/index buffers of a convex polyhedron's convex hull.
+#[cfg(feature = "dim3")]
+#[wasm_bindgen(getter_with_clone)]
+pub struct RawConvexMeshData {
+    pub vertices: Vec<f32>,
+    pub indices: Vec<u32>,
+}
+
 #[wasm_bindgen]
 pub struct RawShape(pub(crate) SharedShape);
 
 #[wasm_bindgen]
 impl RawShape {
+    pub fn shapeType(&self) -> RawShapeType {
+        use rapier::geometry::ShapeType;
+
+        match self.0.shape_type() {
+            ShapeType::Ball => RawShapeType::Ball,
+            ShapeType::Cuboid => RawShapeType::Cuboid,
+            ShapeType::Capsule => RawShapeType::Capsule,
+            ShapeType::Segment => RawShapeType::Segment,
+            ShapeType::Polyline => RawShapeType::Polyline,
+            ShapeType::Triangle => RawShapeType::Triangle,
+            ShapeType::TriMesh => RawShapeType::TriMesh,
+            ShapeType::HeightField => RawShapeType::HeightField,
+            ShapeType::Compound => RawShapeType::Compound,
+            ShapeType::HalfSpace => RawShapeType::HalfSpace,
+            ShapeType::Voxels => RawShapeType::Voxels,
+            ShapeType::RoundCuboid => RawShapeType::RoundCuboid,
+            ShapeType::RoundTriangle => RawShapeType::RoundTriangle,
+            #[cfg(feature = "dim2")]
+            ShapeType::ConvexPolygon => RawShapeType::ConvexPolygon,
+            #[cfg(feature = "dim2")]
+            ShapeType::RoundConvexPolygon => RawShapeType::RoundConvexPolygon,
+            #[cfg(feature = "dim3")]
+            ShapeType::ConvexPolyhedron => RawShapeType::ConvexPolyhedron,
+            #[cfg(feature = "dim3")]
+            ShapeType::RoundConvexPolyhedron => RawShapeType::RoundConvexPolyhedron,
+            #[cfg(feature = "dim3")]
+            ShapeType::Cylinder => RawShapeType::Cylinder,
+            #[cfg(feature = "dim3")]
+            ShapeType::RoundCylinder => RawShapeType::RoundCylinder,
+            #[cfg(feature = "dim3")]
+            ShapeType::Cone => RawShapeType::Cone,
+            #[cfg(feature = "dim3")]
+            ShapeType::RoundCone => RawShapeType::RoundCone,
+            ShapeType::Custom => panic!("Custom shapes are not supported by the JS bindings."),
+        }
+    }
+
+    /// The outward normal of this shape if it is a half-space.
+    pub fn halfspaceNormal(&self) -> Option<RawVector> {
+        self.0.as_halfspace().map(|h| h.normal.into())
+    }
+
+    /// The half-extents of this shape if it is a cuboid or round cuboid.
+    pub fn halfExtents(&self) -> Option<RawVector> {
+        self.0
+            .as_cuboid()
+            .map(|c| c.half_extents.into())
+            .or_else(|| {
+                self.0
+                    .as_round_cuboid()
+                    .map(|c| c.inner_shape.half_extents.into())
+            })
+    }
+
+    /// The radius of this shape if it is a ball, capsule, cylinder or cone.
+    pub fn radius(&self) -> Option<f32> {
+        if let Some(ball) = self.0.as_ball() {
+            return Some(ball.radius);
+        }
+        if let Some(capsule) = self.0.as_capsule() {
+            return Some(capsule.radius);
+        }
+
+        #[cfg(feature = "dim3")]
+        {
+            if let Some(cylinder) = self.0.as_cylinder() {
+                return Some(cylinder.radius);
+            }
+            if let Some(cylinder) = self.0.as_round_cylinder() {
+                return Some(cylinder.inner_shape.radius);
+            }
+            if let Some(cone) = self.0.as_cone() {
+                return Some(cone.radius);
+            }
+            if let Some(cone) = self.0.as_round_cone() {
+                return Some(cone.inner_shape.radius);
+            }
+        }
+
+        None
+    }
+
+    /// The half-height of this shape if it is a capsule, cylinder or cone.
+    pub fn halfHeight(&self) -> Option<f32> {
+        if let Some(capsule) = self.0.as_capsule() {
+            return Some(capsule.half_height());
+        }
+
+        #[cfg(feature = "dim3")]
+        {
+            if let Some(cylinder) = self.0.as_cylinder() {
+                return Some(cylinder.half_height);
+            }
+            if let Some(cylinder) = self.0.as_round_cylinder() {
+                return Some(cylinder.inner_shape.half_height);
+            }
+            if let Some(cone) = self.0.as_cone() {
+                return Some(cone.half_height);
+            }
+            if let Some(cone) = self.0.as_round_cone() {
+                return Some(cone.inner_shape.half_height);
+            }
+        }
+
+        None
+    }
+
+    /// The border radius of this shape if it is a round shape.
+    pub fn roundRadius(&self) -> Option<f32> {
+        if let Some(cuboid) = self.0.as_round_cuboid() {
+            return Some(cuboid.border_radius);
+        }
+        if let Some(triangle) = self.0.as_round_triangle() {
+            return Some(triangle.border_radius);
+        }
+
+        #[cfg(feature = "dim2")]
+        if let Some(polygon) = self.0.as_round_convex_polygon() {
+            return Some(polygon.border_radius);
+        }
+
+        #[cfg(feature = "dim3")]
+        {
+            if let Some(cylinder) = self.0.as_round_cylinder() {
+                return Some(cylinder.border_radius);
+            }
+            if let Some(cone) = self.0.as_round_cone() {
+                return Some(cone.border_radius);
+            }
+            if let Some(polyhedron) = self.0.as_round_convex_polyhedron() {
+                return Some(polyhedron.border_radius);
+            }
+        }
+
+        None
+    }
+
+    /// The grid coordinates of this shape's non-empty voxels, if it is a voxels shape.
+    pub fn voxelData(&self) -> Option<Vec<i32>> {
+        let voxels = self.0.as_voxels()?;
+        Some(
+            voxels
+                .voxels()
+                .filter_map(|vox| (!vox.state.is_empty()).then_some(vox.grid_coords))
+                .flat_map(|ids| ids.to_array())
+                .collect(),
+        )
+    }
+
+    /// The size of a single voxel, if this shape is a voxels shape.
+    pub fn voxelSize(&self) -> Option<RawVector> {
+        self.0
+            .as_voxels()
+            .map(|voxels| RawVector(voxels.voxel_size()))
+    }
+
+    /// The vertices of this shape, if it is vertex-based.
+    ///
+    /// For convex polyhedra, this returns the vertices of a convex hull recomputed with
+    /// `try_convex_hull` (so they may differ in count and order from the points the shape
+    /// was built from), ensuring the result can be fed back to `RawShape::convexMesh`.
+    /// If both `vertices` and `indices` are needed, prefer `convexMeshData`, which computes
+    /// the convex hull only once.
+    pub fn vertices(&self) -> Option<Vec<f32>> {
+        let flatten = |vertices: &[Vector]| -> Vec<f32> {
+            vertices.iter().flat_map(|p| p.to_array()).collect()
+        };
+
+        if let Some(mesh) = self.0.as_trimesh() {
+            return Some(flatten(mesh.vertices()));
+        }
+        if let Some(polyline) = self.0.as_polyline() {
+            return Some(flatten(polyline.vertices()));
+        }
+        if let Some(segment) = self.0.as_segment() {
+            return Some(flatten(&[segment.a, segment.b]));
+        }
+        if let Some(triangle) = self.0.as_triangle() {
+            return Some(flatten(&[triangle.a, triangle.b, triangle.c]));
+        }
+        if let Some(triangle) = self.0.as_round_triangle() {
+            let t = &triangle.inner_shape;
+            return Some(flatten(&[t.a, t.b, t.c]));
+        }
+
+        #[cfg(feature = "dim2")]
+        {
+            if let Some(polygon) = self.0.as_convex_polygon() {
+                return Some(flatten(polygon.points()));
+            }
+            if let Some(polygon) = self.0.as_round_convex_polygon() {
+                return Some(flatten(polygon.inner_shape.points()));
+            }
+        }
+
+        #[cfg(feature = "dim3")]
+        {
+            if let Some(polyhedron) = self.0.as_convex_polyhedron() {
+                return normalized_convex_polyhedron_mesh(polyhedron).map(|(p, _)| flatten(&p));
+            }
+            if let Some(polyhedron) = self.0.as_round_convex_polyhedron() {
+                return normalized_convex_polyhedron_mesh(&polyhedron.inner_shape)
+                    .map(|(p, _)| flatten(&p));
+            }
+        }
+
+        None
+    }
+
+    /// The indices of this shape, if it is an indexed mesh.
+    ///
+    /// For convex polyhedra, the indices refer to the convex hull recomputed with
+    /// `try_convex_hull` (matching `vertices`), not to the original input mesh.
+    pub fn indices(&self) -> Option<Vec<u32>> {
+        if let Some(mesh) = self.0.as_trimesh() {
+            return Some(
+                mesh.indices()
+                    .iter()
+                    .flat_map(|t| t.iter())
+                    .copied()
+                    .collect(),
+            );
+        }
+        if let Some(polyline) = self.0.as_polyline() {
+            return Some(
+                polyline
+                    .indices()
+                    .iter()
+                    .flat_map(|s| s.iter())
+                    .copied()
+                    .collect(),
+            );
+        }
+
+        #[cfg(feature = "dim3")]
+        {
+            if let Some(polyhedron) = self.0.as_convex_polyhedron() {
+                return normalized_convex_polyhedron_mesh(polyhedron).map(|(_, idx)| idx);
+            }
+            if let Some(polyhedron) = self.0.as_round_convex_polyhedron() {
+                return normalized_convex_polyhedron_mesh(&polyhedron.inner_shape)
+                    .map(|(_, idx)| idx);
+            }
+        }
+
+        None
+    }
+
+    /// The vertices and indices of the convex hull of this convex polyhedron, recomputed
+    /// with `try_convex_hull` so that the result can always be fed back to
+    /// `RawShape::convexMesh`.
+    ///
+    /// This computes the convex hull only once, unlike calling both `vertices` and `indices`.
+    #[cfg(feature = "dim3")]
+    pub fn convexMeshData(&self) -> Option<RawConvexMeshData> {
+        let polyhedron = self.0.as_convex_polyhedron().or_else(|| {
+            self.0
+                .as_round_convex_polyhedron()
+                .map(|polyhedron| &polyhedron.inner_shape)
+        })?;
+        let (points, indices) = normalized_convex_polyhedron_mesh(polyhedron)?;
+        Some(RawConvexMeshData {
+            vertices: points.iter().flat_map(|p| p.to_array()).collect(),
+            indices,
+        })
+    }
+
+    pub fn triMeshFlags(&self) -> Option<u32> {
+        self.0.as_trimesh().map(|t| t.flags().bits() as u32)
+    }
+
+    #[cfg(feature = "dim3")]
+    pub fn heightFieldFlags(&self) -> Option<u32> {
+        self.0.as_heightfield().map(|h| h.flags().bits() as u32)
+    }
+
+    pub fn heightfieldHeights(&self) -> Option<Vec<f32>> {
+        self.0.as_heightfield().map(|h| {
+            #[cfg(feature = "dim2")]
+            {
+                h.heights().as_slice().to_vec()
+            }
+            #[cfg(feature = "dim3")]
+            {
+                h.heights().data().to_vec()
+            }
+        })
+    }
+
+    pub fn heightfieldScale(&self) -> Option<RawVector> {
+        self.0.as_heightfield().map(|h| RawVector(h.scale()))
+    }
+
+    #[cfg(feature = "dim3")]
+    pub fn heightfieldNRows(&self) -> Option<usize> {
+        self.0.as_heightfield().map(|h| h.nrows())
+    }
+
+    #[cfg(feature = "dim3")]
+    pub fn heightfieldNCols(&self) -> Option<usize> {
+        self.0.as_heightfield().map(|h| h.ncols())
+    }
+
+    /// The number of sub-shapes of this shape, if it is a compound shape.
+    pub fn compoundLen(&self) -> Option<usize> {
+        self.0.as_compound().map(|c| c.shapes().len())
+    }
+
+    /// The `index`-th sub-shape of this compound shape.
+    pub fn compoundShape(&self, index: usize) -> Option<RawShape> {
+        self.0
+            .as_compound()
+            .and_then(|c| c.shapes().get(index))
+            .map(|(_, shape)| RawShape(shape.clone()))
+    }
+
+    /// The translation of the `index`-th sub-shape of this compound shape.
+    pub fn compoundTranslation(&self, index: usize) -> Option<RawVector> {
+        self.0
+            .as_compound()
+            .and_then(|c| c.shapes().get(index))
+            .map(|(pose, _)| pose.translation.into())
+    }
+
+    /// The rotation of the `index`-th sub-shape of this compound shape.
+    pub fn compoundRotation(&self, index: usize) -> Option<RawRotation> {
+        self.0
+            .as_compound()
+            .and_then(|c| c.shapes().get(index))
+            .map(|(pose, _)| pose.rotation.into())
+    }
+
     #[cfg(feature = "dim2")]
     pub fn cuboid(hx: f32, hy: f32) -> Self {
         Self(SharedShape::cuboid(hx, hy))
@@ -380,6 +829,105 @@ impl RawShape {
             .collect();
         let indices: Vec<_> = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
         SharedShape::round_convex_mesh(vertices, &indices, borderRadius).map(|s| Self(s))
+    }
+
+    /// Builds a compound shape from the given sub-shapes and their local poses.
+    ///
+    /// `positions` must contain `DIM` entries per shape. `rotations` must contain one
+    /// angle per shape in 2D, and one `{x, y, z, w}` quaternion (4 entries) per shape in 3D.
+    pub fn compound(shapes: Vec<RawShape>, positions: Vec<f32>, rotations: Vec<f32>) -> RawShape {
+        let num_shapes = shapes.len();
+
+        assert_eq!(
+            positions.len(),
+            num_shapes * DIM,
+            "The compound positions array must contain DIM entries per shape."
+        );
+        #[cfg(feature = "dim2")]
+        assert_eq!(
+            rotations.len(),
+            num_shapes,
+            "The compound rotations array must contain one angle per shape."
+        );
+        #[cfg(feature = "dim3")]
+        assert_eq!(
+            rotations.len(),
+            num_shapes * 4,
+            "The compound rotations array must contain one quaternion (4 entries) per shape."
+        );
+
+        let mut parts = Vec::with_capacity(num_shapes);
+
+        for (i, shape) in shapes.iter().enumerate() {
+            let translation = Vector::from_slice(&positions[i * DIM..(i + 1) * DIM]);
+
+            #[cfg(feature = "dim2")]
+            let rotation = Rotation::new(rotations[i]);
+            #[cfg(feature = "dim3")]
+            let rotation = {
+                let o = i * 4;
+                Rotation::from_xyzw(
+                    rotations[o],
+                    rotations[o + 1],
+                    rotations[o + 2],
+                    rotations[o + 3],
+                )
+            };
+
+            parts.push((Pose::from_parts(translation, rotation), shape.0.clone()));
+        }
+
+        Self(SharedShape::compound(parts))
+    }
+
+    /// Decomposes the given mesh into a compound of convex parts, using VHACD with its
+    /// default parameters.
+    pub fn convexDecomposition(vertices: Vec<f32>, indices: Vec<u32>) -> Option<RawShape> {
+        Self::convexDecompositionWithParams(vertices, indices, &RawVHACDParameters::new())
+    }
+
+    /// Decomposes the given mesh into a compound of convex parts, using VHACD with the
+    /// given parameters.
+    pub fn convexDecompositionWithParams(
+        vertices: Vec<f32>,
+        indices: Vec<u32>,
+        params: &RawVHACDParameters,
+    ) -> Option<RawShape> {
+        let vertices: Vec<_> = vertices
+            .chunks(DIM)
+            .map(|v| Vector::from_slice(v))
+            .collect();
+        #[cfg(feature = "dim2")]
+        let indices: Vec<_> = indices.chunks(2).map(|v| [v[0], v[1]]).collect();
+        #[cfg(feature = "dim3")]
+        let indices: Vec<_> = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
+
+        // Same as `SharedShape::convex_decomposition_with_params`, except that a
+        // decomposition yielding no convex part returns `None` instead of panicking when
+        // building the empty compound.
+        let decomp = VHACD::decompose(&params.0, &vertices, &indices, true);
+        let mut parts = vec![];
+
+        #[cfg(feature = "dim2")]
+        for hull_vertices in decomp.compute_exact_convex_hulls(&vertices, &indices) {
+            if let Some(convex) = SharedShape::convex_polyline(hull_vertices) {
+                parts.push((Pose::IDENTITY, convex));
+            }
+        }
+
+        #[cfg(feature = "dim3")]
+        for (hull_vertices, hull_indices) in decomp.compute_exact_convex_hulls(&vertices, &indices)
+        {
+            if let Some(convex) = SharedShape::convex_mesh(hull_vertices, &hull_indices) {
+                parts.push((Pose::IDENTITY, convex));
+            }
+        }
+
+        if parts.is_empty() {
+            return None;
+        }
+
+        Some(Self(SharedShape::compound(parts)))
     }
 
     pub fn castShape(

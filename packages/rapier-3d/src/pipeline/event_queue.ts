@@ -2,6 +2,9 @@ import {ColliderHandle} from "../geometry";
 import {Vector, VectorOps} from "../math";
 import {RawContactForceEvent, RawEventQueue} from "../raw";
 
+/** Shared scratch buffer for WASM reads (single-threaded, safe to share). */
+const _scratch = new Float32Array(3);
+
 /**
  * Flags indicating what events are enabled for colliders.
  */
@@ -51,8 +54,9 @@ export class TempContactForceEvent {
     /**
      * The sum of all the forces between the two colliders.
      */
-    public totalForce(): Vector {
-        return VectorOps.fromRaw(this.raw.total_force())!;
+    public totalForce(target?: Vector): Vector {
+        this.raw.total_force(_scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
@@ -69,8 +73,9 @@ export class TempContactForceEvent {
     /**
      * The world-space (unit) direction of the force with strongest magnitude.
      */
-    public maxForceDirection(): Vector {
-        return VectorOps.fromRaw(this.raw.max_force_direction())!;
+    public maxForceDirection(target?: Vector): Vector {
+        this.raw.max_force_direction(_scratch);
+        return VectorOps.fromBuffer(_scratch, target);
     }
 
     /**
