@@ -44,8 +44,11 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         const rigidBodyDesc = RAPIER.RigidBodyDesc.fixed();
         const rigidBody = world.createRigidBody(rigidBodyDesc);
 
+        // `convexHull` returns null if the mesh's point set is degenerate.
         const colliderDesc = RAPIER.ColliderDesc.convexHull(new Float32Array(positions));
-        world.createCollider(colliderDesc, rigidBody);
+        if (colliderDesc !== null) {
+            world.createCollider(colliderDesc, rigidBody);
+        }
     });
 
     testbed.setWorld(world);

@@ -192,8 +192,11 @@ export class World {
      * Creates a new physics world from a snapshot.
      *
      * This new physics world will be an identical copy of the snapshoted physics world.
+     *
+     * Returns `null` if the snapshot could not be restored, which happens when it was
+     * taken by a different version of the engine.
      */
-    public static restoreSnapshot(data: Uint8Array): World {
+    public static restoreSnapshot(data: Uint8Array): World | null {
         let deser = new SerializationPipeline();
         return deser.deserializeAll(data);
     }

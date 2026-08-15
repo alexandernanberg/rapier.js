@@ -12,6 +12,13 @@ use rapier::geometry::{ColliderSet, DefaultBroadPhase, NarrowPhase};
 use rapier::math::Vector;
 use wasm_bindgen::prelude::*;
 
+/// Mirrors bincode 1.x's default encoding (fixed-width little-endian integers,
+/// no size limit) so snapshots stay byte-compatible across the bincode 2 upgrade.
+const BINCODE_CONFIG: bincode::config::Configuration<
+    bincode::config::LittleEndian,
+    bincode::config::Fixint,
+> = bincode::config::legacy();
+
 #[derive(Serialize)]
 struct SerializableWorld<'a> {
     gravity: &'a Vector,
@@ -123,13 +130,14 @@ impl RawSerializationPipeline {
             impulse_joints: &impulse_joints.0,
             multibody_joints: &multibody_joints.0,
         };
-        let snap = bincode::serialize(&to_serialize).ok()?;
+        let snap = bincode::serde::encode_to_vec(&to_serialize, BINCODE_CONFIG).ok()?;
         Some(Uint8Array::from(&snap[..]))
     }
 
     pub fn deserializeAll(&self, data: Uint8Array) -> Option<RawDeserializedWorld> {
         let data = data.to_vec();
-        let d: DeserializableWorld = bincode::deserialize(&data[..]).ok()?;
+        let (d, _): (DeserializableWorld, usize) =
+            bincode::serde::decode_from_slice(&data[..], BINCODE_CONFIG).ok()?;
         Some(RawDeserializedWorld {
             gravity: Some(RawVector(d.gravity)),
             integrationParameters: Some(RawIntegrationParameters(d.integration_parameters)),

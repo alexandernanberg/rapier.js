@@ -54,6 +54,11 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         let charBody = testbed.world.getRigidBody(characterHandle);
         let charCollider = testbed.world.getCollider(characterColliderHandle);
 
+        // The handles go stale if the world is swapped out from under us.
+        if (charBody === null || charCollider === null) {
+            return;
+        }
+
         characterController.computeColliderMovement(charCollider, movementDirection);
 
         let movement = characterController.computedMovement();

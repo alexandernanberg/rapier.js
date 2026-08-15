@@ -14,7 +14,7 @@
         "build:wasm:2d:debug": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build crates/rapier-wasm-2d --dev --target web --out-dir ../../packages/rapier-2d/wasm/debug",
         "build:wasm:3d": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build crates/rapier-wasm-3d --target web --out-dir ../../packages/rapier-3d/wasm/release",
         "build:wasm:3d:debug": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build crates/rapier-wasm-3d --dev --target web --out-dir ../../packages/rapier-3d/wasm/debug",
-        "typecheck": "pnpm -r --filter './packages/rapier-*' typecheck",
+        "typecheck": "pnpm -r typecheck",
         "dev:testbed2d": "pnpm --filter rapier-testbed2d dev",
         "dev:testbed3d": "pnpm --filter rapier-testbed3d dev",
         "bench": "pnpm --filter rapier-benchmarks bench",
@@ -27,13 +27,13 @@
         "release": "changeset publish"
     },
     "devDependencies": {
-        "@changesets/changelog-github": "^0.5.2",
-        "@changesets/cli": "^2.29.8",
-        "oxfmt": "0.27.0",
-        "oxlint": "1.42.0",
-        "typedoc": "0.28.16",
-        "typescript": "5.7.3",
+        "@changesets/changelog-github": "^1.0.0",
+        "@changesets/cli": "^3.0.0",
+        "oxfmt": "0.63.0",
+        "oxlint": "1.78.0",
+        "typedoc": "0.28.20",
+        "typescript": "7.0.2",
         "wasm-pack": "0.15.0"
     },
-    "packageManager": "pnpm@11.5.0"
+    "packageManager": "pnpm@11.21.0"
 }

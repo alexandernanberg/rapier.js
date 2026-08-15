@@ -75,4 +75,18 @@ describe("snapshots", () => {
         restored.free();
         world.free();
     });
+
+    test("an undecodable snapshot restores to null rather than throwing", () => {
+        // Snapshots are only readable by the engine version that wrote them, so the
+        // decode failure has to surface as a value callers can branch on.
+        const {world} = scene();
+
+        // Truncated rather than scribbled over: arbitrary bytes still decode as
+        // plausible floats, whereas running out of input always fails.
+        const truncated = world.takeSnapshot().slice(0, 16);
+
+        expect(RAPIER.World.restoreSnapshot(truncated)).toBeNull();
+
+        world.free();
+    });
 });

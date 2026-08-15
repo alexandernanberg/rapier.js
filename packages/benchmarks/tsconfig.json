@@ -3,6 +3,9 @@
         "target": "ES2022",
         "module": "ESNext",
         "moduleResolution": "bundler",
+        // TypeScript 7 no longer pulls every @types package into the global scope,
+        // so node's globals (`process`, `node:fs`, …) have to be requested.
+        "types": ["node"],
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,

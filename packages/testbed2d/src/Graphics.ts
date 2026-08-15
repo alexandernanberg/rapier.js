@@ -17,11 +17,12 @@ export class Graphics {
     coll2gfx: Map<number, PIXI.Graphics>;
     colorIndex: number;
     colorPalette: Array<number>;
-    renderer: PIXI.WebGLRenderer;
-    scene: PIXI.Container;
-    viewport: Viewport;
-    instanceGroups: Array<Array<PIXI.Graphics>>;
-    lines: PIXI.Graphics;
+    // Assigned by `init()`, which `create()` awaits before handing out the instance.
+    renderer!: PIXI.WebGLRenderer;
+    scene!: PIXI.Container;
+    viewport!: Viewport;
+    instanceGroups!: Array<Array<PIXI.Graphics>>;
+    lines?: PIXI.Container;
 
     private constructor() {
         this.coll2gfx = new Map();
@@ -108,7 +109,7 @@ export class Graphics {
         if (this.lines) {
             this.viewport.removeChild(this.lines);
             this.lines.destroy();
-            this.lines = null;
+            this.lines = undefined;
         }
 
         if (debugRender) {
@@ -133,8 +134,9 @@ export class Graphics {
             }
 
             // Create container for all line groups
-            this.lines = new PIXI.Container() as any;
-            this.viewport.addChild(this.lines);
+            const lines = new PIXI.Container();
+            this.lines = lines;
+            this.viewport.addChild(lines);
 
             // Draw each color group as a single Graphics with one stroke call
             for (const [key, group] of linesByColor) {
@@ -147,7 +149,7 @@ export class Graphics {
                 }
                 gfx.stroke({width: 0.02, color, alpha: group.alpha});
 
-                this.lines.addChild(gfx);
+                lines.addChild(gfx);
             }
         }
 
@@ -189,7 +191,8 @@ export class Graphics {
         let instance;
         let graphics: PIXI.Graphics;
         let vertices;
-        let instanceId = parent.isFixed() ? 0 : this.colorIndex + 1;
+        // A collider without a parent body is static, so colour it like a fixed one.
+        let instanceId = parent === null || parent.isFixed() ? 0 : this.colorIndex + 1;
 
         switch (collider.shapeType()) {
             case RAPIER.ShapeType.Cuboid:

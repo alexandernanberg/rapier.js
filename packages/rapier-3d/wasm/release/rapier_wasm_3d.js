@@ -2,7 +2,6 @@
 
 export class RawBroadPhase {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawBroadPhase.prototype);
         obj.__wbg_ptr = ptr;
         RawBroadPhaseFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -42,7 +41,7 @@ export class RawBroadPhase {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            const ret = wasm.rawbroadphase_castRay(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, ray_ox, ray_oy, ray_oz, ray_dx, ray_dy, ray_dz, maxToi, solid, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            const ret = wasm.rawbroadphase_castRay(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, ray_ox, ray_oy, ray_oz, ray_dx, ray_dy, ray_dz, maxToi, solid, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
             return ret !== 0;
         } finally {
             heap[stack_pointer++] = undefined;
@@ -72,7 +71,7 @@ export class RawBroadPhase {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            const ret = wasm.rawbroadphase_castRayAndGetNormal(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, ray_ox, ray_oy, ray_oz, ray_dx, ray_dy, ray_dz, maxToi, solid, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            const ret = wasm.rawbroadphase_castRayAndGetNormal(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, ray_ox, ray_oy, ray_oz, ray_dx, ray_dy, ray_dz, maxToi, solid, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
             return ret !== 0;
         } finally {
             heap[stack_pointer++] = undefined;
@@ -105,7 +104,7 @@ export class RawBroadPhase {
             _assertClass(shapeRot, RawRotation);
             _assertClass(shapeVel, RawVector);
             _assertClass(shape, RawShape);
-            const ret = wasm.rawbroadphase_castShape(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shapeVel.__wbg_ptr, shape.__wbg_ptr, target_distance, maxToi, stop_at_penetration, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            const ret = wasm.rawbroadphase_castShape(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shapeVel.__wbg_ptr, shape.__wbg_ptr, target_distance, maxToi, stop_at_penetration, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
             return ret === 0 ? undefined : RawColliderShapeCastHit.__wrap(ret);
         } finally {
             heap[stack_pointer++] = undefined;
@@ -154,7 +153,7 @@ export class RawBroadPhase {
             _assertClass(shapePos, RawVector);
             _assertClass(shapeRot, RawRotation);
             _assertClass(shape, RawShape);
-            wasm.rawbroadphase_intersectionWithShape(retptr, this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shape.__wbg_ptr, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            wasm.rawbroadphase_intersectionWithShape(retptr, this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shape.__wbg_ptr, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
             return r0 === 0 ? undefined : r2;
@@ -182,7 +181,7 @@ export class RawBroadPhase {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            wasm.rawbroadphase_intersectionsWithPoint(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, point_z, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            wasm.rawbroadphase_intersectionsWithPoint(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, point_z, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
             heap[stack_pointer++] = undefined;
@@ -212,7 +211,7 @@ export class RawBroadPhase {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            wasm.rawbroadphase_intersectionsWithRay(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, ray_ox, ray_oy, ray_oz, ray_dx, ray_dy, ray_dz, maxToi, solid, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            wasm.rawbroadphase_intersectionsWithRay(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, ray_ox, ray_oy, ray_oz, ray_dx, ray_dy, ray_dz, maxToi, solid, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
             heap[stack_pointer++] = undefined;
@@ -240,7 +239,7 @@ export class RawBroadPhase {
             _assertClass(shapePos, RawVector);
             _assertClass(shapeRot, RawRotation);
             _assertClass(shape, RawShape);
-            wasm.rawbroadphase_intersectionsWithShape(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shape.__wbg_ptr, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            wasm.rawbroadphase_intersectionsWithShape(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shape.__wbg_ptr, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
             heap[stack_pointer++] = undefined;
@@ -248,7 +247,7 @@ export class RawBroadPhase {
     }
     constructor() {
         const ret = wasm.rawbroadphase_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawBroadPhaseFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -272,7 +271,7 @@ export class RawBroadPhase {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            const ret = wasm.rawbroadphase_projectPoint(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, point_z, solid, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            const ret = wasm.rawbroadphase_projectPoint(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, point_z, solid, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
             return ret !== 0;
         } finally {
             heap[stack_pointer++] = undefined;
@@ -297,7 +296,7 @@ export class RawBroadPhase {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            const ret = wasm.rawbroadphase_projectPointAndGetFeature(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, point_z, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            const ret = wasm.rawbroadphase_projectPointAndGetFeature(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, point_x, point_y, point_z, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
             return ret !== 0;
         } finally {
             heap[stack_pointer++] = undefined;
@@ -328,7 +327,7 @@ export class RawCCDSolver {
     }
     constructor() {
         const ret = wasm.rawccdsolver_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawCCDSolverFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -365,7 +364,7 @@ export class RawCharacterCollision {
     }
     constructor() {
         const ret = wasm.rawcharactercollision_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawCharacterCollisionFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -381,7 +380,6 @@ if (Symbol.dispose) RawCharacterCollision.prototype[Symbol.dispose] = RawCharact
 
 export class RawColliderSet {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawColliderSet.prototype);
         obj.__wbg_ptr = ptr;
         RawColliderSetFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -602,7 +600,7 @@ export class RawColliderSet {
      */
     coHalfHeight(handle) {
         const ret = wasm.rawcolliderset_coHalfHeight(this.__wbg_ptr, handle);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} handle
@@ -618,7 +616,7 @@ export class RawColliderSet {
      */
     coHeightFieldFlags(handle) {
         const ret = wasm.rawcolliderset_coHeightFieldFlags(this.__wbg_ptr, handle);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * The height of this heightfield if it is one.
@@ -648,7 +646,7 @@ export class RawColliderSet {
      */
     coHeightfieldNCols(handle) {
         const ret = wasm.rawcolliderset_coHeightfieldNCols(this.__wbg_ptr, handle);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * The number of rows on this heightfield's height matrix, if it is one.
@@ -657,7 +655,7 @@ export class RawColliderSet {
      */
     coHeightfieldNRows(handle) {
         const ret = wasm.rawcolliderset_coHeightfieldNRows(this.__wbg_ptr, handle);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * The scaling factor applied of this heightfield if it is one.
@@ -789,7 +787,7 @@ export class RawColliderSet {
      */
     coRadius(handle) {
         const ret = wasm.rawcolliderset_coRadius(this.__wbg_ptr, handle);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * The restitution coefficient of this collider.
@@ -832,7 +830,7 @@ export class RawColliderSet {
      */
     coRoundRadius(handle) {
         const ret = wasm.rawcolliderset_coRoundRadius(this.__wbg_ptr, handle);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} handle
@@ -1110,7 +1108,7 @@ export class RawColliderSet {
      */
     coTriMeshFlags(handle) {
         const ret = wasm.rawcolliderset_coTriMeshFlags(this.__wbg_ptr, handle);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * The vertices of this triangle mesh, polyline, convex polyhedron, segment, triangle or convex polyhedron, if it is one.
@@ -1254,7 +1252,7 @@ export class RawColliderSet {
      * @returns {boolean}
      */
     isHandleValid(handle) {
-        const ret = wasm.rawcolliderset_contains(this.__wbg_ptr, handle);
+        const ret = wasm.rawcolliderset_isHandleValid(this.__wbg_ptr, handle);
         return ret !== 0;
     }
     /**
@@ -1266,7 +1264,7 @@ export class RawColliderSet {
     }
     constructor() {
         const ret = wasm.rawcolliderset_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawColliderSetFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -1304,7 +1302,6 @@ if (Symbol.dispose) RawColliderSet.prototype[Symbol.dispose] = RawColliderSet.pr
 
 export class RawColliderShapeCastHit {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawColliderShapeCastHit.prototype);
         obj.__wbg_ptr = ptr;
         RawColliderShapeCastHitFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -1340,7 +1337,6 @@ if (Symbol.dispose) RawColliderShapeCastHit.prototype[Symbol.dispose] = RawColli
 
 export class RawContactForceEvent {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawContactForceEvent.prototype);
         obj.__wbg_ptr = ptr;
         RawContactForceEventFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -1361,7 +1357,7 @@ export class RawContactForceEvent {
      * @returns {number}
      */
     collider1() {
-        const ret = wasm.rawcollidershapecasthit_colliderHandle(this.__wbg_ptr);
+        const ret = wasm.rawcontactforceevent_collider1(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -1410,7 +1406,6 @@ if (Symbol.dispose) RawContactForceEvent.prototype[Symbol.dispose] = RawContactF
 
 export class RawContactManifold {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawContactManifold.prototype);
         obj.__wbg_ptr = ptr;
         RawContactManifoldFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -1608,7 +1603,6 @@ if (Symbol.dispose) RawContactManifold.prototype[Symbol.dispose] = RawContactMan
 
 export class RawContactPair {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawContactPair.prototype);
         obj.__wbg_ptr = ptr;
         RawContactPairFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -1661,7 +1655,6 @@ if (Symbol.dispose) RawContactPair.prototype[Symbol.dispose] = RawContactPair.pr
  */
 export class RawConvexMeshData {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawConvexMeshData.prototype);
         obj.__wbg_ptr = ptr;
         RawConvexMeshDataFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -1748,7 +1741,7 @@ export class RawDebugRenderPipeline {
     }
     constructor() {
         const ret = wasm.rawdebugrenderpipeline_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawDebugRenderPipelineFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -1785,7 +1778,6 @@ if (Symbol.dispose) RawDebugRenderPipeline.prototype[Symbol.dispose] = RawDebugR
 
 export class RawDeserializedWorld {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawDeserializedWorld.prototype);
         obj.__wbg_ptr = ptr;
         RawDeserializedWorldFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -1924,7 +1916,7 @@ export class RawDynamicRayCastVehicleController {
      */
     constructor(chassis) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_new(chassis);
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawDynamicRayCastVehicleControllerFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -2071,7 +2063,7 @@ export class RawDynamicRayCastVehicleController {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            wasm.rawdynamicraycastvehiclecontroller_update_vehicle(this.__wbg_ptr, dt, broad_phase.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, addBorrowedObject(filter_predicate));
+            wasm.rawdynamicraycastvehiclecontroller_update_vehicle(this.__wbg_ptr, dt, broad_phase.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
         }
@@ -2090,7 +2082,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_brake(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_brake(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2130,7 +2122,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_engine_force(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_engine_force(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2138,7 +2130,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_forward_impulse(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_forward_impulse(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2146,7 +2138,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_friction_slip(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_friction_slip(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2185,7 +2177,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_max_suspension_force(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_max_suspension_force(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2193,7 +2185,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_max_suspension_travel(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_max_suspension_travel(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2201,7 +2193,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_radius(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_radius(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2209,7 +2201,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_rotation(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_rotation(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2217,7 +2209,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_side_friction_stiffness(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_side_friction_stiffness(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2225,7 +2217,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_side_impulse(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_side_impulse(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2233,7 +2225,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_steering(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_steering(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2241,7 +2233,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_suspension_compression(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_suspension_compression(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2249,7 +2241,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_suspension_force(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_suspension_force(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2257,7 +2249,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_suspension_length(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_suspension_length(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2265,7 +2257,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_suspension_relaxation(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_suspension_relaxation(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2273,7 +2265,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_suspension_rest_length(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_suspension_rest_length(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} i
@@ -2281,7 +2273,7 @@ export class RawDynamicRayCastVehicleController {
      */
     wheel_suspension_stiffness(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_suspension_stiffness(this.__wbg_ptr, i);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
 }
 if (Symbol.dispose) RawDynamicRayCastVehicleController.prototype[Symbol.dispose] = RawDynamicRayCastVehicleController.prototype.free;
@@ -2347,7 +2339,7 @@ export class RawEventQueue {
      */
     constructor(autoDrain) {
         const ret = wasm.raweventqueue_new(autoDrain);
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawEventQueueFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -2366,7 +2358,6 @@ export const RawFeatureType = Object.freeze({
 
 export class RawGenericJoint {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawGenericJoint.prototype);
         obj.__wbg_ptr = ptr;
         RawGenericJointFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -2527,7 +2518,6 @@ if (Symbol.dispose) RawGenericJoint.prototype[Symbol.dispose] = RawGenericJoint.
 
 export class RawImpulseJointSet {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawImpulseJointSet.prototype);
         obj.__wbg_ptr = ptr;
         RawImpulseJointSetFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -2833,7 +2823,7 @@ export class RawImpulseJointSet {
     }
     constructor() {
         const ret = wasm.rawimpulsejointset_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawImpulseJointSetFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -2849,7 +2839,6 @@ if (Symbol.dispose) RawImpulseJointSet.prototype[Symbol.dispose] = RawImpulseJoi
 
 export class RawIntegrationParameters {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawIntegrationParameters.prototype);
         obj.__wbg_ptr = ptr;
         RawIntegrationParametersFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -2883,7 +2872,7 @@ export class RawIntegrationParameters {
      * @returns {number}
      */
     get lengthUnit() {
-        const ret = wasm.rawcontactforceevent_total_force_magnitude(this.__wbg_ptr);
+        const ret = wasm.rawintegrationparameters_lengthUnit(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -2895,7 +2884,7 @@ export class RawIntegrationParameters {
     }
     constructor() {
         const ret = wasm.rawintegrationparameters_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawIntegrationParametersFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -2917,14 +2906,14 @@ export class RawIntegrationParameters {
      * @returns {number}
      */
     get numInternalPgsIterations() {
-        const ret = wasm.rawdynamicraycastvehiclecontroller_index_forward_axis(this.__wbg_ptr);
+        const ret = wasm.rawintegrationparameters_numInternalPgsIterations(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
      * @returns {number}
      */
     get numSolverIterations() {
-        const ret = wasm.rawdynamicraycastvehiclecontroller_index_up_axis(this.__wbg_ptr);
+        const ret = wasm.rawintegrationparameters_numSolverIterations(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
@@ -2967,20 +2956,19 @@ export class RawIntegrationParameters {
      * @param {number} value
      */
     set numInternalPgsIterations(value) {
-        wasm.rawdynamicraycastvehiclecontroller_set_index_forward_axis(this.__wbg_ptr, value);
+        wasm.rawintegrationparameters_set_numInternalPgsIterations(this.__wbg_ptr, value);
     }
     /**
      * @param {number} value
      */
     set numSolverIterations(value) {
-        wasm.rawdynamicraycastvehiclecontroller_set_index_up_axis(this.__wbg_ptr, value);
+        wasm.rawintegrationparameters_set_numSolverIterations(this.__wbg_ptr, value);
     }
 }
 if (Symbol.dispose) RawIntegrationParameters.prototype[Symbol.dispose] = RawIntegrationParameters.prototype.free;
 
 export class RawIslandManager {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawIslandManager.prototype);
         obj.__wbg_ptr = ptr;
         RawIslandManagerFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -3018,7 +3006,7 @@ export class RawIslandManager {
     }
     constructor() {
         const ret = wasm.rawislandmanager_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawIslandManagerFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -3080,14 +3068,14 @@ export class RawKinematicCharacterController {
      */
     autostepMaxHeight() {
         const ret = wasm.rawkinematiccharactercontroller_autostepMaxHeight(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @returns {number | undefined}
      */
     autostepMinWidth() {
         const ret = wasm.rawkinematiccharactercontroller_autostepMinWidth(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} dt
@@ -3110,7 +3098,7 @@ export class RawKinematicCharacterController {
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
             _assertClass(desired_translation_delta, RawVector);
-            wasm.rawkinematiccharactercontroller_computeColliderMovement(this.__wbg_ptr, dt, broad_phase.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, collider_handle, desired_translation_delta.__wbg_ptr, apply_impulses_to_dynamic_bodies, isLikeNone(character_mass) ? 0x100000001 : Math.fround(character_mass), filter_flags, isLikeNone(filter_groups) ? 0x100000001 : (filter_groups) >>> 0, addBorrowedObject(filter_predicate));
+            wasm.rawkinematiccharactercontroller_computeColliderMovement(this.__wbg_ptr, dt, broad_phase.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, collider_handle, desired_translation_delta.__wbg_ptr, apply_impulses_to_dynamic_bodies, isLikeNone(character_mass) ? Number.MAX_SAFE_INTEGER : Math.fround(character_mass), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
         }
@@ -3178,7 +3166,7 @@ export class RawKinematicCharacterController {
      */
     constructor(offset) {
         const ret = wasm.rawkinematiccharactercontroller_new(offset);
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawKinematicCharacterControllerFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -3252,7 +3240,7 @@ export class RawKinematicCharacterController {
      */
     snapToGroundDistance() {
         const ret = wasm.rawkinematiccharactercontroller_snapToGroundDistance(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @returns {boolean}
@@ -3281,7 +3269,6 @@ export const RawMotorModel = Object.freeze({
 
 export class RawMultibodyJointSet {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawMultibodyJointSet.prototype);
         obj.__wbg_ptr = ptr;
         RawMultibodyJointSetFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -3446,7 +3433,7 @@ export class RawMultibodyJointSet {
     }
     constructor() {
         const ret = wasm.rawmultibodyjointset_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawMultibodyJointSetFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -3462,7 +3449,6 @@ if (Symbol.dispose) RawMultibodyJointSet.prototype[Symbol.dispose] = RawMultibod
 
 export class RawNarrowPhase {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawNarrowPhase.prototype);
         obj.__wbg_ptr = ptr;
         RawNarrowPhaseFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -3512,7 +3498,7 @@ export class RawNarrowPhase {
     }
     constructor() {
         const ret = wasm.rawnarrowphase_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawNarrowPhaseFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -3539,7 +3525,7 @@ export class RawPhysicsPipeline {
     }
     constructor() {
         const ret = wasm.rawphysicspipeline_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawPhysicsPipelineFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -3822,7 +3808,7 @@ export class RawPidController {
      */
     constructor(kp, ki, kd, axes_mask) {
         const ret = wasm.rawpidcontroller_new(kp, ki, kd, axes_mask);
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawPidControllerFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -3861,7 +3847,6 @@ if (Symbol.dispose) RawPidController.prototype[Symbol.dispose] = RawPidControlle
 
 export class RawPointProjection {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawPointProjection.prototype);
         obj.__wbg_ptr = ptr;
         RawPointProjectionFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -3896,7 +3881,6 @@ if (Symbol.dispose) RawPointProjection.prototype[Symbol.dispose] = RawPointProje
 
 export class RawRayIntersection {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawRayIntersection.prototype);
         obj.__wbg_ptr = ptr;
         RawRayIntersectionFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -3917,7 +3901,7 @@ export class RawRayIntersection {
      */
     featureId() {
         const ret = wasm.rawrayintersection_featureId(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @returns {RawFeatureType}
@@ -3945,7 +3929,6 @@ if (Symbol.dispose) RawRayIntersection.prototype[Symbol.dispose] = RawRayInterse
 
 export class RawRigidBodySet {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawRigidBodySet.prototype);
         obj.__wbg_ptr = ptr;
         RawRigidBodySetFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -4049,7 +4032,7 @@ export class RawRigidBodySet {
     }
     constructor() {
         const ret = wasm.rawrigidbodyset_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawRigidBodySetFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -4857,7 +4840,6 @@ export const RawRigidBodyType = Object.freeze({
  */
 export class RawRotation {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawRotation.prototype);
         obj.__wbg_ptr = ptr;
         RawRotationFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -4889,7 +4871,7 @@ export class RawRotation {
      */
     constructor(x, y, z, w) {
         const ret = wasm.rawrotation_new(x, y, z, w);
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawRotationFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -4930,7 +4912,6 @@ if (Symbol.dispose) RawRotation.prototype[Symbol.dispose] = RawRotation.prototyp
 
 export class RawSdpMatrix3 {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawSdpMatrix3.prototype);
         obj.__wbg_ptr = ptr;
         RawSdpMatrix3Finalization.register(obj, obj.__wbg_ptr, obj);
@@ -4978,7 +4959,7 @@ export class RawSerializationPipeline {
     }
     constructor() {
         const ret = wasm.rawserializationpipeline_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawSerializationPipelineFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -5012,7 +4993,6 @@ if (Symbol.dispose) RawSerializationPipeline.prototype[Symbol.dispose] = RawSeri
 
 export class RawShape {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawShape.prototype);
         obj.__wbg_ptr = ptr;
         RawShapeFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -5135,7 +5115,7 @@ export class RawShape {
      */
     compoundLen() {
         const ret = wasm.rawshape_compoundLen(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * The rotation of the `index`-th sub-shape of this compound shape.
@@ -5304,7 +5284,7 @@ export class RawShape {
      */
     halfHeight() {
         const ret = wasm.rawshape_halfHeight(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {RawVector} normal
@@ -5328,7 +5308,7 @@ export class RawShape {
      */
     heightFieldFlags() {
         const ret = wasm.rawshape_heightFieldFlags(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} nrows
@@ -5369,14 +5349,14 @@ export class RawShape {
      */
     heightfieldNCols() {
         const ret = wasm.rawshape_heightfieldNCols(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @returns {number | undefined}
      */
     heightfieldNRows() {
         const ret = wasm.rawshape_heightfieldNRows(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @returns {RawVector | undefined}
@@ -5474,7 +5454,7 @@ export class RawShape {
      */
     radius() {
         const ret = wasm.rawshape_radius(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {number} halfHeight
@@ -5538,7 +5518,7 @@ export class RawShape {
      */
     roundRadius() {
         const ret = wasm.rawshape_roundRadius(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {RawVector} p1
@@ -5577,7 +5557,7 @@ export class RawShape {
      */
     triMeshFlags() {
         const ret = wasm.rawshape_triMeshFlags(this.__wbg_ptr);
-        return ret === 0x100000001 ? undefined : ret;
+        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
      * @param {RawVector} p1
@@ -5689,7 +5669,6 @@ if (Symbol.dispose) RawShape.prototype[Symbol.dispose] = RawShape.prototype.free
 
 export class RawShapeCastHit {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawShapeCastHit.prototype);
         obj.__wbg_ptr = ptr;
         RawShapeCastHitFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -5718,7 +5697,6 @@ if (Symbol.dispose) RawShapeCastHit.prototype[Symbol.dispose] = RawShapeCastHit.
 
 export class RawShapeContact {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawShapeContact.prototype);
         obj.__wbg_ptr = ptr;
         RawShapeContactFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -5788,21 +5766,21 @@ export class RawVHACDParameters {
      * @returns {number}
      */
     get alpha() {
-        const ret = wasm.rawkinematiccharactercontroller_offset(this.__wbg_ptr);
+        const ret = wasm.rawvhacdparameters_alpha(this.__wbg_ptr);
         return ret;
     }
     /**
      * @returns {number}
      */
     get beta() {
-        const ret = wasm.rawrayintersection_time_of_impact(this.__wbg_ptr);
+        const ret = wasm.rawvhacdparameters_beta(this.__wbg_ptr);
         return ret;
     }
     /**
      * @returns {number}
      */
     get concavity() {
-        const ret = wasm.rawvector_x(this.__wbg_ptr);
+        const ret = wasm.rawvhacdparameters_concavity(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -5823,12 +5801,12 @@ export class RawVHACDParameters {
      * @returns {number}
      */
     get max_convex_hulls() {
-        const ret = wasm.rawcolliderset_len(this.__wbg_ptr);
+        const ret = wasm.rawvhacdparameters_max_convex_hulls(this.__wbg_ptr);
         return ret >>> 0;
     }
     constructor() {
         const ret = wasm.rawvhacdparameters_new();
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawVHACDParametersFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -5902,7 +5880,6 @@ if (Symbol.dispose) RawVHACDParameters.prototype[Symbol.dispose] = RawVHACDParam
  */
 export class RawVector {
     static __wrap(ptr) {
-        ptr = ptr >>> 0;
         const obj = Object.create(RawVector.prototype);
         obj.__wbg_ptr = ptr;
         RawVectorFinalization.register(obj, obj.__wbg_ptr, obj);
@@ -5931,7 +5908,7 @@ export class RawVector {
      */
     constructor(x, y, z) {
         const ret = wasm.rawvector_new(x, y, z);
-        this.__wbg_ptr = ret >>> 0;
+        this.__wbg_ptr = ret;
         RawVectorFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
@@ -5940,7 +5917,7 @@ export class RawVector {
      * @param {number} x
      */
     set x(x) {
-        wasm.rawintegrationparameters_set_contact_natural_frequency(this.__wbg_ptr, x);
+        wasm.rawvector_set_x(this.__wbg_ptr, x);
     }
     /**
      * Sets the `y` component of this vector.
@@ -5972,7 +5949,7 @@ export class RawVector {
      * @returns {RawVector}
      */
     xyz() {
-        const ret = wasm.rawpointprojection_point(this.__wbg_ptr);
+        const ret = wasm.rawvector_xyz(this.__wbg_ptr);
         return RawVector.__wrap(ret);
     }
     /**
@@ -5988,7 +5965,7 @@ export class RawVector {
      * @returns {number}
      */
     get y() {
-        const ret = wasm.rawkinematiccharactercontroller_offset(this.__wbg_ptr);
+        const ret = wasm.rawvector_y(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -6012,7 +5989,7 @@ export class RawVector {
      * @returns {number}
      */
     get z() {
-        const ret = wasm.rawrayintersection_time_of_impact(this.__wbg_ptr);
+        const ret = wasm.rawvector_z(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -6093,65 +6070,64 @@ export function wasmMemory() {
     const ret = wasm.wasmMemory();
     return takeObject(ret);
 }
-
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_boolean_get_bbbb1c18aa2f5e25: function(arg0) {
+        __wbg___wbindgen_boolean_get_c9c83ebd41b34df3: function(arg0) {
             const v = getObject(arg0);
             const ret = typeof(v) === 'boolean' ? v : undefined;
             return isLikeNone(ret) ? 0xFFFFFF : ret ? 1 : 0;
         },
-        __wbg___wbindgen_is_function_0095a73b8b156f76: function(arg0) {
+        __wbg___wbindgen_is_function_5e4570eb24ffa122: function(arg0) {
             const ret = typeof(getObject(arg0)) === 'function';
             return ret;
         },
-        __wbg___wbindgen_memory_bd1fbcf21fbef3c8: function() {
+        __wbg___wbindgen_memory_5dc2a138835b0f8e: function() {
             const ret = wasm.memory;
             return addHeapObject(ret);
         },
-        __wbg___wbindgen_number_get_8ff4255516ccad3e: function(arg0, arg1) {
+        __wbg___wbindgen_number_get_136b9679cab35cfb: function(arg0, arg1) {
             const obj = getObject(arg1);
             const ret = typeof(obj) === 'number' ? obj : undefined;
             getDataViewMemory0().setFloat64(arg0 + 8 * 1, isLikeNone(ret) ? 0 : ret, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, !isLikeNone(ret), true);
         },
-        __wbg___wbindgen_throw_be289d5034ed271b: function(arg0, arg1) {
+        __wbg___wbindgen_throw_bb96b2010945f0bc: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
-        __wbg_call_389efe28435a9388: function() { return handleError(function (arg0, arg1) {
+        __wbg_call_1c5886ab9c57d1c7: function() { return handleError(function (arg0, arg1) {
             const ret = getObject(arg0).call(getObject(arg1));
             return addHeapObject(ret);
         }, arguments); },
-        __wbg_call_41bedb84c3e5c0c9: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5) {
-            const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3), getObject(arg4), getObject(arg5));
-            return addHeapObject(ret);
-        }, arguments); },
-        __wbg_call_4708e0c13bdc8e95: function() { return handleError(function (arg0, arg1, arg2) {
+        __wbg_call_35dba3c747ad7521: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = getObject(arg0).call(getObject(arg1), getObject(arg2));
             return addHeapObject(ret);
         }, arguments); },
-        __wbg_call_e8c868596c950cf6: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
+        __wbg_call_39f824e18d9d2414: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
             const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3), getObject(arg4));
             return addHeapObject(ret);
         }, arguments); },
-        __wbg_length_32ed9a279acd054c: function(arg0) {
+        __wbg_call_85c2616c93afb65b: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5) {
+            const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3), getObject(arg4), getObject(arg5));
+            return addHeapObject(ret);
+        }, arguments); },
+        __wbg_length_1009454859bb3e03: function(arg0) {
             const ret = getObject(arg0).length;
             return ret;
         },
-        __wbg_length_9a7876c9728a0979: function(arg0) {
+        __wbg_length_36bd29c6848c2144: function(arg0) {
             const ret = getObject(arg0).length;
             return ret;
         },
-        __wbg_new_from_slice_a3d2629dc1826784: function(arg0, arg1) {
+        __wbg_new_from_slice_3eea173078478cfe: function(arg0, arg1) {
             const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
             return addHeapObject(ret);
         },
-        __wbg_new_with_length_63f2683cc2521026: function(arg0) {
+        __wbg_new_with_length_ef112d2291d8ab95: function(arg0) {
             const ret = new Float32Array(arg0 >>> 0);
             return addHeapObject(ret);
         },
-        __wbg_prototypesetcall_bdcdcc5842e4d77d: function(arg0, arg1, arg2) {
+        __wbg_prototypesetcall_de8e0d9553586985: function(arg0, arg1, arg2) {
             Uint8Array.prototype.set.call(getArrayU8FromWasm0(arg0, arg1), getObject(arg2));
         },
         __wbg_rawcontactforceevent_new: function(arg0) {
@@ -6162,7 +6138,7 @@ function __wbg_get_imports() {
             const ret = RawShape.__unwrap(getObject(arg0));
             return ret;
         },
-        __wbg_set_f8edeec46569cc70: function(arg0, arg1, arg2) {
+        __wbg_set_577f5f7485b6744e: function(arg0, arg1, arg2) {
             getObject(arg0).set(getArrayF32FromWasm0(arg1, arg2));
         },
         __wbindgen_cast_0000000000000001: function(arg0) {
@@ -6182,103 +6158,103 @@ function __wbg_get_imports() {
 
 const RawBroadPhaseFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawbroadphase_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawbroadphase_free(ptr, 1));
 const RawCCDSolverFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawccdsolver_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawccdsolver_free(ptr, 1));
 const RawCharacterCollisionFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcharactercollision_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawcharactercollision_free(ptr, 1));
 const RawColliderSetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcolliderset_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawcolliderset_free(ptr, 1));
 const RawColliderShapeCastHitFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcollidershapecasthit_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawcollidershapecasthit_free(ptr, 1));
 const RawContactForceEventFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactforceevent_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactforceevent_free(ptr, 1));
 const RawContactManifoldFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactmanifold_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactmanifold_free(ptr, 1));
 const RawContactPairFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactpair_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactpair_free(ptr, 1));
 const RawConvexMeshDataFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawconvexmeshdata_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawconvexmeshdata_free(ptr, 1));
 const RawDebugRenderPipelineFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawdebugrenderpipeline_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawdebugrenderpipeline_free(ptr, 1));
 const RawDeserializedWorldFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawdeserializedworld_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawdeserializedworld_free(ptr, 1));
 const RawDynamicRayCastVehicleControllerFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawdynamicraycastvehiclecontroller_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawdynamicraycastvehiclecontroller_free(ptr, 1));
 const RawEventQueueFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_raweventqueue_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_raweventqueue_free(ptr, 1));
 const RawGenericJointFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawgenericjoint_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawgenericjoint_free(ptr, 1));
 const RawImpulseJointSetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawimpulsejointset_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawimpulsejointset_free(ptr, 1));
 const RawIntegrationParametersFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawintegrationparameters_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawintegrationparameters_free(ptr, 1));
 const RawIslandManagerFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawislandmanager_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawislandmanager_free(ptr, 1));
 const RawKinematicCharacterControllerFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawkinematiccharactercontroller_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawkinematiccharactercontroller_free(ptr, 1));
 const RawMultibodyJointSetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawmultibodyjointset_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawmultibodyjointset_free(ptr, 1));
 const RawNarrowPhaseFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawnarrowphase_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawnarrowphase_free(ptr, 1));
 const RawPhysicsPipelineFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawphysicspipeline_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawphysicspipeline_free(ptr, 1));
 const RawPidControllerFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawpidcontroller_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawpidcontroller_free(ptr, 1));
 const RawPointProjectionFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawpointprojection_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawpointprojection_free(ptr, 1));
 const RawRayIntersectionFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawrayintersection_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawrayintersection_free(ptr, 1));
 const RawRigidBodySetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawrigidbodyset_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawrigidbodyset_free(ptr, 1));
 const RawRotationFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawrotation_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawrotation_free(ptr, 1));
 const RawSdpMatrix3Finalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawsdpmatrix3_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawsdpmatrix3_free(ptr, 1));
 const RawSerializationPipelineFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawserializationpipeline_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawserializationpipeline_free(ptr, 1));
 const RawShapeFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawshape_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawshape_free(ptr, 1));
 const RawShapeCastHitFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawshapecasthit_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawshapecasthit_free(ptr, 1));
 const RawShapeContactFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawshapecontact_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawshapecontact_free(ptr, 1));
 const RawVHACDParametersFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawvhacdparameters_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawvhacdparameters_free(ptr, 1));
 const RawVectorFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawvector_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawvector_free(ptr, 1));
 
 function addHeapObject(obj) {
     if (heap_next === heap.length) heap.push(heap.length + 1);
@@ -6302,7 +6278,7 @@ function addBorrowedObject(obj) {
 }
 
 function dropObject(idx) {
-    if (idx < 132) return;
+    if (idx < 1028) return;
     heap[idx] = heap_next;
     heap_next = idx;
 }
@@ -6352,8 +6328,7 @@ function getInt32ArrayMemory0() {
 }
 
 function getStringFromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return decodeText(ptr, len);
+    return decodeText(ptr >>> 0, len);
 }
 
 let cachedUint32ArrayMemory0 = null;
@@ -6382,7 +6357,7 @@ function handleError(f, args) {
     }
 }
 
-let heap = new Array(128).fill(undefined);
+let heap = new Array(1024).fill(undefined);
 heap.push(undefined, null, true, false);
 
 let heap_next = heap.length;
@@ -6415,7 +6390,7 @@ function passArrayJsValueToWasm0(array, malloc) {
     return ptr;
 }
 
-let stack_pointer = 128;
+let stack_pointer = 1024;
 
 function takeObject(idx) {
     const ret = getObject(idx);
@@ -6439,8 +6414,9 @@ function decodeText(ptr, len) {
 
 let WASM_VECTOR_LEN = 0;
 
-let wasmModule, wasm;
+let wasmModule, wasmInstance, wasm;
 function __wbg_finalize_init(instance, module) {
+    wasmInstance = instance;
     wasm = instance.exports;
     wasmModule = module;
     cachedDataViewMemory0 = null;
@@ -6453,11 +6429,15 @@ function __wbg_finalize_init(instance, module) {
 
 async function __wbg_load(module, imports) {
     if (typeof Response === 'function' && module instanceof Response) {
+        if (!module.ok) {
+            throw new Error(`failed to fetch Wasm: ${module.status} ${module.statusText} fetching '${module.url}'`);
+        }
+
         if (typeof WebAssembly.instantiateStreaming === 'function') {
             try {
                 return await WebAssembly.instantiateStreaming(module, imports);
             } catch (e) {
-                const validResponse = module.ok && expectedResponseType(module.type);
+                const validResponse = expectedResponseType(module.type);
 
                 if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
                     console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve Wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);

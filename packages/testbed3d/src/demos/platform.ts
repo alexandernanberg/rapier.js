@@ -55,6 +55,12 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let movePlatform = () => {
         t += 0.016;
         let body = testbed.world.getRigidBody(platformHandle);
+
+        // The handle goes stale if the world is swapped out from under us.
+        if (body === null) {
+            return;
+        }
+
         let dy = Math.sin(t) * 10.0;
         let dang = Math.sin(t) * 0.2;
         body.setLinvel({x: 0.0, y: dy, z: 0.0}, true);
@@ -97,7 +103,9 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                     case 3:
                         colliderDesc = RAPIER.ColliderDesc.cone(rad, rad);
                         break;
-                    case 4:
+                    // `j % 5` is always 0..4 — using `default` for the last case
+                    // lets the compiler see `colliderDesc` is always assigned.
+                    default:
                         colliderDesc = RAPIER.ColliderDesc.cuboid(rad / 2.0, rad / 2.0, rad / 2.0);
                         world.createCollider(colliderDesc, body);
                         colliderDesc = RAPIER.ColliderDesc.cuboid(

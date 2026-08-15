@@ -9,6 +9,7 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
+        "typecheck": "tsc --noEmit",
         "preview": "vite preview"
     },
     "dependencies": {
@@ -17,14 +18,14 @@
         "lil-gui": "^0.21.0",
         "seedrandom": "^3.0.5",
         "stats.js": "^0.17.0",
-        "three": "^0.182.0"
+        "three": "^0.185.1"
     },
     "devDependencies": {
         "@types/seedrandom": "^3.0.8",
         "@types/stats.js": "^0.17.4",
-        "@types/three": "^0.182.0",
-        "typescript": "^5.9.3",
-        "vite": "^7.3.1",
-        "vite-plugin-wasm": "^3.5.0"
+        "@types/three": "^0.185.4",
+        "typescript": "^7.0.2",
+        "vite": "^8.2.1",
+        "vite-plugin-wasm": "^3.6.0"
     }
 }

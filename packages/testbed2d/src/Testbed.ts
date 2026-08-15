@@ -45,24 +45,32 @@ class SimulationParameters {
 export class Testbed {
     RAPIER: RAPIER_API;
     gui: Gui;
-    graphics: Graphics;
+    // Assigned by `initGraphics()`, which `create()` awaits before handing out the instance.
+    graphics!: Graphics;
     inhibitLookAt: boolean;
     parameters: SimulationParameters;
     demoToken: number;
     mouse: {x: number; y: number};
     events: RAPIER.EventQueue;
-    world: RAPIER.World;
+    // Assigned by `setWorld()`, which every demo builder calls.
+    world!: RAPIER.World;
     preTimestepAction?: (gfx: Graphics) => void;
     stepId: number;
-    prevDemo: string;
+    prevDemo?: string;
     lastMessageTime: number;
-    snap: Uint8Array;
+    snap?: Uint8Array;
     snapStepId: number;
 
     static async create(RAPIER: RAPIER_API, builders: Builders): Promise<Testbed> {
         const testbed = new Testbed(RAPIER, builders);
         await testbed.initGraphics();
-        testbed.switchToDemo(builders.keys().next().value);
+
+        const firstDemo = builders.keys().next().value;
+        if (firstDemo === undefined) {
+            throw new Error("Testbed.create() needs at least one demo builder.");
+        }
+        testbed.switchToDemo(firstDemo);
+
         return testbed;
     }
 
@@ -80,6 +88,9 @@ export class Testbed {
         this.demoToken = 0;
         this.mouse = {x: 0, y: 0};
         this.events = new RAPIER.EventQueue(true);
+        this.stepId = 0;
+        this.snapStepId = 0;
+        this.lastMessageTime = new Date().getTime();
 
         window.addEventListener("mousemove", (event) => {
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -94,7 +105,7 @@ export class Testbed {
     setWorld(world: RAPIER.World) {
         document.onkeyup = null;
         document.onkeydown = null;
-        this.preTimestepAction = null;
+        this.preTimestepAction = undefined;
         this.world = world;
         this.world.numSolverIterations = this.parameters.numSolverIters;
         this.demoToken += 1;
@@ -126,7 +137,12 @@ export class Testbed {
         this.stepId = 0;
 
         this.parameters.prevBackend = this.parameters.backend;
-        this.parameters.builders.get(demo)(this.RAPIER, this);
+
+        const builder = this.parameters.builders.get(demo);
+        if (builder === undefined) {
+            throw new Error(`Unknown demo: ${demo}`);
+        }
+        builder(this.RAPIER, this);
     }
 
     switchToBackend(_backend: string) {
@@ -140,9 +156,13 @@ export class Testbed {
 
     restoreSnapshot() {
         if (!!this.snap) {
-            this.world.free();
-            this.world = this.RAPIER.World.restoreSnapshot(this.snap);
-            this.stepId = this.snapStepId;
+            const restored = this.RAPIER.World.restoreSnapshot(this.snap);
+
+            if (restored !== null) {
+                this.world.free();
+                this.world = restored;
+                this.stepId = this.snapStepId;
+            }
         }
     }
 
