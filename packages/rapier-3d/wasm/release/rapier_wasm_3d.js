@@ -3700,6 +3700,38 @@ export class RawPhysicsPipeline {
         wasm.rawphysicspipeline_stepWithEvents(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, eventQueue.__wbg_ptr, addHeapObject(hookObject), addHeapObject(hookFilterContactPair), addHeapObject(hookFilterIntersectionPair));
     }
     /**
+     * Steps with physics hooks but without an event queue.
+     *
+     * Kept separate from `step` so the common hookless path does not pay for
+     * marshalling the three hook values across the boundary on every step.
+     * @param {RawVector} gravity
+     * @param {RawIntegrationParameters} integrationParameters
+     * @param {RawIslandManager} islands
+     * @param {RawBroadPhase} broadPhase
+     * @param {RawNarrowPhase} narrowPhase
+     * @param {RawRigidBodySet} bodies
+     * @param {RawColliderSet} colliders
+     * @param {RawImpulseJointSet} joints
+     * @param {RawMultibodyJointSet} articulations
+     * @param {RawCCDSolver} ccd_solver
+     * @param {object} hookObject
+     * @param {Function} hookFilterContactPair
+     * @param {Function} hookFilterIntersectionPair
+     */
+    stepWithHooks(gravity, integrationParameters, islands, broadPhase, narrowPhase, bodies, colliders, joints, articulations, ccd_solver, hookObject, hookFilterContactPair, hookFilterIntersectionPair) {
+        _assertClass(gravity, RawVector);
+        _assertClass(integrationParameters, RawIntegrationParameters);
+        _assertClass(islands, RawIslandManager);
+        _assertClass(broadPhase, RawBroadPhase);
+        _assertClass(narrowPhase, RawNarrowPhase);
+        _assertClass(bodies, RawRigidBodySet);
+        _assertClass(colliders, RawColliderSet);
+        _assertClass(joints, RawImpulseJointSet);
+        _assertClass(articulations, RawMultibodyJointSet);
+        _assertClass(ccd_solver, RawCCDSolver);
+        wasm.rawphysicspipeline_stepWithHooks(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, addHeapObject(hookObject), addHeapObject(hookFilterContactPair), addHeapObject(hookFilterIntersectionPair));
+    }
+    /**
      * @returns {number}
      */
     timing_broad_phase() {

@@ -133,6 +133,56 @@ impl RawPhysicsPipeline {
         colliders.sync_transform_data(&bodies.bodies, moved_bodies);
     }
 
+    /// Steps with physics hooks but without an event queue.
+    ///
+    /// Kept separate from `step` so the common hookless path does not pay for
+    /// marshalling the three hook values across the boundary on every step.
+    pub fn stepWithHooks(
+        &mut self,
+        gravity: &RawVector,
+        integrationParameters: &RawIntegrationParameters,
+        islands: &mut RawIslandManager,
+        broadPhase: &mut RawBroadPhase,
+        narrowPhase: &mut RawNarrowPhase,
+        bodies: &mut RawRigidBodySet,
+        colliders: &mut RawColliderSet,
+        joints: &mut RawImpulseJointSet,
+        articulations: &mut RawMultibodyJointSet,
+        ccd_solver: &mut RawCCDSolver,
+        hookObject: js_sys::Object,
+        hookFilterContactPair: js_sys::Function,
+        hookFilterIntersectionPair: js_sys::Function,
+    ) {
+        let hooks = RawPhysicsHooks {
+            this: hookObject,
+            filter_contact_pair: hookFilterContactPair,
+            filter_intersection_pair: hookFilterIntersectionPair,
+        };
+
+        self.0.step(
+            gravity.0,
+            &integrationParameters.0,
+            &mut islands.0,
+            &mut broadPhase.0,
+            &mut narrowPhase.0,
+            &mut bodies.bodies,
+            &mut colliders.0,
+            &mut joints.0,
+            &mut articulations.0,
+            &mut ccd_solver.0,
+            &hooks,
+            &(),
+        );
+
+        let synced_all_bodies = bodies.sync_transform_data(&islands.0);
+        let moved_bodies = if synced_all_bodies {
+            None
+        } else {
+            Some(bodies.synced.as_slice())
+        };
+        colliders.sync_transform_data(&bodies.bodies, moved_bodies);
+    }
+
     pub fn stepWithEvents(
         &mut self,
         gravity: &RawVector,

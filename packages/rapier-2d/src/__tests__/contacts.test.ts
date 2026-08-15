@@ -172,12 +172,9 @@ describe("physics hooks", () => {
         world.free();
     });
 
-    // KNOWN BUG: `PhysicsPipeline.step()` only forwards `hooks` to WASM on the
-    // `stepWithEvents` branch. Called without an event queue it falls through to
-    // `raw.step()`, which hardcodes `&()` as the hook implementation on the Rust
-    // side, so the hooks are silently ignored and the body lands on the ground.
-    // Remove `.fails` once step() routes hooks through regardless of the queue.
-    test.fails("filterContactPair is honoured without an event queue", () => {
+    // `step()` used to forward hooks only on the `stepWithEvents` branch, so
+    // stepping with hooks but no event queue silently ignored them.
+    test("filterContactPair is honoured without an event queue", () => {
         const {world, body, hooks} = hookScene();
 
         for (let i = 0; i < 60; i++) world.step(undefined, hooks);

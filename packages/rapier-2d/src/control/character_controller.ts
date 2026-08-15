@@ -79,7 +79,7 @@ export class KinematicCharacterController {
      * The direction that goes "up". Used to determine where the floor is, and the floor’s angle.
      */
     public up(): Vector {
-        return this.raw.up();
+        return VectorOps.fromRaw(this.raw.up())!;
     }
 
     /**

@@ -108,13 +108,9 @@ describe("kinematic character controller", () => {
         world.free();
     });
 
-    // KNOWN BUG: `up()` is declared to return a `Vector` but hands back
-    // `this.raw.up()` directly instead of unwrapping it with
-    // `VectorOps.fromRaw()`. Callers get a `RawVector` handle rather than
-    // `{x, y}`, and because nothing frees it every call leaks. Every other
-    // vector getter on the controller uses `fromRaw`. Remove `.fails` once
-    // `up()` unwraps.
-    test.fails("up() returns a plain vector", () => {
+    // `up()` used to hand back `this.raw.up()` directly, so callers got a
+    // `RawVector` handle rather than a plain vector — and nothing freed it.
+    test("up() returns a plain vector", () => {
         const world = new RAPIER.World(GRAVITY);
         const controller = world.createCharacterController(0.01);
 
