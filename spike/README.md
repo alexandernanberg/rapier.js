@@ -11,6 +11,7 @@ node spike/bench/kernels/bench.mjs     # spike 01 — JS vs Rust/WASM kernels
 node spike/bench/kernels/bench2.mjs    # spike 01 — fairness + boundary costs
 node spike/bench/kernels/divergence.mjs # spike 01 — JS/Rust f32 agreement
 node spike/bench/parallel.ts           # spike 03 — parallel executor + equivalence
+node spike/test/harness.ts             # spike 04 — headless harness (13 checks)
 ```
 
 The kernel benchmarks need the wasm built first:
@@ -145,6 +146,50 @@ sequences** — confirming that per-worker command buffers must be merged in a
 fixed order, not as threads finish. Merge order for the 4-way reduction happened
 not to matter on this run, which is a good illustration of why this class of bug
 survives casual testing.
+
+## Spike 04 — the headless harness
+
+A deterministic, steppable simulation with input as per-tick data, plus a small
+platformer to assert against. 13 checks, all passing.
+
+```bash
+node spike/test/harness.ts     # exit 0 / 1, no browser, no canvas
+```
+
+The properties the harness owes an agent, all verified:
+
+| property                                  | result         |
+| ----------------------------------------- | -------------- |
+| same inputs twice → identical world        | byte-identical |
+| recording replays → identical world        | byte-identical |
+| snapshot then restore rewinds exactly      | byte-identical |
+| recording size                             | 16 B/player/tick |
+
+Replay works by injecting recorded frames and stepping without re-latching, so
+the recorded frame is the only source of truth. A 90-tick session with jumps,
+movement and pickup despawns replays to the byte.
+
+### Writing the tests found two real problems
+
+Both were found on first use, which is the argument for building the harness
+before the renderer rather than after.
+
+**`press()` without `release()` silently suppresses later edges.** A test pressed
+jump while airborne, landed, pressed again, and the second jump never fired —
+because the action was still held, so there was no rising edge. The fix is a
+`tap()` primitive (down and up inside one tick, riding the sticky bit), which is
+what a test almost always means and what a fast human tap actually is. There is
+now a regression test asserting that a held action does *not* auto-repeat.
+
+**Jump launch velocity is not `JUMP_SPEED`.** It is `JUMP_SPEED + g*dt`, because
+gravity runs after the impulse within the same tick. That is correct
+semi-implicit Euler and the sim is right — but nothing in the source makes it
+visible, and it is exactly what would confuse whoever tunes jump height. The
+assertion now states the real value and explains the ordering.
+
+Neither is an exotic bug. Both are the kind of thing that ships quietly and gets
+discovered as "the jump feels wrong", which is the failure mode a machine-checkable
+oracle exists to prevent.
 
 ## Caveat on codegen
 
