@@ -78,6 +78,22 @@ export class PhysicsPipeline {
                 hooks?.filterContactPair as Function,
                 hooks?.filterIntersectionPair as Function,
             );
+        } else if (!!hooks) {
+            this.raw.stepWithHooks(
+                this.cachedGravity,
+                integrationParameters.raw,
+                islands.raw,
+                broadPhase.raw,
+                narrowPhase.raw,
+                bodies.raw,
+                colliders.raw,
+                impulseJoints.raw,
+                multibodyJoints.raw,
+                ccdSolver.raw,
+                hooks as object,
+                hooks.filterContactPair as Function,
+                hooks.filterIntersectionPair as Function,
+            );
         } else {
             this.raw.step(
                 this.cachedGravity,
