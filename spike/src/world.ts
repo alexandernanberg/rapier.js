@@ -13,20 +13,38 @@ const PAGE = 65536;
 export class Arena {
     readonly buf: ArrayBufferLike;
     readonly shared: boolean;
-    private off = 0;
+    /** Byte offset of the arena within `buf`. Non-zero when borrowed. */
+    readonly base: number;
+    readonly limit: number;
+    private off: number;
 
     constructor(pages: number, shared: boolean) {
         this.shared = shared;
         if (shared) {
-            const mem = new WebAssembly.Memory({
-                initial: pages,
-                maximum: pages,
-                shared: true,
-            });
+            const mem = new WebAssembly.Memory({initial: pages, maximum: pages, shared: true});
             this.buf = mem.buffer;
         } else {
             this.buf = new ArrayBuffer(pages * PAGE);
         }
+        this.base = 0;
+        this.off = 0;
+        this.limit = this.buf.byteLength;
+    }
+
+    /**
+     * Borrow a region of somebody else's linear memory — in practice the physics
+     * module's, so that component columns live where Rapier can write into them
+     * directly. This is what makes the tier-1 zero-copy path real rather than
+     * aspirational.
+     */
+    static borrow(buf: ArrayBufferLike, base: number, bytes: number): Arena {
+        const a: Arena = Object.create(Arena.prototype);
+        (a as {buf: ArrayBufferLike}).buf = buf;
+        (a as {shared: boolean}).shared = !(buf instanceof ArrayBuffer);
+        (a as {base: number}).base = base;
+        (a as {limit: number}).limit = base + bytes;
+        (a as unknown as {off: number}).off = base;
+        return a;
     }
 
     alloc(type: FieldType, len: number): Float32Array | Uint32Array {
@@ -34,15 +52,17 @@ export class Arena {
         const bytes = len * Ctor.BYTES_PER_ELEMENT;
         // keep every column 8-byte aligned
         const at = (this.off + 7) & ~7;
-        if (at + bytes > this.buf.byteLength) {
-            throw new Error(`arena exhausted: need ${at + bytes}, have ${this.buf.byteLength}`);
+        if (at + bytes > this.limit) {
+            throw new Error(
+                `arena exhausted: need ${at + bytes - this.base}, have ${this.limit - this.base}`,
+            );
         }
         this.off = at + bytes;
         return new Ctor(this.buf as ArrayBuffer, at, len);
     }
 
     get used() {
-        return this.off;
+        return this.off - this.base;
     }
 }
 
@@ -109,9 +129,9 @@ export class World {
     /** Deferred structural changes, applied at a stage boundary. */
     private readonly cmds: Array<() => void> = [];
 
-    constructor(opts: {pages?: number; capacity?: number; shared?: boolean} = {}) {
+    constructor(opts: {pages?: number; capacity?: number; shared?: boolean; arena?: Arena} = {}) {
         this.cap = opts.capacity ?? 1_100_000;
-        this.arena = new Arena(opts.pages ?? 3072, opts.shared ?? true);
+        this.arena = opts.arena ?? new Arena(opts.pages ?? 3072, opts.shared ?? true);
     }
 
     archetype(comps: ComponentDef[]): Archetype {

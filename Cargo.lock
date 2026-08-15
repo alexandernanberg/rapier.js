@@ -494,6 +494,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "physics-ecs"
+version = "0.0.0"
+dependencies = [
+ "rapier3d",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"

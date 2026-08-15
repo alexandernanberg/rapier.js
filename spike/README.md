@@ -12,6 +12,7 @@ node spike/bench/kernels/bench2.mjs    # spike 01 — fairness + boundary costs
 node spike/bench/kernels/divergence.mjs # spike 01 — JS/Rust f32 agreement
 node spike/bench/parallel.ts           # spike 03 — parallel executor + equivalence
 node spike/test/harness.ts             # spike 04 — headless harness (13 checks)
+node spike/test/physics.ts             # spike 05 — Rapier over ECS columns (7 checks)
 ```
 
 The kernel benchmarks need the wasm built first:
@@ -158,12 +159,12 @@ node spike/test/harness.ts     # exit 0 / 1, no browser, no canvas
 
 The properties the harness owes an agent, all verified:
 
-| property                                  | result         |
-| ----------------------------------------- | -------------- |
-| same inputs twice → identical world        | byte-identical |
-| recording replays → identical world        | byte-identical |
-| snapshot then restore rewinds exactly      | byte-identical |
-| recording size                             | 16 B/player/tick |
+| property                              | result           |
+| ------------------------------------- | ---------------- |
+| same inputs twice → identical world   | byte-identical   |
+| recording replays → identical world   | byte-identical   |
+| snapshot then restore rewinds exactly | byte-identical   |
+| recording size                        | 16 B/player/tick |
 
 Replay works by injecting recorded frames and stepping without re-latching, so
 the recorded frame is the only source of truth. A 90-tick session with jumps,
@@ -179,7 +180,7 @@ jump while airborne, landed, pressed again, and the second jump never fired —
 because the action was still held, so there was no rising edge. The fix is a
 `tap()` primitive (down and up inside one tick, riding the sticky bit), which is
 what a test almost always means and what a fast human tap actually is. There is
-now a regression test asserting that a held action does *not* auto-repeat.
+now a regression test asserting that a held action does _not_ auto-repeat.
 
 **Jump launch velocity is not `JUMP_SPEED`.** It is `JUMP_SPEED + g*dt`, because
 gravity runs after the impulse within the same tick. That is correct
@@ -190,6 +191,56 @@ assertion now states the real value and explains the ordering.
 Neither is an exotic bug. Both are the kind of thing that ships quietly and gets
 discovered as "the jump feels wrong", which is the failure mode a machine-checkable
 oracle exists to prevent.
+
+## Spike 05 — Rapier over ECS columns
+
+A purpose-built Rapier backend (`spike/crates/physics-ecs`) with a raw C ABI and
+**no wasm-bindgen**. It exposes no objects: the hot path is push kinematic, step,
+pull transforms — three calls per frame regardless of body count. The ECS arena is
+allocated *inside this module's linear memory*, so Rapier writes transforms into
+their final home in the component columns.
+
+```bash
+cargo build --target wasm32-unknown-unknown -p physics-ecs   # 1.79 MB artifact
+node spike/test/physics.ts                                   # 7 checks
+```
+
+The tier-1 zero-copy claim holds. Verified: the column's backing buffer *is* the
+wasm memory, and stepping mutates the ECS columns directly with no intermediate.
+
+### Sync is 2.6% of the step it follows
+
+| 20,000 bodies          | time     |
+| ---------------------- | -------- |
+| `phys_step`            | 11.67 ms |
+| `pull_transforms` bulk | 0.30 ms  |
+| per body               | 14.9 ns  |
+
+The thing the design spent pages worrying about is noise next to the solver. This
+also retires the tier-1/tier-2 distinction as a practical concern: if bulk sync is
+2.6% when it is free, a foreign module's memcpy version would still be a rounding
+error. **Pluggability was never going to cost what it looked like it would.**
+
+### The trap: growing the heap detaches every view
+
+The first run failed in a way worth recording. Rapier allocates during `step`, the
+heap grew, and growing a non-shared `WebAssembly.Memory` **detaches every JS view
+over it**. The failure mode is nasty: a detached typed array reports
+`byteOffset === 0` rather than throwing, so Rust was handed a null pointer and
+panicked from deep inside a slice constructor. Nothing in the stack trace pointed
+at the actual cause.
+
+Two fixes, both kept:
+
+1. `phys_new` takes a `reserve_bytes` and claims allocator headroom up front, then
+   frees it — so later Rapier allocations come from that pool and never call
+   `memory.grow`. With it, neither body creation nor stepping moves the memory.
+2. The seam checks for detached views and raises an error that names the cause and
+   the fix, rather than letting a null pointer through.
+
+This is the strongest argument yet for the design's note that a shared memory
+would be preferable: a `SharedArrayBuffer`-backed memory does not detach on grow,
+which removes the whole class of bug rather than mitigating it.
 
 ## Caveat on codegen
 

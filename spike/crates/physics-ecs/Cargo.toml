@@ -1,0 +1,12 @@
+[package]
+name = "physics-ecs"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Spike: bulk-transfer Rapier ABI for an ECS, with no wasm-bindgen glue"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rapier3d = "0.35"
