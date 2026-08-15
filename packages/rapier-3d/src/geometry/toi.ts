@@ -1,8 +1,6 @@
 import {Vector, VectorOps} from "../math";
 import {RawShapeCastHit, RawColliderShapeCastHit} from "../raw";
-
-/** Shared scratch buffer for WASM reads (single-threaded, safe to share). */
-const _scratch = new Float32Array(13);
+import {scratch} from "../scratch";
 import {Collider} from "./collider";
 import {ColliderSet} from "./collider_set";
 
@@ -55,28 +53,29 @@ export class ShapeCastHit {
     ): ShapeCastHit | null {
         if (!raw) return null;
 
-        raw.getComponents(_scratch);
+        raw.getComponents();
+        const s = scratch();
         raw.free();
 
         const result = new ShapeCastHit(
-            _scratch[0],
+            s[0],
             VectorOps.zeros(),
             VectorOps.zeros(),
             VectorOps.zeros(),
             VectorOps.zeros(),
         );
-        result.witness1.x = _scratch[1];
-        result.witness1.y = _scratch[2];
-        result.witness1.z = _scratch[3];
-        result.witness2.x = _scratch[4];
-        result.witness2.y = _scratch[5];
-        result.witness2.z = _scratch[6];
-        result.normal1.x = _scratch[7];
-        result.normal1.y = _scratch[8];
-        result.normal1.z = _scratch[9];
-        result.normal2.x = _scratch[10];
-        result.normal2.y = _scratch[11];
-        result.normal2.z = _scratch[12];
+        result.witness1.x = s[1];
+        result.witness1.y = s[2];
+        result.witness1.z = s[3];
+        result.witness2.x = s[4];
+        result.witness2.y = s[5];
+        result.witness2.z = s[6];
+        result.normal1.x = s[7];
+        result.normal1.y = s[8];
+        result.normal1.z = s[9];
+        result.normal2.x = s[10];
+        result.normal2.y = s[11];
+        result.normal2.z = s[12];
         return result;
     }
 }
@@ -109,29 +108,30 @@ export class ColliderShapeCastHit extends ShapeCastHit {
         if (!raw) return null;
 
         const collider = colliderSet.get(raw.colliderHandle())!;
-        raw.getComponents(_scratch);
+        raw.getComponents();
+        const s = scratch();
         raw.free();
 
         const result = new ColliderShapeCastHit(
             collider,
-            _scratch[0],
+            s[0],
             VectorOps.zeros(),
             VectorOps.zeros(),
             VectorOps.zeros(),
             VectorOps.zeros(),
         );
-        result.witness1.x = _scratch[1];
-        result.witness1.y = _scratch[2];
-        result.witness1.z = _scratch[3];
-        result.witness2.x = _scratch[4];
-        result.witness2.y = _scratch[5];
-        result.witness2.z = _scratch[6];
-        result.normal1.x = _scratch[7];
-        result.normal1.y = _scratch[8];
-        result.normal1.z = _scratch[9];
-        result.normal2.x = _scratch[10];
-        result.normal2.y = _scratch[11];
-        result.normal2.z = _scratch[12];
+        result.witness1.x = s[1];
+        result.witness1.y = s[2];
+        result.witness1.z = s[3];
+        result.witness2.x = s[4];
+        result.witness2.y = s[5];
+        result.witness2.z = s[6];
+        result.normal1.x = s[7];
+        result.normal1.y = s[8];
+        result.normal1.z = s[9];
+        result.normal2.x = s[10];
+        result.normal2.y = s[11];
+        result.normal2.z = s[12];
         return result;
     }
 }

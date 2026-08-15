@@ -61,6 +61,44 @@ describe("kinematic character controller", () => {
         world.free();
     });
 
+    test("a reported collision carries a fully populated payload", () => {
+        const {world, collider} = groundedCharacter();
+
+        const controller = world.createCharacterController(0.01);
+        controller.computeColliderMovement(collider, {x: 0, y: -5, z: 0});
+
+        const hit = controller.computedCollision(0)!;
+        expect(hit).not.toBeNull();
+
+        // Every field arrives in one `getComponents` write, so an off-by-one in
+        // that layout (or a scratch buffer sized differently from what Rust
+        // writes) shows up as a wrong or missing component rather than a throw.
+        expect(hit.toi).toBeGreaterThanOrEqual(0);
+        expect(hit.collider).not.toBeNull();
+
+        for (const v of [
+            hit.translationDeltaApplied,
+            hit.translationDeltaRemaining,
+            hit.witness1,
+            hit.witness2,
+            hit.normal1,
+            hit.normal2,
+        ]) {
+            expect(Number.isFinite(v.x)).toBe(true);
+            expect(Number.isFinite(v.y)).toBe(true);
+            expect(Number.isFinite(v.z)).toBe(true);
+        }
+
+        // The floor was hit from above, so its world-space normal points up and
+        // the descent was split between applied and remaining.
+        expect(hit.normal1.y).toBeCloseTo(1, 1);
+        expect(hit.translationDeltaApplied.y).toBeLessThan(0);
+        expect(hit.translationDeltaRemaining.y).toBeLessThan(0);
+
+        world.removeCharacterController(controller);
+        world.free();
+    });
+
     test("a wall blocks movement into it", () => {
         const {world, collider} = groundedCharacter();
         const wallBody = world.createRigidBody(

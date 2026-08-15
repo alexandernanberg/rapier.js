@@ -14,12 +14,14 @@ change for consumers.
 - `IntegrationParameters.minIslandSize` / `World.minIslandSize` were removed.
   Awake bodies are now solved as a single active set, so the parameter no longer
   exists upstream.
-- On a contact manifold, `solverContactPoint(i)` was replaced by
-  `solverContactAnchor1(i)` and `solverContactAnchor2(i)`. Solver contacts now
-  store a per-body anchor instead of a single world-space point. The anchors are
-  expressed in the body's center-of-mass-centered local frame, or in world-space
-  when that side has no solver body (no rigid-body, or world-attached by
-  dominance — fixed bodies included).
+- On a contact manifold, solver contacts now store a per-body anchor instead of a
+  single world-space point, which are exposed as the new `solverContactAnchor1(i)`
+  and `solverContactAnchor2(i)`. The anchors are expressed in the body's
+  center-of-mass-centered local frame, or in world-space when that side has no
+  solver body (no rigid-body, or world-attached by dominance — fixed bodies
+  included). `solverContactPoint(i)` is still available and still returns a
+  world-space point, now midway between both surfaces; its return type is now
+  `Vector | null`, which is what it already returned for an out-of-bounds index.
 - `solverContactFriction(i)` and `solverContactRestitution(i)` were replaced by
   `friction()` and `restitution()` on the manifold. Both coefficients are now
   stored per-manifold rather than per solver-contact, so they are identical for
@@ -45,11 +47,3 @@ change for consumers.
   attached to the same rigid-body, since the broad phase no longer pairs them.
 - World snapshots taken with an earlier version cannot be restored: the island
   manager and rigid-body activation serialization formats changed upstream.
-
-**SIMD variants**
-
-Rapier 0.35 removed its `simd-stable` feature — SIMD is now always on, backed by
-`wide`, which falls back to scalar code where unsupported. The `simd` and
-`compat-simd` entry points are unchanged and still meaningful: they are built
-with `-C target-feature=+simd128` so `wide` emits real WASM SIMD128
-instructions, while the default variants stay portable.

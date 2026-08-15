@@ -1,7 +1,8 @@
 use crate::dynamics::RawRigidBodySet;
+use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::geometry::{ContactManifold, ContactPair, NarrowPhase};
-use rapier::math::{Real, Vector};
+use rapier::math::Real;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -91,30 +92,22 @@ impl RawContactPair {
     }
 }
 
-/// Writes a vector's components into a JS buffer.
-fn write_vector(v: Vector, buffer: &js_sys::Float32Array) {
-    buffer.set_index(0, v.x);
-    buffer.set_index(1, v.y);
-    #[cfg(feature = "dim3")]
-    buffer.set_index(2, v.z);
-}
-
 #[wasm_bindgen]
 impl RawContactManifold {
-    pub fn normal(&self, buffer: &js_sys::Float32Array) {
-        unsafe { write_vector((*self.0).data.normal, buffer) }
+    pub fn normal(&self) {
+        unsafe { scratch::write_vector((*self.0).data.normal) }
     }
 
     // pub fn user_data(&self) -> u32 {
     //     unsafe { (*self.0).data.user_data }
     // }
 
-    pub fn local_n1(&self, buffer: &js_sys::Float32Array) {
-        unsafe { write_vector((*self.0).local_n1, buffer) }
+    pub fn local_n1(&self) {
+        unsafe { scratch::write_vector((*self.0).local_n1) }
     }
 
-    pub fn local_n2(&self, buffer: &js_sys::Float32Array) {
-        unsafe { write_vector((*self.0).local_n2, buffer) }
+    pub fn local_n2(&self) {
+        unsafe { scratch::write_vector((*self.0).local_n2) }
     }
 
     pub fn subshape1(&self) -> u32 {
@@ -129,19 +122,19 @@ impl RawContactManifold {
         unsafe { (*self.0).points.len() }
     }
 
-    pub fn contact_local_p1(&self, i: usize, buffer: &js_sys::Float32Array) -> bool {
+    pub fn contact_local_p1(&self, i: usize) -> bool {
         unsafe {
             (&(*self.0).points).get(i).is_some_and(|c| {
-                write_vector(c.local_p1, buffer);
+                scratch::write_vector(c.local_p1);
                 true
             })
         }
     }
 
-    pub fn contact_local_p2(&self, i: usize, buffer: &js_sys::Float32Array) -> bool {
+    pub fn contact_local_p2(&self, i: usize) -> bool {
         unsafe {
             (&(*self.0).points).get(i).is_some_and(|c| {
-                write_vector(c.local_p2, buffer);
+                scratch::write_vector(c.local_p2);
                 true
             })
         }
@@ -207,10 +200,10 @@ impl RawContactManifold {
     /// Since rapier 0.35 this is expressed in that body's center-of-mass-centered local
     /// frame, or in world-space when the first side has no solver body (no rigid-body, or
     /// world-attached by dominance — fixed bodies included).
-    pub fn solver_contact_anchor1(&self, i: usize, buffer: &js_sys::Float32Array) -> bool {
+    pub fn solver_contact_anchor1(&self, i: usize) -> bool {
         unsafe {
             (&(*self.0).data).solver_contacts.get(i).is_some_and(|c| {
-                write_vector(c.anchor1, buffer);
+                scratch::write_vector(c.anchor1);
                 true
             })
         }
@@ -218,10 +211,10 @@ impl RawContactManifold {
 
     /// The contact point on the second body's surface, expressed like
     /// [`Self::solver_contact_anchor1`].
-    pub fn solver_contact_anchor2(&self, i: usize, buffer: &js_sys::Float32Array) -> bool {
+    pub fn solver_contact_anchor2(&self, i: usize) -> bool {
         unsafe {
             (&(*self.0).data).solver_contacts.get(i).is_some_and(|c| {
-                write_vector(c.anchor2, buffer);
+                scratch::write_vector(c.anchor2);
                 true
             })
         }
@@ -232,17 +225,12 @@ impl RawContactManifold {
     /// Solver contacts store one body-local anchor per surface (the two differ by the
     /// current separation along the normal), so resolving them back to world-space needs
     /// the bodies they are anchored to.
-    pub fn solver_contact_point(
-        &self,
-        bodies: &RawRigidBodySet,
-        i: usize,
-        buffer: &js_sys::Float32Array,
-    ) -> bool {
+    pub fn solver_contact_point(&self, bodies: &RawRigidBodySet, i: usize) -> bool {
         unsafe {
             let data = &(*self.0).data;
             data.solver_contacts.get(i).is_some_and(|c| {
                 let (p1, p2) = data.solver_contact_world_points(c, &bodies.bodies);
-                write_vector((p1 + p2) / 2.0, buffer);
+                scratch::write_vector((p1 + p2) / 2.0);
                 true
             })
         }
@@ -274,10 +262,10 @@ impl RawContactManifold {
         unsafe { (*self.0).data.restitution }
     }
 
-    pub fn solver_contact_tangent_velocity(&self, i: usize, buffer: &js_sys::Float32Array) -> bool {
+    pub fn solver_contact_tangent_velocity(&self, i: usize) -> bool {
         unsafe {
             (&(*self.0).data).solver_contacts.get(i).is_some_and(|c| {
-                write_vector(c.tangent_velocity, buffer);
+                scratch::write_vector(c.tangent_velocity);
                 true
             })
         }

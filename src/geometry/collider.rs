@@ -6,8 +6,8 @@ use crate::geometry::{
     RawShapeCastHit, RawShapeContact, RawShapeType,
 };
 use crate::math::{RawRotation, RawVector};
+use crate::scratch;
 use crate::utils::{self, FlatHandle};
-use js_sys::Float32Array;
 use rapier::dynamics::MassProperties;
 use rapier::geometry::{ActiveCollisionTypes, ShapeType};
 use rapier::math::{IVector, Pose, Real, Rotation, Vector};
@@ -18,55 +18,48 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 impl RawColliderSet {
-    /// The world-space translation of this collider, written to a buffer.
+    /// The world-space translation of this collider, written to the scratch buffer.
     #[cfg(feature = "dim2")]
-    pub fn coTranslation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn coTranslation(&self, handle: FlatHandle) {
         self.map(handle, |co| {
             let t = co.position().translation;
-            buffer.set_index(0, t.x);
-            buffer.set_index(1, t.y);
+            scratch::write(&[t.x, t.y]);
         });
     }
 
-    /// The world-space translation of this collider, written to a buffer.
+    /// The world-space translation of this collider, written to the scratch buffer.
     #[cfg(feature = "dim3")]
-    pub fn coTranslation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn coTranslation(&self, handle: FlatHandle) {
         self.map(handle, |co| {
             let t = co.position().translation;
-            buffer.set_index(0, t.x);
-            buffer.set_index(1, t.y);
-            buffer.set_index(2, t.z);
+            scratch::write(&[t.x, t.y, t.z]);
         });
     }
 
-    /// The world-space orientation of this collider, written to a buffer.
+    /// The world-space orientation of this collider, written to the scratch buffer.
     #[cfg(feature = "dim2")]
-    pub fn coRotation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn coRotation(&self, handle: FlatHandle) {
         self.map(handle, |co| {
-            buffer.set_index(0, co.position().rotation.angle());
+            scratch::write(&[co.position().rotation.angle()]);
         });
     }
 
-    /// The world-space orientation of this collider, written to a buffer.
+    /// The world-space orientation of this collider, written to the scratch buffer.
     #[cfg(feature = "dim3")]
-    pub fn coRotation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn coRotation(&self, handle: FlatHandle) {
         self.map(handle, |co| {
             let r = co.position().rotation;
-            buffer.set_index(0, r.x);
-            buffer.set_index(1, r.y);
-            buffer.set_index(2, r.z);
-            buffer.set_index(3, r.w);
+            scratch::write(&[r.x, r.y, r.z, r.w]);
         });
     }
 
-    /// The translation of this collider relative to its parent rigid-body, written to a buffer.
+    /// The translation of this collider relative to its parent rigid-body, written to the scratch buffer.
     /// Returns false if it doesn't have a parent.
     #[cfg(feature = "dim2")]
-    pub fn coTranslationWrtParent(&self, handle: FlatHandle, buffer: &Float32Array) -> bool {
+    pub fn coTranslationWrtParent(&self, handle: FlatHandle) -> bool {
         self.map(handle, |co| {
             if let Some(pose) = co.position_wrt_parent() {
-                buffer.set_index(0, pose.translation.x);
-                buffer.set_index(1, pose.translation.y);
+                scratch::write(&[pose.translation.x, pose.translation.y]);
                 true
             } else {
                 false
@@ -74,15 +67,13 @@ impl RawColliderSet {
         })
     }
 
-    /// The translation of this collider relative to its parent rigid-body, written to a buffer.
+    /// The translation of this collider relative to its parent rigid-body, written to the scratch buffer.
     /// Returns false if it doesn't have a parent.
     #[cfg(feature = "dim3")]
-    pub fn coTranslationWrtParent(&self, handle: FlatHandle, buffer: &Float32Array) -> bool {
+    pub fn coTranslationWrtParent(&self, handle: FlatHandle) -> bool {
         self.map(handle, |co| {
             if let Some(pose) = co.position_wrt_parent() {
-                buffer.set_index(0, pose.translation.x);
-                buffer.set_index(1, pose.translation.y);
-                buffer.set_index(2, pose.translation.z);
+                scratch::write(&[pose.translation.x, pose.translation.y, pose.translation.z]);
                 true
             } else {
                 false
@@ -90,13 +81,13 @@ impl RawColliderSet {
         })
     }
 
-    /// The orientation of this collider relative to its parent rigid-body, written to a buffer.
+    /// The orientation of this collider relative to its parent rigid-body, written to the scratch buffer.
     /// Returns false if it doesn't have a parent.
     #[cfg(feature = "dim2")]
-    pub fn coRotationWrtParent(&self, handle: FlatHandle, buffer: &Float32Array) -> bool {
+    pub fn coRotationWrtParent(&self, handle: FlatHandle) -> bool {
         self.map(handle, |co| {
             if let Some(pose) = co.position_wrt_parent() {
-                buffer.set_index(0, pose.rotation.angle());
+                scratch::write(&[pose.rotation.angle()]);
                 true
             } else {
                 false
@@ -104,16 +95,18 @@ impl RawColliderSet {
         })
     }
 
-    /// The orientation of this collider relative to its parent rigid-body, written to a buffer.
+    /// The orientation of this collider relative to its parent rigid-body, written to the scratch buffer.
     /// Returns false if it doesn't have a parent.
     #[cfg(feature = "dim3")]
-    pub fn coRotationWrtParent(&self, handle: FlatHandle, buffer: &Float32Array) -> bool {
+    pub fn coRotationWrtParent(&self, handle: FlatHandle) -> bool {
         self.map(handle, |co| {
             if let Some(pose) = co.position_wrt_parent() {
-                buffer.set_index(0, pose.rotation.x);
-                buffer.set_index(1, pose.rotation.y);
-                buffer.set_index(2, pose.rotation.z);
-                buffer.set_index(3, pose.rotation.w);
+                scratch::write(&[
+                    pose.rotation.x,
+                    pose.rotation.y,
+                    pose.rotation.z,
+                    pose.rotation.w,
+                ]);
                 true
             } else {
                 false

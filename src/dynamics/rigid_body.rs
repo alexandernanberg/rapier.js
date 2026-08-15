@@ -3,52 +3,46 @@ use crate::geometry::RawColliderSet;
 use crate::math::RawVector;
 #[cfg(feature = "dim3")]
 use crate::math::{RawRotation, RawSdpMatrix3};
+use crate::scratch;
 use crate::utils::{self, FlatHandle};
-use js_sys::Float32Array;
 use rapier::dynamics::MassProperties;
 use rapier::math::{Rotation, Vector};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 impl RawRigidBodySet {
-    /// The world-space translation of this rigid-body, written to a buffer.
+    /// The world-space translation of this rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim2")]
-    pub fn rbTranslation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbTranslation(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let t = rb.position().translation;
-            buffer.set_index(0, t.x);
-            buffer.set_index(1, t.y);
+            scratch::write(&[t.x, t.y]);
         });
     }
 
-    /// The world-space translation of this rigid-body, written to a buffer.
+    /// The world-space translation of this rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim3")]
-    pub fn rbTranslation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbTranslation(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let t = rb.position().translation;
-            buffer.set_index(0, t.x);
-            buffer.set_index(1, t.y);
-            buffer.set_index(2, t.z);
+            scratch::write(&[t.x, t.y, t.z]);
         });
     }
 
-    /// The world-space orientation of this rigid-body, written to a buffer.
+    /// The world-space orientation of this rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim2")]
-    pub fn rbRotation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbRotation(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
-            buffer.set_index(0, rb.position().rotation.angle());
+            scratch::write(&[rb.position().rotation.angle()]);
         });
     }
 
-    /// The world-space orientation of this rigid-body, written to a buffer.
+    /// The world-space orientation of this rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim3")]
-    pub fn rbRotation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbRotation(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let r = rb.position().rotation;
-            buffer.set_index(0, r.x);
-            buffer.set_index(1, r.y);
-            buffer.set_index(2, r.z);
-            buffer.set_index(3, r.w);
+            scratch::write(&[r.x, r.y, r.z, r.w]);
         });
     }
 
@@ -67,60 +61,54 @@ impl RawRigidBodySet {
         self.map(handle, |rb| rb.is_moving())
     }
 
-    /// The world-space next translation of this rigid-body, written to a buffer.
+    /// The world-space next translation of this rigid-body, written to the scratch buffer.
     ///
     /// If this rigid-body is kinematic this value is set by the `setNextKinematicTranslation`
     /// method and is used for estimating the kinematic body velocity at the next timestep.
     /// For non-kinematic bodies, this value is currently unspecified.
     #[cfg(feature = "dim2")]
-    pub fn rbNextTranslation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbNextTranslation(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let t = rb.next_position().translation;
-            buffer.set_index(0, t.x);
-            buffer.set_index(1, t.y);
+            scratch::write(&[t.x, t.y]);
         });
     }
 
-    /// The world-space next translation of this rigid-body, written to a buffer.
+    /// The world-space next translation of this rigid-body, written to the scratch buffer.
     ///
     /// If this rigid-body is kinematic this value is set by the `setNextKinematicTranslation`
     /// method and is used for estimating the kinematic body velocity at the next timestep.
     /// For non-kinematic bodies, this value is currently unspecified.
     #[cfg(feature = "dim3")]
-    pub fn rbNextTranslation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbNextTranslation(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let t = rb.next_position().translation;
-            buffer.set_index(0, t.x);
-            buffer.set_index(1, t.y);
-            buffer.set_index(2, t.z);
+            scratch::write(&[t.x, t.y, t.z]);
         });
     }
 
-    /// The world-space next orientation of this rigid-body, written to a buffer.
+    /// The world-space next orientation of this rigid-body, written to the scratch buffer.
     ///
     /// If this rigid-body is kinematic this value is set by the `setNextKinematicRotation`
     /// method and is used for estimating the kinematic body velocity at the next timestep.
     /// For non-kinematic bodies, this value is currently unspecified.
     #[cfg(feature = "dim2")]
-    pub fn rbNextRotation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbNextRotation(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
-            buffer.set_index(0, rb.next_position().rotation.angle());
+            scratch::write(&[rb.next_position().rotation.angle()]);
         });
     }
 
-    /// The world-space next orientation of this rigid-body, written to a buffer.
+    /// The world-space next orientation of this rigid-body, written to the scratch buffer.
     ///
     /// If this rigid-body is kinematic this value is set by the `setNextKinematicRotation`
     /// method and is used for estimating the kinematic body velocity at the next timestep.
     /// For non-kinematic bodies, this value is currently unspecified.
     #[cfg(feature = "dim3")]
-    pub fn rbNextRotation(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbNextRotation(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let r = rb.next_position().rotation;
-            buffer.set_index(0, r.x);
-            buffer.set_index(1, r.y);
-            buffer.set_index(2, r.z);
-            buffer.set_index(3, r.w);
+            scratch::write(&[r.x, r.y, r.z, r.w]);
         });
     }
 
@@ -455,24 +443,21 @@ impl RawRigidBodySet {
         })
     }
 
-    /// The linear velocity of this rigid-body, written to a buffer.
+    /// The linear velocity of this rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim2")]
-    pub fn rbLinvel(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbLinvel(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let v = rb.linvel();
-            buffer.set_index(0, v.x);
-            buffer.set_index(1, v.y);
+            scratch::write(&[v.x, v.y]);
         });
     }
 
-    /// The linear velocity of this rigid-body, written to a buffer.
+    /// The linear velocity of this rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim3")]
-    pub fn rbLinvel(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbLinvel(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let v = rb.linvel();
-            buffer.set_index(0, v.x);
-            buffer.set_index(1, v.y);
-            buffer.set_index(2, v.z);
+            scratch::write(&[v.x, v.y, v.z]);
         });
     }
 
@@ -482,14 +467,12 @@ impl RawRigidBodySet {
         self.map(handle, |rb| rb.angvel())
     }
 
-    /// The angular velocity of this rigid-body, written to a buffer.
+    /// The angular velocity of this rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim3")]
-    pub fn rbAngvel(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbAngvel(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let v = rb.angvel();
-            buffer.set_index(0, v.x);
-            buffer.set_index(1, v.y);
-            buffer.set_index(2, v.z);
+            scratch::write(&[v.x, v.y, v.z]);
         });
     }
 
@@ -580,45 +563,39 @@ impl RawRigidBodySet {
         self.map(handle, |rb| rb.mass_properties().effective_inv_mass.into())
     }
 
-    /// The center of mass of a rigid-body expressed in its local-space, written to a buffer.
+    /// The center of mass of a rigid-body expressed in its local-space, written to the scratch buffer.
     #[cfg(feature = "dim2")]
-    pub fn rbLocalCom(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbLocalCom(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let c = rb.mass_properties().local_mprops.local_com;
-            buffer.set_index(0, c.x);
-            buffer.set_index(1, c.y);
+            scratch::write(&[c.x, c.y]);
         });
     }
 
-    /// The center of mass of a rigid-body expressed in its local-space, written to a buffer.
+    /// The center of mass of a rigid-body expressed in its local-space, written to the scratch buffer.
     #[cfg(feature = "dim3")]
-    pub fn rbLocalCom(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbLocalCom(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let c = rb.mass_properties().local_mprops.local_com;
-            buffer.set_index(0, c.x);
-            buffer.set_index(1, c.y);
-            buffer.set_index(2, c.z);
+            scratch::write(&[c.x, c.y, c.z]);
         });
     }
 
-    /// The world-space center of mass of the rigid-body, written to a buffer.
+    /// The world-space center of mass of the rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim2")]
-    pub fn rbWorldCom(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbWorldCom(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let c = rb.mass_properties().world_com;
-            buffer.set_index(0, c.x);
-            buffer.set_index(1, c.y);
+            scratch::write(&[c.x, c.y]);
         });
     }
 
-    /// The world-space center of mass of the rigid-body, written to a buffer.
+    /// The world-space center of mass of the rigid-body, written to the scratch buffer.
     #[cfg(feature = "dim3")]
-    pub fn rbWorldCom(&self, handle: FlatHandle, buffer: &Float32Array) {
+    pub fn rbWorldCom(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
             let c = rb.mass_properties().world_com;
-            buffer.set_index(0, c.x);
-            buffer.set_index(1, c.y);
-            buffer.set_index(2, c.z);
+            scratch::write(&[c.x, c.y, c.z]);
         });
     }
 

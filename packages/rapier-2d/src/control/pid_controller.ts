@@ -1,9 +1,7 @@
 import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
 import {Vector, VectorOps} from "../math";
 import {RawPidController} from "../raw";
-
-/** Shared scratch buffer for WASM reads (single-threaded, safe to share). */
-const _scratch = new Float32Array(3);
+import {scratch} from "../scratch";
 
 // TODO: unify with the JointAxesMask
 /**
@@ -116,18 +114,11 @@ export class PidController {
     ): Vector {
         let rawPos = VectorOps.intoRaw(targetPosition);
         let rawVel = VectorOps.intoRaw(targetLinvel);
-        this.raw.linear_correction(
-            this.params.dt,
-            this.bodies.raw,
-            body.handle,
-            rawPos,
-            rawVel,
-            _scratch,
-        );
+        this.raw.linear_correction(this.params.dt, this.bodies.raw, body.handle, rawPos, rawVel);
         rawPos.free();
         rawVel.free();
 
-        return VectorOps.fromBuffer(_scratch, target);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     public angularCorrection(

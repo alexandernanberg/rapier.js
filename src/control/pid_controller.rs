@@ -1,5 +1,6 @@
 use crate::dynamics::RawRigidBodySet;
 use crate::math::RawVector;
+use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::control::PidController;
 use rapier::dynamics::AxesMask;
@@ -213,7 +214,6 @@ impl RawPidController {
         rb_handle: FlatHandle,
         target_translation: &RawVector,
         target_linvel: &RawVector,
-        buffer: &js_sys::Float32Array,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
         let correction = bodies
@@ -229,10 +229,7 @@ impl RawPidController {
             })
             .unwrap_or(Vector::ZERO);
 
-        buffer.set_index(0, correction.x);
-        buffer.set_index(1, correction.y);
-        #[cfg(feature = "dim3")]
-        buffer.set_index(2, correction.z);
+        scratch::write_vector(correction);
     }
 
     #[cfg(feature = "dim2")]
@@ -265,7 +262,6 @@ impl RawPidController {
         rb_handle: FlatHandle,
         target_rotation: &RawRotation,
         target_angvel: &RawVector,
-        buffer: &js_sys::Float32Array,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
         let correction = bodies
@@ -281,8 +277,6 @@ impl RawPidController {
             })
             .unwrap_or(Vector::ZERO);
 
-        buffer.set_index(0, correction.x);
-        buffer.set_index(1, correction.y);
-        buffer.set_index(2, correction.z);
+        scratch::write_vector(correction);
     }
 }

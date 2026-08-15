@@ -65,6 +65,13 @@ pnpm dev:testbed2d      # Run 2D demo
 pnpm dev:testbed3d      # Run 3D demo
 ```
 
+**`pnpm build:wasm` must run at least once before `pnpm build:ts` or `pnpm test`
+on a fresh clone.** `wasm/release/` has its `.js` and `.wasm` committed, but
+`.d.ts` files are gitignored, so `tsdown` fails with `"InitInput" is not exported
+by "wasm/release/rapier_wasm_*.js"` until wasm-bindgen regenerates them. This
+needs the Rust toolchain and `wasm-pack`; tests import the built packages, so
+they can't run without it either.
+
 ## Benchmarks
 
 Run performance benchmarks to measure physics engine performance:

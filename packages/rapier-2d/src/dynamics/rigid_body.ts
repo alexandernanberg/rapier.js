@@ -2,6 +2,7 @@ import {handleToIndex} from "../coarena";
 import {Collider, ColliderSet} from "../geometry";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {scratch} from "../scratch";
 import {liveTransformBuffer, type TransformBufferRef} from "../transform_buffer";
 
 export type {TransformBufferRef};
@@ -11,9 +12,6 @@ export type {TransformBufferRef};
  * Layout: translation(2) + rotation(1) + linvel(2) + angvel(1) = 6
  */
 export const BODY_TRANSFORM_STRIDE = 6;
-
-/** Shared scratch buffer for WASM fallback reads (single-threaded, safe to share). */
-const _scratch = new Float32Array(4);
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -239,8 +237,8 @@ export class RigidBody {
             target.y = buf[o + 1];
             return target;
         }
-        this.rawSet.rbTranslation(this.handle, _scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.rawSet.rbTranslation(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -251,8 +249,8 @@ export class RigidBody {
         if (buf) {
             return buf[this._bufferOffset + 2];
         }
-        this.rawSet.rbRotation(this.handle, _scratch);
-        return RotationOps.fromBuffer(_scratch);
+        this.rawSet.rbRotation(this.handle);
+        return RotationOps.fromBuffer(scratch());
     }
 
     /**
@@ -265,8 +263,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public nextTranslation(target?: Vector): Vector {
-        this.rawSet.rbNextTranslation(this.handle, _scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.rawSet.rbNextTranslation(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -277,8 +275,8 @@ export class RigidBody {
      * For non-kinematic bodies, this value is currently unspecified.
      */
     public nextRotation(): Rotation {
-        this.rawSet.rbNextRotation(this.handle, _scratch);
-        return RotationOps.fromBuffer(_scratch);
+        this.rawSet.rbNextRotation(this.handle);
+        return RotationOps.fromBuffer(scratch());
     }
 
     /**
@@ -443,8 +441,8 @@ export class RigidBody {
             target.y = buf[o + 1];
             return target;
         }
-        this.rawSet.rbLinvel(this.handle, _scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.rawSet.rbLinvel(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -497,8 +495,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public localCom(target?: Vector): Vector {
-        this.rawSet.rbLocalCom(this.handle, _scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.rawSet.rbLocalCom(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -507,8 +505,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public worldCom(target?: Vector): Vector {
-        this.rawSet.rbWorldCom(this.handle, _scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.rawSet.rbWorldCom(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**

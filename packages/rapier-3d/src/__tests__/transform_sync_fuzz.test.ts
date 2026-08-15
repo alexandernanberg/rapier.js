@@ -1,4 +1,4 @@
-import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
+import RAPIER, {init, scratch} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
 
 beforeAll(async () => {
@@ -6,7 +6,6 @@ beforeAll(async () => {
 });
 
 const GRAVITY = {x: 0, y: -9.81, z: 0};
-const scratch = new Float32Array(4);
 
 /** Deterministic xorshift32, so a failing run can be replayed from its seed. */
 function rng(seed: number) {
@@ -49,33 +48,47 @@ describe("transform buffer fuzz", () => {
             const mismatches: string[] = [];
             const near = (a: number, b: number) => a === b;
 
+            /**
+             * Snapshots the WASM-side value before touching the public getter:
+             * both now go through the same scratch buffer, and the getter falls
+             * back to WASM whenever the transform buffer is stale, which would
+             * otherwise overwrite what we are comparing against.
+             */
+            function wasmRead(read: () => void, n: number) {
+                read();
+                const s = scratch();
+                return [s[0], s[1], s[2], s[3]].slice(0, n);
+            }
+
             function audit(step: number) {
                 if (mismatches.length > 0) return;
                 world.bodies.forEach((b) => {
-                    world.bodies.raw.rbTranslation(b.handle, scratch);
+                    const wt = wasmRead(() => world.bodies.raw.rbTranslation(b.handle), 3);
                     const t = b.translation();
-                    if (!near(t.x, scratch[0]) || !near(t.y, scratch[1]) || !near(t.z, scratch[2]))
+                    if (!near(t.x, wt[0]) || !near(t.y, wt[1]) || !near(t.z, wt[2]))
                         mismatches.push(
-                            `step ${step}: body translation ${JSON.stringify(t)} vs wasm [${scratch[0]}, ${scratch[1]}, ${scratch[2]}]`,
+                            `step ${step}: body translation ${JSON.stringify(t)} vs wasm [${wt}]`,
                         );
-                    world.bodies.raw.rbLinvel(b.handle, scratch);
+
+                    const wv = wasmRead(() => world.bodies.raw.rbLinvel(b.handle), 3);
                     const v = b.linvel();
-                    if (!near(v.x, scratch[0]) || !near(v.y, scratch[1]) || !near(v.z, scratch[2]))
+                    if (!near(v.x, wv[0]) || !near(v.y, wv[1]) || !near(v.z, wv[2]))
                         mismatches.push(`step ${step}: body linvel ${JSON.stringify(v)}`);
-                    world.bodies.raw.rbRotation(b.handle, scratch);
+
+                    const wr = wasmRead(() => world.bodies.raw.rbRotation(b.handle), 4);
                     const r = b.rotation();
                     if (
-                        !near(r.x, scratch[0]) ||
-                        !near(r.y, scratch[1]) ||
-                        !near(r.z, scratch[2]) ||
-                        !near(r.w, scratch[3])
+                        !near(r.x, wr[0]) ||
+                        !near(r.y, wr[1]) ||
+                        !near(r.z, wr[2]) ||
+                        !near(r.w, wr[3])
                     )
                         mismatches.push(`step ${step}: body rotation ${JSON.stringify(r)}`);
                 });
                 world.colliders.forEach((c) => {
-                    world.colliders.raw.coTranslation(c.handle, scratch);
+                    const wt = wasmRead(() => world.colliders.raw.coTranslation(c.handle), 3);
                     const t = c.translation();
-                    if (!near(t.x, scratch[0]) || !near(t.y, scratch[1]) || !near(t.z, scratch[2]))
+                    if (!near(t.x, wt[0]) || !near(t.y, wt[1]) || !near(t.z, wt[2]))
                         mismatches.push(`step ${step}: collider translation ${JSON.stringify(t)}`);
                 });
             }

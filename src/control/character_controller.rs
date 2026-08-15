@@ -1,13 +1,14 @@
 use crate::dynamics::RawRigidBodySet;
 use crate::geometry::{RawBroadPhase, RawColliderSet, RawNarrowPhase};
 use crate::math::RawVector;
+use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::control::{
     CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
     KinematicCharacterController,
 };
 use rapier::geometry::{ColliderHandle, ShapeCastHit};
-use rapier::math::{Pose, Real, Vector};
+use rapier::math::{Pose, Real, Vector, DIM};
 use rapier::parry::query::ShapeCastStatus;
 use rapier::pipeline::{QueryFilter, QueryFilterFlags};
 use wasm_bindgen::prelude::*;
@@ -211,13 +212,10 @@ impl RawKinematicCharacterController {
         }
     }
 
-    /// The movement computed by the last `computeColliderMovement` call, written to a buffer.
-    pub fn computedMovement(&self, buffer: &js_sys::Float32Array) {
-        let t = self.result.translation;
-        buffer.set_index(0, t.x);
-        buffer.set_index(1, t.y);
-        #[cfg(feature = "dim3")]
-        buffer.set_index(2, t.z);
+    /// The movement computed by the last `computeColliderMovement` call, written to
+    /// the scratch buffer.
+    pub fn computedMovement(&self) {
+        scratch::write_vector(self.result.translation);
     }
 
     pub fn computedGrounded(&self) -> bool {
@@ -268,14 +266,12 @@ impl RawCharacterCollision {
         self.0.hit.time_of_impact
     }
 
-    /// Writes this collision into the given buffer, in a single call.
+    /// Writes this collision into the shared scratch buffer, in a single call.
     ///
     /// Layout: `[toi, translationDeltaApplied, translationDeltaRemaining,
     /// worldWitness1, worldWitness2, worldNormal1, worldNormal2]`. Witnesses and
     /// normals are all expressed in world-space.
-    pub fn getComponents(&self, buffer: &js_sys::Float32Array) {
-        buffer.set_index(0, self.0.hit.time_of_impact);
-
+    pub fn getComponents(&self) {
         let components = [
             self.0.translation_applied,
             self.0.translation_remaining,
@@ -285,17 +281,20 @@ impl RawCharacterCollision {
             self.0.character_pos.rotation * self.0.hit.normal2,
         ];
 
-        #[cfg(feature = "dim2")]
+        // Flattened on the stack, then written into WASM memory in one go — none of
+        // it crosses the boundary (19 `set_index` calls would, in 3D).
+        let mut flat = [0.0; 1 + 6 * DIM];
+        flat[0] = self.0.hit.time_of_impact;
+
         for (i, u) in components.iter().enumerate() {
-            buffer.set_index(1 + i as u32 * 2, u.x);
-            buffer.set_index(2 + i as u32 * 2, u.y);
+            flat[1 + i * DIM] = u.x;
+            flat[2 + i * DIM] = u.y;
+            #[cfg(feature = "dim3")]
+            {
+                flat[3 + i * DIM] = u.z;
+            }
         }
 
-        #[cfg(feature = "dim3")]
-        for (i, u) in components.iter().enumerate() {
-            buffer.set_index(1 + i as u32 * 3, u.x);
-            buffer.set_index(2 + i as u32 * 3, u.y);
-            buffer.set_index(3 + i as u32 * 3, u.z);
-        }
+        scratch::write(&flat);
     }
 }

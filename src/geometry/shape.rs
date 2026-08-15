@@ -23,6 +23,34 @@ pub(crate) fn normalized_convex_polyhedron_mesh(
     Some((points, flat_indices))
 }
 
+/// Splits a flat `[x, y, (z), ...]` array into points, or `None` if its length is
+/// not a whole number of points.
+///
+/// These arrays come straight from user data (a mesh loader's buffers, a typed
+/// array sliced by hand), so a bad length is an input error, not a bug. Letting
+/// `chunks` hand a short slice to `Vector::from_slice` would panic, and a panic
+/// reaches JS as a bare `RuntimeError: unreachable` — this crate installs no
+/// panic hook, so even the message is lost.
+fn to_points(flat: &[f32]) -> Option<Vec<Vector>> {
+    if flat.len() % DIM != 0 {
+        return None;
+    }
+
+    Some(flat.chunks_exact(DIM).map(Vector::from_slice).collect())
+}
+
+/// Splits a flat index array into `N`-vertex elements, or `None` if its length is
+/// not a whole number of elements. See [`to_points`] for why this is not a panic.
+fn to_indices<const N: usize>(flat: &[u32]) -> Option<Vec<[u32; N]>> {
+    if flat.len() % N != 0 {
+        return None;
+    }
+
+    flat.chunks_exact(N)
+        .map(|element| element.first_chunk::<N>().copied())
+        .collect()
+}
+
 pub trait SharedShapeUtility {
     fn castShape(
         &self,
@@ -713,11 +741,11 @@ impl RawShape {
     }
 
     pub fn polyline(vertices: Vec<f32>, indices: Vec<u32>) -> Self {
-        let vertices = vertices
-            .chunks(DIM)
-            .map(|v| Vector::from_slice(v))
-            .collect();
-        let indices: Vec<_> = indices.chunks(2).map(|v| [v[0], v[1]]).collect();
+        // `chunks_exact` rather than `chunks`, as in `voxels` above: this returns a
+        // shape rather than an `Option`, so a trailing partial vertex or segment has
+        // to be dropped. `chunks` would hand a short slice to `from_slice` and panic.
+        let vertices = vertices.chunks_exact(DIM).map(Vector::from_slice).collect();
+        let indices: Vec<_> = indices.chunks_exact(2).map(|v| [v[0], v[1]]).collect();
         if indices.is_empty() {
             Self(SharedShape::polyline(vertices, None))
         } else {
@@ -727,11 +755,8 @@ impl RawShape {
 
     pub fn trimesh(vertices: Vec<f32>, indices: Vec<u32>, flags: u32) -> Option<RawShape> {
         let flags = TriMeshFlags::from_bits(flags as u16).unwrap_or_default();
-        let vertices = vertices
-            .chunks(DIM)
-            .map(|v| Vector::from_slice(v))
-            .collect();
-        let indices = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
+        let vertices = to_points(&vertices)?;
+        let indices = to_indices::<3>(&indices)?;
         SharedShape::trimesh_with_flags(vertices, indices, flags)
             .ok()
             .map(Self)
@@ -780,40 +805,31 @@ impl RawShape {
     }
 
     pub fn convexHull(points: Vec<f32>) -> Option<RawShape> {
-        let points: Vec<_> = points.chunks(DIM).map(|v| Vector::from_slice(v)).collect();
+        let points = to_points(&points)?;
         SharedShape::convex_hull(&points).map(|s| Self(s))
     }
 
     pub fn roundConvexHull(points: Vec<f32>, borderRadius: f32) -> Option<RawShape> {
-        let points: Vec<_> = points.chunks(DIM).map(|v| Vector::from_slice(v)).collect();
+        let points = to_points(&points)?;
         SharedShape::round_convex_hull(&points, borderRadius).map(|s| Self(s))
     }
 
     #[cfg(feature = "dim2")]
     pub fn convexPolyline(vertices: Vec<f32>) -> Option<RawShape> {
-        let vertices = vertices
-            .chunks(DIM)
-            .map(|v| Vector::from_slice(v))
-            .collect();
+        let vertices = to_points(&vertices)?;
         SharedShape::convex_polyline(vertices).map(|s| Self(s))
     }
 
     #[cfg(feature = "dim2")]
     pub fn roundConvexPolyline(vertices: Vec<f32>, borderRadius: f32) -> Option<RawShape> {
-        let vertices = vertices
-            .chunks(DIM)
-            .map(|v| Vector::from_slice(v))
-            .collect();
+        let vertices = to_points(&vertices)?;
         SharedShape::round_convex_polyline(vertices, borderRadius).map(|s| Self(s))
     }
 
     #[cfg(feature = "dim3")]
     pub fn convexMesh(vertices: Vec<f32>, indices: Vec<u32>) -> Option<RawShape> {
-        let vertices = vertices
-            .chunks(DIM)
-            .map(|v| Vector::from_slice(v))
-            .collect();
-        let indices: Vec<_> = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
+        let vertices = to_points(&vertices)?;
+        let indices = to_indices::<3>(&indices)?;
         SharedShape::convex_mesh(vertices, &indices).map(|s| Self(s))
     }
 
@@ -823,11 +839,8 @@ impl RawShape {
         indices: Vec<u32>,
         borderRadius: f32,
     ) -> Option<RawShape> {
-        let vertices = vertices
-            .chunks(DIM)
-            .map(|v| Vector::from_slice(v))
-            .collect();
-        let indices: Vec<_> = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
+        let vertices = to_points(&vertices)?;
+        let indices = to_indices::<3>(&indices)?;
         SharedShape::round_convex_mesh(vertices, &indices, borderRadius).map(|s| Self(s))
     }
 
@@ -893,14 +906,11 @@ impl RawShape {
         indices: Vec<u32>,
         params: &RawVHACDParameters,
     ) -> Option<RawShape> {
-        let vertices: Vec<_> = vertices
-            .chunks(DIM)
-            .map(|v| Vector::from_slice(v))
-            .collect();
+        let vertices = to_points(&vertices)?;
         #[cfg(feature = "dim2")]
-        let indices: Vec<_> = indices.chunks(2).map(|v| [v[0], v[1]]).collect();
+        let indices = to_indices::<2>(&indices)?;
         #[cfg(feature = "dim3")]
-        let indices: Vec<_> = indices.chunks(3).map(|v| [v[0], v[1], v[2]]).collect();
+        let indices = to_indices::<3>(&indices)?;
 
         // Same as `SharedShape::convex_decomposition_with_params`, except that a
         // decomposition yielding no convex part returns `None` instead of panicking when

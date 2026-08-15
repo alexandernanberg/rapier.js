@@ -1,10 +1,8 @@
 import {RigidBodySet} from "../dynamics";
 import {Vector, VectorOps} from "../math";
 import {RawNarrowPhase, RawContactManifold} from "../raw";
+import {scratch} from "../scratch";
 import {ColliderHandle} from "./collider";
-
-/** Shared scratch buffer for WASM vector reads (single-threaded, safe to share). */
-const _scratch = new Float32Array(3);
 
 /**
  * The narrow-phase used for precise collision-detection.
@@ -73,10 +71,10 @@ export class NarrowPhase {
 
         if (!!rawPair) {
             const flipped = rawPair.collider1() != collider1;
+            this.tempManifold.bodies = bodies;
 
             let i;
             for (i = 0; i < rawPair.numContactManifolds(); ++i) {
-                this.tempManifold.bodies = bodies;
                 this.tempManifold.raw = rawPair.contactManifold(i)!;
                 if (!!this.tempManifold.raw) {
                     f(this.tempManifold, flipped);
@@ -119,18 +117,18 @@ export class TempContactManifold {
     }
 
     public normal(target?: Vector): Vector {
-        this.raw.normal(_scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.raw.normal();
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     public localNormal1(target?: Vector): Vector {
-        this.raw.local_n1(_scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.raw.local_n1();
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     public localNormal2(target?: Vector): Vector {
-        this.raw.local_n2(_scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.raw.local_n2();
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     public subshape1(): number {
@@ -146,13 +144,13 @@ export class TempContactManifold {
     }
 
     public localContactPoint1(i: number, target?: Vector): Vector | null {
-        if (!this.raw.contact_local_p1(i, _scratch)) return null;
-        return VectorOps.fromBuffer(_scratch, target);
+        if (!this.raw.contact_local_p1(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     public localContactPoint2(i: number, target?: Vector): Vector | null {
-        if (!this.raw.contact_local_p2(i, _scratch)) return null;
-        return VectorOps.fromBuffer(_scratch, target);
+        if (!this.raw.contact_local_p2(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     public contactDist(i: number): number {
@@ -187,8 +185,8 @@ export class TempContactManifold {
      * by dominance — fixed bodies included).
      */
     public solverContactAnchor1(i: number, target?: Vector): Vector | null {
-        if (!this.raw.solver_contact_anchor1(i, _scratch)) return null;
-        return VectorOps.fromBuffer(_scratch, target);
+        if (!this.raw.solver_contact_anchor1(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -196,8 +194,8 @@ export class TempContactManifold {
      * {@link solverContactAnchor1}.
      */
     public solverContactAnchor2(i: number, target?: Vector): Vector | null {
-        if (!this.raw.solver_contact_anchor2(i, _scratch)) return null;
-        return VectorOps.fromBuffer(_scratch, target);
+        if (!this.raw.solver_contact_anchor2(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -206,8 +204,8 @@ export class TempContactManifold {
      * Returns `null` if `i` is out of bounds.
      */
     public solverContactPoint(i: number, target?: Vector): Vector | null {
-        if (!this.raw.solver_contact_point(this.bodies.raw, i, _scratch)) return null;
-        return VectorOps.fromBuffer(_scratch, target);
+        if (!this.raw.solver_contact_point(this.bodies.raw, i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     public solverContactDist(i: number): number {
@@ -233,7 +231,7 @@ export class TempContactManifold {
     }
 
     public solverContactTangentVelocity(i: number, target?: Vector): Vector | null {
-        if (!this.raw.solver_contact_tangent_velocity(i, _scratch)) return null;
-        return VectorOps.fromBuffer(_scratch, target);
+        if (!this.raw.solver_contact_tangent_velocity(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 }
