@@ -10,6 +10,7 @@ node spike/bench/iteration.ts          # spike 02 — ECS iteration through arch
 node spike/bench/kernels/bench.mjs     # spike 01 — JS vs Rust/WASM kernels
 node spike/bench/kernels/bench2.mjs    # spike 01 — fairness + boundary costs
 node spike/bench/kernels/divergence.mjs # spike 01 — JS/Rust f32 agreement
+node spike/bench/parallel.ts           # spike 03 — parallel executor + equivalence
 ```
 
 The kernel benchmarks need the wasm built first:
@@ -98,6 +99,53 @@ that turns out to be a performance one too. Note this implementation is naive:
 it does a `Map` lookup per column per move, where a real ECS caches archetype
 transition edges, so treat these as a floor rather than a ceiling.
 
+## Spike 03 — the parallel executor
+
+One archetype, 1M entities, columns in a shared WASM memory, chunked across
+worker threads. The main thread takes a chunk and spins rather than
+`Atomics.wait`-ing, because a browser main thread may not block.
+
+| job                   | 1t      | 2t      | 3t      | 4t      | speedup |
+| --------------------- | ------- | ------- | ------- | ------- | ------- |
+| integrate (mem-bound) | 6.30ms  | 3.25ms  | 2.15ms  | 1.63ms  | 3.86x   |
+| heavy (compute-dense) | 56.30ms | 28.27ms | 18.75ms | 14.26ms | 3.95x   |
+
+**Scaling is near-linear at four cores, even for the memory-bound kernel.** The
+worry that streaming systems would saturate bandwidth before saturating cores
+does not show up at this core count — it likely would at 16.
+
+**Serial and parallel runs are byte-identical** for per-entity systems, over ten
+ticks at four threads. That proves the absence of races and torn writes. It does
+not prove order-insensitivity, which is tested separately below.
+
+### The chunk count is part of the observable result
+
+| reduction (f32 accumulate over 1M values) | result     |
+| ----------------------------------------- | ---------- |
+| serial, 1 chunk                           | 499923.438 |
+| serial, 4 chunks                          | 499923.094 |
+| parallel, 4 threads                       | 499923.094 |
+
+Parallel matches serial exactly **at the same chunk count**, and differs from a
+single-chunk serial run. Float addition is not associative, so chunking changes
+the summation tree.
+
+The consequence is a design rule sharper than the one the doc originally
+carried: **the chunk count must be a constant of the build, never derived from
+`hardwareConcurrency`.** If chunking tracks core count, the simulation result
+depends on the player's CPU, and replays stop reproducing across machines. Fix
+the chunk count (say 8) and distribute those chunks over however many workers
+happen to exist.
+
+### Command buffer merge order is load-bearing
+
+100,122 entities matched a predicate across four chunks. Merging their per-chunk
+regions by chunk index versus by completion order produces **different
+sequences** — confirming that per-worker command buffers must be merged in a
+fixed order, not as threads finish. Merge order for the 4-way reduction happened
+not to matter on this run, which is a good illustration of why this class of bug
+survives casual testing.
+
 ## Caveat on codegen
 
 The generated cursor uses `new Function`, which a strict CSP blocks. Since system
@@ -106,7 +154,6 @@ the component registry rather than at runtime.
 
 ## Still open
 
-- Parallel executor, and whether serial/parallel snapshots stay identical.
 - GC pause _distribution_ under a realistic system mix — throughput is settled,
   frame-time consistency is not.
 - Whether the 1.41x holds once queries carry change-detection and optional
