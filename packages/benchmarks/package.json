@@ -6,7 +6,8 @@
         "bench": "tsx src/index.ts",
         "bench:2d": "tsx src/index.ts --dim=2d",
         "bench:3d": "tsx src/index.ts --dim=3d",
-        "bench:quick": "tsx src/index.ts --quick"
+        "bench:quick": "tsx src/index.ts --quick",
+        "typecheck": "tsc --noEmit"
     },
     "dependencies": {
         "@alexandernanberg/rapier2d": "workspace:*",

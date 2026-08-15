@@ -156,9 +156,13 @@ export class Testbed {
 
     restoreSnapshot() {
         if (!!this.snap) {
-            this.world.free();
-            this.world = this.RAPIER.World.restoreSnapshot(this.snap);
-            this.stepId = this.snapStepId;
+            const restored = this.RAPIER.World.restoreSnapshot(this.snap);
+
+            if (restored !== null) {
+                this.world.free();
+                this.world = restored;
+                this.stepId = this.snapStepId;
+            }
         }
     }
 

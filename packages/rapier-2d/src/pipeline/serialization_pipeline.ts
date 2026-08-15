@@ -76,9 +76,12 @@ export class SerializationPipeline {
     /**
      * Deserialize the complete physics state from a single byte array.
      *
+     * Returns `null` if the snapshot could not be decoded, which happens when it
+     * was taken by a different version of the engine.
+     *
      * @param data - The byte array to deserialize.
      */
-    public deserializeAll(data: Uint8Array): World {
-        return World.fromRaw(this.raw.deserializeAll(data)!)!;
+    public deserializeAll(data: Uint8Array): World | null {
+        return World.fromRaw(this.raw.deserializeAll(data)!);
     }
 }
