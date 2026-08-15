@@ -136,11 +136,8 @@ impl RawSerializationPipeline {
             islands: Some(RawIslandManager(d.islands)),
             broadPhase: Some(RawBroadPhase::from_broad_phase(d.broad_phase)),
             narrowPhase: Some(RawNarrowPhase(d.narrow_phase)),
-            bodies: Some(RawRigidBodySet {
-                bodies: d.bodies,
-                transform_data: Vec::new(),
-            }),
-            colliders: Some(RawColliderSet(d.colliders, Vec::new())),
+            bodies: Some(RawRigidBodySet::from_bodies(d.bodies)),
+            colliders: Some(RawColliderSet(d.colliders, Default::default())),
             impulse_joints: Some(RawImpulseJointSet(d.impulse_joints)),
             multibody_joints: Some(RawMultibodyJointSet(d.multibody_joints)),
         })

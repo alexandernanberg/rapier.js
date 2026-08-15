@@ -1,5 +1,6 @@
-use crate::dynamics::{RawIslandManager, RawRigidBodySet};
+use crate::dynamics::{mostly_moved, RawIslandManager, RawRigidBodySet};
 use crate::geometry::RawShape;
+use crate::transform_buffer::{ArenaHandle, TransformBuffer};
 use crate::utils::{self, FlatHandle};
 use rapier::math::Pose;
 use rapier::prelude::*;
@@ -19,10 +20,11 @@ const COLLIDER_STRIDE: usize = 7; // translation(3) + rotation(4)
 const COLLIDER_STRIDE: usize = 3; // translation(2) + rotation(1)
 
 #[wasm_bindgen]
+#[derive(Default)]
 pub struct RawColliderSet(
     pub(crate) ColliderSet,
     /// Contiguous world-space transform buffer, read directly from JS.
-    pub(crate) Vec<f32>,
+    pub(crate) TransformBuffer<ColliderHandle>,
 );
 
 impl RawColliderSet {
@@ -39,9 +41,15 @@ impl RawColliderSet {
         handle: FlatHandle,
         f: impl FnOnce(&mut Collider) -> T,
     ) -> T {
+        let handle = utils::collider_handle(handle);
+        // Every mutating accessor goes through here. A collider repositioned from
+        // JS need not belong to a body the simulation touched, so the next sync
+        // would otherwise skip it.
+        self.1.mark_pending(handle, self.0.len());
+
         let collider = self
             .0
-            .get_mut(utils::collider_handle(handle))
+            .get_mut(handle)
             .expect("Invalid Collider reference. It may have been removed from the physics World.");
         f(collider)
     }
@@ -52,61 +60,96 @@ impl RawColliderSet {
         handle2: FlatHandle,
         f: impl FnOnce(Option<&mut Collider>, Option<&mut Collider>) -> T,
     ) -> T {
-        let (collider1, collider2) = self.0.get_pair_mut(
-            utils::collider_handle(handle1),
-            utils::collider_handle(handle2),
-        );
+        let handle1 = utils::collider_handle(handle1);
+        let handle2 = utils::collider_handle(handle2);
+        let len = self.0.len();
+        self.1.mark_pending(handle1, len);
+        self.1.mark_pending(handle2, len);
+
+        let (collider1, collider2) = self.0.get_pair_mut(handle1, handle2);
         f(collider1, collider2)
     }
 
-    /// Writes a single collider's world-space transform into `buf` at `offset`.
-    #[inline]
-    fn write_collider_transform(buf: &mut [f32], offset: usize, collider: &Collider) {
-        let pos = collider.position();
-
-        #[cfg(feature = "dim3")]
-        {
-            let t = pos.translation;
-            let r = pos.rotation;
-            buf[offset] = t.x;
-            buf[offset + 1] = t.y;
-            buf[offset + 2] = t.z;
-            buf[offset + 3] = r.x;
-            buf[offset + 4] = r.y;
-            buf[offset + 5] = r.z;
-            buf[offset + 6] = r.w;
-        }
-
-        #[cfg(feature = "dim2")]
-        {
-            let t = pos.translation;
-            let r = pos.rotation.angle();
-            buf[offset] = t.x;
-            buf[offset + 1] = t.y;
-            buf[offset + 2] = r;
-        }
-    }
-
-    /// Syncs all collider world transforms into the contiguous buffer, resizing
-    /// it to fit the highest collider index.
+    /// Syncs collider world transforms into the contiguous buffer, resizing it to
+    /// fit the highest collider index.
     ///
     /// Called internally from the physics pipeline step for cache locality.
     /// Not exposed via wasm-bindgen to avoid borrow tracking issues. The JS side
     /// reads world translations/rotations directly from this buffer, falling back
     /// to per-collider WASM calls whenever the view is invalidated (a collider was
     /// created or mutated) or detached (WASM memory growth).
-    pub(crate) fn sync_transform_data(&mut self) {
-        // Handles are iterated in increasing index order, so the buffer only ever
-        // has to grow: a single pass can size it as it goes instead of doing an
-        // extra pass just to find the highest index.
-        for (handle, collider) in self.0.iter() {
-            let (index, _) = handle.0.into_raw_parts();
-            let offset = index as usize * COLLIDER_STRIDE;
-            if self.1.len() < offset + COLLIDER_STRIDE {
-                self.1.resize(offset + COLLIDER_STRIDE, 0.0);
+    ///
+    /// `moved_bodies` are the bodies whose pose the last step may have changed
+    /// (see `RawRigidBodySet::sync_transform_data`), or `None` if the body sync
+    /// gave up on tracking them individually. A collider's world transform only
+    /// moves with its parent, so everything else in the buffer is still up to
+    /// date.
+    pub(crate) fn sync_transform_data(
+        &mut self,
+        bodies: &RigidBodySet,
+        moved_bodies: Option<&[RigidBodyHandle]>,
+    ) {
+        let needs_full_sync = self.1.take_needs_full_sync();
+
+        // Same trade-off as the body sync: walking the arena in order is cheaper
+        // than chasing every parent body's collider list once most bodies moved.
+        let moved_bodies = moved_bodies
+            .filter(|moved| !mostly_moved(moved.len(), bodies.len()))
+            .filter(|_| !needs_full_sync);
+
+        let Some(moved_bodies) = moved_bodies else {
+            self.1.clear_pending();
+
+            // Handles are iterated in increasing index order, so the buffer only
+            // ever has to grow: a single pass can size it as it goes instead of
+            // doing an extra pass just to find the highest index.
+            for (handle, collider) in self.0.iter() {
+                write_collider_transform(self.1.slot(handle.arena_index()), collider);
             }
-            Self::write_collider_transform(&mut self.1, offset, collider);
+            return;
+        };
+
+        for &body_handle in moved_bodies {
+            let Some(body) = bodies.get(body_handle) else {
+                continue;
+            };
+            for &handle in body.colliders() {
+                // `self.0` and `self.1` are disjoint fields, so the read of the
+                // collider and the write into the buffer can overlap.
+                let Some(collider) = self.0.get(handle) else {
+                    continue;
+                };
+                let slot = self.1.slot::<COLLIDER_STRIDE>(handle.arena_index());
+                write_collider_transform(slot, collider);
+            }
         }
+
+        let pending = self.1.take_pending();
+        for &handle in &pending {
+            let Some(collider) = self.0.get(handle) else {
+                continue;
+            };
+            write_collider_transform(self.1.slot(handle.arena_index()), collider);
+        }
+        self.1.restore_pending(pending);
+    }
+}
+
+/// Writes one collider's world-space transform into its buffer slot.
+#[inline]
+fn write_collider_transform(slot: &mut [f32; COLLIDER_STRIDE], collider: &Collider) {
+    let pos = collider.position();
+    let t = pos.translation;
+
+    #[cfg(feature = "dim3")]
+    {
+        let r = pos.rotation;
+        *slot = [t.x, t.y, t.z, r.x, r.y, r.z, r.w];
+    }
+
+    #[cfg(feature = "dim2")]
+    {
+        *slot = [t.x, t.y, pos.rotation.angle()];
     }
 }
 
@@ -218,15 +261,18 @@ impl RawColliderSet {
 
         let collider = builder.build();
 
-        if hasParent {
-            Some(utils::flat_handle(
-                self.0
-                    .insert_with_parent(collider, utils::body_handle(parent), &mut bodies.bodies)
-                    .0,
-            ))
+        let handle = if hasParent {
+            self.0
+                .insert_with_parent(collider, utils::body_handle(parent), &mut bodies.bodies)
         } else {
-            Some(utils::flat_handle(self.0.insert(collider).0))
-        }
+            self.0.insert(collider)
+        };
+
+        // The new collider has no slot in the buffer yet, and its parent body may
+        // well be asleep.
+        self.1.mark_pending(handle, self.0.len());
+
+        Some(utils::flat_handle(handle.0))
     }
 }
 
@@ -234,15 +280,13 @@ impl RawColliderSet {
 impl RawColliderSet {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        RawColliderSet(ColliderSet::new(), Vec::new())
+        Self::default()
     }
 
     /// Returns the transform buffer pointer and length packed into a single f64.
     /// Low 32 bits = byte offset in WASM memory, high 32 bits = f32 element count.
     pub fn transformBufferInfo(&self) -> f64 {
-        let ptr = self.1.as_ptr() as u32;
-        let len = self.1.len() as u32;
-        f64::from_bits(ptr as u64 | ((len as u64) << 32))
+        self.1.info()
     }
 
     /// Returns the number of floats per collider in the buffer.

@@ -124,8 +124,13 @@ impl RawPhysicsPipeline {
             &(),
         );
 
-        bodies.sync_transform_data();
-        colliders.sync_transform_data();
+        let synced_all_bodies = bodies.sync_transform_data(&islands.0);
+        let moved_bodies = if synced_all_bodies {
+            None
+        } else {
+            Some(bodies.synced.as_slice())
+        };
+        colliders.sync_transform_data(&bodies.bodies, moved_bodies);
     }
 
     pub fn stepWithEvents(
@@ -170,7 +175,12 @@ impl RawPhysicsPipeline {
             &eventQueue.collector,
         );
 
-        bodies.sync_transform_data();
-        colliders.sync_transform_data();
+        let synced_all_bodies = bodies.sync_transform_data(&islands.0);
+        let moved_bodies = if synced_all_bodies {
+            None
+        } else {
+            Some(bodies.synced.as_slice())
+        };
+        colliders.sync_transform_data(&bodies.bodies, moved_bodies);
     }
 }
