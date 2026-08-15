@@ -98,4 +98,36 @@ describe("shape families", () => {
 
         world.free();
     });
+
+    test("mesh builders reject a ragged vertex or index array", () => {
+        // A trailing partial vertex/triangle used to reach `Vector::from_slice`
+        // through `chunks`, panicking — which surfaces in JS as a bare
+        // `RuntimeError: unreachable`, since the crate installs no panic hook.
+        // The shape wrappers only reach WASM at `intoRaw()`, so that is where the
+        // rejection is visible.
+        const ragged = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 5]);
+        const whole = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+        const raggedIdx = new Uint32Array([0, 1, 2, 0]);
+        const wholeIdx = new Uint32Array([0, 1, 2]);
+
+        expect(new RAPIER.TriMesh(ragged, wholeIdx).intoRaw()).toBeUndefined();
+        expect(new RAPIER.TriMesh(whole, raggedIdx).intoRaw()).toBeUndefined();
+        expect(new RAPIER.ConvexPolyhedron(ragged, null).intoRaw()).toBeUndefined();
+        expect(new RAPIER.ConvexPolyhedron(ragged, wholeIdx).intoRaw()).toBeUndefined();
+        expect(RAPIER.ColliderDesc.convexDecomposition(ragged, wholeIdx)).toBeNull();
+
+        // A well-formed mesh still builds, so the guard is not just rejecting
+        // everything.
+        const ok = new RAPIER.TriMesh(whole, wholeIdx).intoRaw();
+        expect(ok).toBeDefined();
+        ok.free();
+
+        // The module is still usable afterwards.
+        const world = new RAPIER.World(GRAVITY);
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 5, 0));
+        world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+        world.step();
+        expect(body.translation().y).toBeLessThan(5);
+        world.free();
+    });
 });
