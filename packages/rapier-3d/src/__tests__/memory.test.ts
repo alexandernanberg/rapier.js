@@ -145,6 +145,61 @@ describe("memory", () => {
         world.free();
     });
 
+    test("reading shapes back from colliders does not leak raw shapes", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+
+        // One collider per shape family that `Shape.fromRaw` reconstructs
+        // differently, plus a compound, whose sub-shapes each cross the boundary
+        // as their own raw shape.
+        const handles = [
+            world.createCollider(RAPIER.ColliderDesc.ball(0.5), body).handle,
+            world.createCollider(RAPIER.ColliderDesc.cuboid(1, 2, 3), body).handle,
+            world.createCollider(RAPIER.ColliderDesc.roundCuboid(1, 2, 3, 0.1), body).handle,
+            world.createCollider(RAPIER.ColliderDesc.capsule(1, 0.5), body).handle,
+            world.createCollider(RAPIER.ColliderDesc.cylinder(1, 0.5), body).handle,
+            world.createCollider(RAPIER.ColliderDesc.cone(1, 0.5), body).handle,
+            world.createCollider(
+                RAPIER.ColliderDesc.convexHull(
+                    new Float32Array([
+                        0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
+                    ]),
+                )!,
+                body,
+            ).handle,
+            world.createCollider(
+                RAPIER.ColliderDesc.compound(
+                    [new RAPIER.Ball(0.5), new RAPIER.Cuboid(1, 1, 1)],
+                    [
+                        {x: 0, y: 0, z: 0},
+                        {x: 2, y: 0, z: 0},
+                    ],
+                    [
+                        {x: 0, y: 0, z: 0, w: 1},
+                        {x: 0, y: 0, z: 0, w: 1},
+                    ],
+                ),
+                body,
+            ).handle,
+        ];
+
+        expectSteadyMemory(
+            () => {
+                for (const handle of handles) {
+                    RAPIER.Shape.fromRaw(world.colliders.raw, handle);
+                }
+            },
+            // A leaked raw shape is only a shared-shape handle, far smaller than the
+            // hit/projection objects the query paths leak, so this needs an order of
+            // magnitude more iterations to clear the allocator's slack: sized from
+            // measurement, dropping the `free()` grows the heap by ~15 pages here
+            // while the correct path measures at zero.
+            {warmup: 200, measure: 4000},
+        );
+
+        world.free();
+    });
+
     test("creating and freeing worlds reaches a steady heap", () => {
         expectSteadyMemory(
             () => {
