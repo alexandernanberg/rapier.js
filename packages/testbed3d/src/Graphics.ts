@@ -88,6 +88,104 @@ function genVoxelsGeometry(collider: RAPIER.Collider) {
     };
 }
 
+/** The geometry of a single sub-shape of a compound, in its own local frame. */
+function genSubShapeGeometry(shape: RAPIER.Shape): THREE.BufferGeometry | null {
+    switch (shape.type) {
+        case RAPIER.ShapeType.Ball: {
+            let ball = shape as RAPIER.Ball;
+            return new THREE.SphereGeometry(ball.radius);
+        }
+        case RAPIER.ShapeType.Cuboid:
+        case RAPIER.ShapeType.RoundCuboid: {
+            let ext = (shape as RAPIER.Cuboid).halfExtents;
+            return new THREE.BoxGeometry(ext.x * 2.0, ext.y * 2.0, ext.z * 2.0);
+        }
+        case RAPIER.ShapeType.Capsule: {
+            let capsule = shape as RAPIER.Capsule;
+            return new THREE.CapsuleGeometry(capsule.radius, capsule.halfHeight * 2.0);
+        }
+        case RAPIER.ShapeType.Cylinder:
+        case RAPIER.ShapeType.RoundCylinder: {
+            let cyl = shape as RAPIER.Cylinder;
+            return new THREE.CylinderGeometry(cyl.radius, cyl.radius, cyl.halfHeight * 2.0);
+        }
+        case RAPIER.ShapeType.Cone:
+        case RAPIER.ShapeType.RoundCone: {
+            let cone = shape as RAPIER.Cone;
+            return new THREE.ConeGeometry(cone.radius, cone.halfHeight * 2.0);
+        }
+        case RAPIER.ShapeType.TriMesh:
+        case RAPIER.ShapeType.ConvexPolyhedron:
+        case RAPIER.ShapeType.RoundConvexPolyhedron: {
+            let mesh = shape as RAPIER.TriMesh;
+            let geometry = new THREE.BufferGeometry();
+            geometry.setIndex(Array.from(mesh.indices));
+            geometry.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
+            return geometry;
+        }
+        default:
+            return null;
+    }
+}
+
+/**
+ * Flattens a compound collider into a single geometry.
+ *
+ * A compound is rigid, so each sub-shape's local pose can be baked into the
+ * vertices here and the whole thing then moves with the collider, the same way
+ * the trimesh and heightfield meshes do.
+ */
+function genCompoundGeometry(collider: RAPIER.Collider) {
+    let compound = collider.shape as RAPIER.Compound;
+    let vertices: number[] = [];
+    let indices: number[] = [];
+
+    compound.shapes.forEach((subShape, i) => {
+        let geometry = genSubShapeGeometry(subShape);
+
+        if (!geometry) {
+            console.log("Unknown compound sub-shape to render.");
+            return;
+        }
+
+        let pos = compound.positions[i];
+        let rot = compound.rotations[i];
+        _matrix.compose(
+            new THREE.Vector3(pos.x, pos.y, pos.z),
+            new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w),
+            new THREE.Vector3(1.0, 1.0, 1.0),
+        );
+        geometry.applyMatrix4(_matrix);
+
+        // Indices are local to each sub-shape, so they shift by however many
+        // vertices are already in the merged buffer.
+        let base = vertices.length / 3;
+        let position = geometry.getAttribute("position");
+        for (let k = 0; k < position.count; ++k) {
+            vertices.push(position.getX(k), position.getY(k), position.getZ(k));
+        }
+
+        let index = geometry.getIndex();
+        if (!!index) {
+            for (let k = 0; k < index.count; ++k) {
+                indices.push(base + index.getX(k));
+            }
+        } else {
+            // Un-indexed geometry: every three vertices are already a triangle.
+            for (let k = 0; k < position.count; ++k) {
+                indices.push(base + k);
+            }
+        }
+
+        geometry.dispose();
+    });
+
+    return {
+        vertices: new Float32Array(vertices),
+        indices: new Uint32Array(indices),
+    };
+}
+
 function genHeightfieldGeometry(collider: RAPIER.Collider) {
     let heights = collider.heightfieldHeights();
     let nrows = collider.heightfieldNRows();
@@ -514,6 +612,7 @@ export class Graphics {
             case RAPIER.ShapeType.ConvexPolyhedron:
             case RAPIER.ShapeType.RoundConvexPolyhedron:
             case RAPIER.ShapeType.Voxels:
+            case RAPIER.ShapeType.Compound:
                 let geometry = new THREE.BufferGeometry();
                 let vertices;
                 let indices;
@@ -524,6 +623,12 @@ export class Graphics {
                     indices = g.indices;
                 } else if (collider.shapeType() == RAPIER.ShapeType.Voxels) {
                     let g = genVoxelsGeometry(collider);
+                    vertices = g.vertices;
+                    indices = g.indices;
+                } else if (collider.shapeType() == RAPIER.ShapeType.Compound) {
+                    // Compounds have no vertex buffer of their own; the mesh is
+                    // built by flattening their sub-shapes.
+                    let g = genCompoundGeometry(collider);
                     vertices = g.vertices;
                     indices = g.indices;
                 } else {
