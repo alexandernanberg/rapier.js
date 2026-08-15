@@ -3,6 +3,7 @@ import {CoefficientCombineRule, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
 import {RawShape, RawVHACDParameters} from "../raw";
+import {scratch} from "../scratch";
 import {invalidateTransformBuffer, liveTransformBuffer} from "../transform_buffer";
 import {ColliderSet} from "./collider_set";
 import {ShapeContact} from "./contact";
@@ -89,9 +90,6 @@ export enum ActiveCollisionTypes {
  * The integer identifier of a collider added to a `ColliderSet`.
  */
 export type ColliderHandle = number;
-
-/** Shared scratch buffer for WASM fallback reads (single-threaded, safe to share). */
-const _scratch = new Float32Array(4);
 
 /**
  * Number of f32 values per collider in the world-space transform buffer.
@@ -190,8 +188,8 @@ export class Collider {
             target.y = buf[o + 1];
             return target;
         }
-        this.colliderSet.raw.coTranslation(this.handle, _scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.colliderSet.raw.coTranslation(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -202,9 +200,9 @@ export class Collider {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public translationWrtParent(target?: Vector): Vector | null {
-        const hasParent = this.colliderSet.raw.coTranslationWrtParent(this.handle, _scratch);
+        const hasParent = this.colliderSet.raw.coTranslationWrtParent(this.handle);
         if (!hasParent) return null;
-        return VectorOps.fromBuffer(_scratch, target);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -215,8 +213,8 @@ export class Collider {
         if (buf !== null) {
             return buf[this._bufferOffset + 2];
         }
-        this.colliderSet.raw.coRotation(this.handle, _scratch);
-        return RotationOps.fromBuffer(_scratch);
+        this.colliderSet.raw.coRotation(this.handle);
+        return RotationOps.fromBuffer(scratch());
     }
 
     /**
@@ -225,9 +223,9 @@ export class Collider {
      * Returns `null` if the collider doesn't have a parent rigid-body.
      */
     public rotationWrtParent(): Rotation | null {
-        const hasParent = this.colliderSet.raw.coRotationWrtParent(this.handle, _scratch);
+        const hasParent = this.colliderSet.raw.coRotationWrtParent(this.handle);
         if (!hasParent) return null;
-        return RotationOps.fromBuffer(_scratch);
+        return RotationOps.fromBuffer(scratch());
     }
 
     /**

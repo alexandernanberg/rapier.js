@@ -1,11 +1,9 @@
-import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
+import RAPIER, {init, scratch} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
 
 beforeAll(async () => {
     await init();
 });
-
-const scratch = new Float32Array(4);
 
 // Handles are f64-encoded arena slots: low 32 bits index, high 32 generation.
 const _handleBuf = new Float64Array(1);
@@ -17,20 +15,23 @@ function handleIndex(handle: number) {
 
 /** Reads a body's translation straight from WASM, bypassing the shared buffer. */
 function rawBodyTranslation(world: RAPIER.World, body: RAPIER.RigidBody) {
-    world.bodies.raw.rbTranslation(body.handle, scratch);
-    return {x: scratch[0], y: scratch[1], z: scratch[2]};
+    world.bodies.raw.rbTranslation(body.handle);
+    const s = scratch();
+    return {x: s[0], y: s[1], z: s[2]};
 }
 
 /** Reads a body's linear velocity straight from WASM. */
 function rawBodyLinvel(world: RAPIER.World, body: RAPIER.RigidBody) {
-    world.bodies.raw.rbLinvel(body.handle, scratch);
-    return {x: scratch[0], y: scratch[1], z: scratch[2]};
+    world.bodies.raw.rbLinvel(body.handle);
+    const s = scratch();
+    return {x: s[0], y: s[1], z: s[2]};
 }
 
 /** Reads a collider's world translation straight from WASM. */
 function rawColliderTranslation(world: RAPIER.World, collider: RAPIER.Collider) {
-    world.colliders.raw.coTranslation(collider.handle, scratch);
-    return {x: scratch[0], y: scratch[1], z: scratch[2]};
+    world.colliders.raw.coTranslation(collider.handle);
+    const s = scratch();
+    return {x: s[0], y: s[1], z: s[2]};
 }
 
 /** Asserts that every buffered transform in the world matches WASM exactly. */

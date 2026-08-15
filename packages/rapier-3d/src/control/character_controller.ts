@@ -3,15 +3,7 @@ import {BroadPhase, Collider, ColliderSet, InteractionGroups, NarrowPhase} from 
 import {Vector, VectorOps} from "../math";
 import {QueryFilterFlags} from "../pipeline";
 import {RawKinematicCharacterController, RawCharacterCollision} from "../raw";
-
-/**
- * Shared scratch buffer for WASM reads (single-threaded, safe to share).
- *
- * Its length must match exactly what the Rust side writes: `getComponents`
- * hands the whole payload over in one `Float32Array::copy_from`, which asserts
- * that the lengths are equal.
- */
-const _scratch = new Float32Array(19);
+import {scratch} from "../scratch";
 
 /**
  * A collision between the character and an obstacle hit on its path.
@@ -332,8 +324,8 @@ export class KinematicCharacterController {
      * The movement computed by the last call to `this.computeColliderMovement`.
      */
     public computedMovement(target?: Vector): Vector {
-        this.raw.computedMovement(_scratch);
-        return VectorOps.fromBuffer(_scratch, target);
+        this.raw.computedMovement();
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -364,22 +356,23 @@ export class KinematicCharacterController {
         } else {
             let c = this.rawCharacterCollision;
             out = out ?? new CharacterCollision();
-            c.getComponents(_scratch);
-            out.toi = _scratch[0];
+            c.getComponents();
+            const s = scratch();
+            out.toi = s[0];
             out.translationDeltaApplied = VectorOps.fromBufferAt(
-                _scratch,
+                scratch(),
                 1,
                 out.translationDeltaApplied,
             );
             out.translationDeltaRemaining = VectorOps.fromBufferAt(
-                _scratch,
+                scratch(),
                 4,
                 out.translationDeltaRemaining,
             );
-            out.witness1 = VectorOps.fromBufferAt(_scratch, 7, out.witness1);
-            out.witness2 = VectorOps.fromBufferAt(_scratch, 10, out.witness2);
-            out.normal1 = VectorOps.fromBufferAt(_scratch, 13, out.normal1);
-            out.normal2 = VectorOps.fromBufferAt(_scratch, 16, out.normal2);
+            out.witness1 = VectorOps.fromBufferAt(s, 7, out.witness1);
+            out.witness2 = VectorOps.fromBufferAt(s, 10, out.witness2);
+            out.normal1 = VectorOps.fromBufferAt(s, 13, out.normal1);
+            out.normal2 = VectorOps.fromBufferAt(s, 16, out.normal2);
             out.collider = this.colliders.get(c.handle());
             return out;
         }

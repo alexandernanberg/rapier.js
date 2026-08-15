@@ -37,5 +37,6 @@ pub mod dynamics;
 pub mod geometry;
 pub mod math;
 pub mod pipeline;
+pub(crate) mod scratch;
 pub(crate) mod transform_buffer;
 pub mod utils;

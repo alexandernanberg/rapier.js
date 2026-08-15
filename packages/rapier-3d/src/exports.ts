@@ -19,6 +19,11 @@ export function reserveMemory(extraBytesCount: number) {
     reserve(extraBytesCount);
 }
 
+// The raw transform getters write their result into a WASM-side buffer rather
+// than through a `Float32Array` argument, so anyone calling them directly (as
+// the bindings do internally) needs the view to read it back out of.
+export {scratch} from "./scratch";
+
 export * from "./math";
 export * from "./dynamics";
 export * from "./geometry";

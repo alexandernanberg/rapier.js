@@ -1,3 +1,4 @@
+use crate::scratch;
 use crate::utils;
 use crate::utils::FlatHandle;
 use rapier::geometry::{CollisionEvent, ContactForceEvent};
@@ -30,13 +31,9 @@ impl RawContactForceEvent {
         crate::utils::flat_handle(self.0.collider2.0)
     }
 
-    /// The sum of all the forces between the two colliders, written to a buffer.
-    pub fn total_force(&self, buffer: &js_sys::Float32Array) {
-        let f = self.0.total_force;
-        buffer.set_index(0, f.x);
-        buffer.set_index(1, f.y);
-        #[cfg(feature = "dim3")]
-        buffer.set_index(2, f.z);
+    /// The sum of all the forces between the two colliders, written to the scratch buffer.
+    pub fn total_force(&self) {
+        scratch::write_vector(self.0.total_force);
     }
 
     /// The sum of the magnitudes of each force between the two colliders.
@@ -49,13 +46,9 @@ impl RawContactForceEvent {
     }
 
     /// The world-space (unit) direction of the force with strongest magnitude,
-    /// written to a buffer.
-    pub fn max_force_direction(&self, buffer: &js_sys::Float32Array) {
-        let d = self.0.max_force_direction;
-        buffer.set_index(0, d.x);
-        buffer.set_index(1, d.y);
-        #[cfg(feature = "dim3")]
-        buffer.set_index(2, d.z);
+    /// written to the scratch buffer.
+    pub fn max_force_direction(&self) {
+        scratch::write_vector(self.0.max_force_direction);
     }
 
     /// The magnitude of the largest force at a contact point of this contact pair.

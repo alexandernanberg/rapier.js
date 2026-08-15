@@ -1,3 +1,4 @@
+use crate::scratch;
 use rapier::parry::query;
 use wasm_bindgen::prelude::*;
 
@@ -8,13 +9,10 @@ pub struct RawShapeContact {
 
 #[wasm_bindgen]
 impl RawShapeContact {
-    /// Writes this contact into the given buffer, in a single call.
+    /// Writes this contact into the shared scratch buffer, in a single call.
     ///
     /// Layout: `[distance, point1, point2, normal1, normal2]`.
-    ///
-    /// The components are staged in a stack array and handed over in a single
-    /// `copy_from`: every `set_index` would otherwise be its own call out to JS.
-    pub fn getComponents(&self, buffer: &js_sys::Float32Array) {
+    pub fn getComponents(&self) {
         let p1 = self.contact.point1;
         let p2 = self.contact.point2;
         let n1 = self.contact.normal1;
@@ -50,6 +48,6 @@ impl RawShapeContact {
             n2.z,
         ];
 
-        buffer.copy_from(&components);
+        scratch::write(&components);
     }
 }

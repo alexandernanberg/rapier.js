@@ -1,6 +1,7 @@
 use crate::dynamics::RawRigidBodySet;
 use crate::geometry::{RawBroadPhase, RawColliderSet, RawNarrowPhase};
 use crate::math::RawVector;
+use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::control::{
     CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
@@ -211,17 +212,10 @@ impl RawKinematicCharacterController {
         }
     }
 
-    /// The movement computed by the last `computeColliderMovement` call, written to a buffer.
-    ///
-    /// Component-wise rather than `copy_from`: this shares its buffer with
-    /// `RawCharacterCollision::getComponents`, which writes far more components,
-    /// and `copy_from` asserts an exact length match.
-    pub fn computedMovement(&self, buffer: &js_sys::Float32Array) {
-        let t = self.result.translation;
-        buffer.set_index(0, t.x);
-        buffer.set_index(1, t.y);
-        #[cfg(feature = "dim3")]
-        buffer.set_index(2, t.z);
+    /// The movement computed by the last `computeColliderMovement` call, written to
+    /// the scratch buffer.
+    pub fn computedMovement(&self) {
+        scratch::write_vector(self.result.translation);
     }
 
     pub fn computedGrounded(&self) -> bool {
@@ -272,12 +266,12 @@ impl RawCharacterCollision {
         self.0.hit.time_of_impact
     }
 
-    /// Writes this collision into the given buffer, in a single call.
+    /// Writes this collision into the shared scratch buffer, in a single call.
     ///
     /// Layout: `[toi, translationDeltaApplied, translationDeltaRemaining,
     /// worldWitness1, worldWitness2, worldNormal1, worldNormal2]`. Witnesses and
     /// normals are all expressed in world-space.
-    pub fn getComponents(&self, buffer: &js_sys::Float32Array) {
+    pub fn getComponents(&self) {
         let components = [
             self.0.translation_applied,
             self.0.translation_remaining,
@@ -287,8 +281,8 @@ impl RawCharacterCollision {
             self.0.character_pos.rotation * self.0.hit.normal2,
         ];
 
-        // Flattened on the stack and handed over in a single `copy_from`: every
-        // `set_index` would otherwise be its own call out to JS (19 of them in 3D).
+        // Flattened on the stack, then written into WASM memory in one go — none of
+        // it crosses the boundary (19 `set_index` calls would, in 3D).
         let mut flat = [0.0; 1 + 6 * DIM];
         flat[0] = self.0.hit.time_of_impact;
 
@@ -301,6 +295,6 @@ impl RawCharacterCollision {
             }
         }
 
-        buffer.copy_from(&flat);
+        scratch::write(&flat);
     }
 }
