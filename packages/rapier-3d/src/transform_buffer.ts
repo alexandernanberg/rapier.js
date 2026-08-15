@@ -72,7 +72,27 @@ export function refreshTransformBuffer(
     info: number,
     memory: WebAssembly.Memory,
 ) {
-    const {ptr, len} = unpackBufferInfo(info);
+    // Decoded in place: this runs twice per `World.step()`, so it should not
+    // allocate the way `unpackBufferInfo` does.
+    _infoBuf[0] = info;
+    const ptr = _infoView[0];
+    const len = _infoView[1];
+
+    const view = ref.buffer;
+    if (
+        view !== null &&
+        // A view detached by memory growth has a zero byteLength.
+        view.byteLength !== 0 &&
+        ref.ptr === ptr &&
+        ref.len === len &&
+        ref.memory === memory
+    ) {
+        // The buffer neither moved nor changed size, which is the common case
+        // once a scene stops creating and destroying entities: the existing view
+        // still describes it, so there is no reason to allocate another one.
+        return;
+    }
+
     ref.ptr = ptr;
     ref.len = len;
     ref.memory = memory;

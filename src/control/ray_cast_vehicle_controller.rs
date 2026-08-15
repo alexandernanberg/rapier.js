@@ -76,6 +76,9 @@ impl RawDynamicRayCastVehicleController {
         filter_groups: Option<u32>,
         filter_predicate: &js_sys::Function,
     ) {
+        // `update_vehicle` drives the chassis directly, bypassing `map_mut`.
+        bodies.mark_pending(self.controller.chassis);
+
         crate::utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
                 flags: QueryFilterFlags::from_bits(filter_flags)
