@@ -81,8 +81,11 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 // Build the rigid body.
                 bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
                 body = world.createRigidBody(bodyDesc);
-                colliderDesc = RAPIER.ColliderDesc.roundConvexHull(v, border_rad);
-                world.createCollider(colliderDesc, body);
+                // `roundConvexHull` returns null if the random point set is degenerate.
+                let hullDesc = RAPIER.ColliderDesc.roundConvexHull(v, border_rad);
+                if (hullDesc !== null) {
+                    world.createCollider(hullDesc, body);
+                }
             }
         }
     }

@@ -67,7 +67,9 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                     case 3:
                         colliderDesc = RAPIER.ColliderDesc.cone(rad, rad);
                         break;
-                    case 4:
+                    // `j % 5` is always 0..4 — using `default` for the last case
+                    // lets the compiler see `colliderDesc` is always assigned.
+                    default:
                         colliderDesc = RAPIER.ColliderDesc.cuboid(rad / 2.0, rad / 2.0, rad / 2.0);
                         world.createCollider(colliderDesc, body);
                         colliderDesc = RAPIER.ColliderDesc.cuboid(

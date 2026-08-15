@@ -1,8 +1,7 @@
 {
     "compilerOptions": {
         "outDir": "./dist/",
-        "strict": false,
-        "noImplicitAny": true,
+        "strict": true,
         "module": "es2022",
         "target": "es2022",
         "allowJs": true,

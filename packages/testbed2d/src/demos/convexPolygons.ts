@@ -50,8 +50,11 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             for (k = 0; k < 10; ++k) {
                 points.push(rng() * scale, rng() * scale);
             }
+            // `convexHull` returns null if the random point set is degenerate.
             let colliderDesc = RAPIER.ColliderDesc.convexHull(new Float32Array(points));
-            world.createCollider(colliderDesc, body);
+            if (colliderDesc !== null) {
+                world.createCollider(colliderDesc, body);
+            }
         }
     }
 

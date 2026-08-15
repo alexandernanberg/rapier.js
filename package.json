@@ -14,7 +14,7 @@
         "build:wasm:2d:debug": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build crates/rapier-wasm-2d --dev --target web --out-dir ../../packages/rapier-2d/wasm/debug",
         "build:wasm:3d": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build crates/rapier-wasm-3d --target web --out-dir ../../packages/rapier-3d/wasm/release",
         "build:wasm:3d:debug": "RUSTFLAGS='-C target-feature=+simd128' wasm-pack build crates/rapier-wasm-3d --dev --target web --out-dir ../../packages/rapier-3d/wasm/debug",
-        "typecheck": "pnpm -r --filter './packages/rapier-*' typecheck",
+        "typecheck": "pnpm -r typecheck",
         "dev:testbed2d": "pnpm --filter rapier-testbed2d dev",
         "dev:testbed3d": "pnpm --filter rapier-testbed3d dev",
         "bench": "pnpm --filter rapier-benchmarks bench",

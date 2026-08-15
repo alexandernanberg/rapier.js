@@ -20,7 +20,13 @@ import * as Trimesh from "./demos/trimesh";
 import * as Voxels from "./demos/voxels";
 import {Testbed} from "./Testbed";
 
-import("@alexandernanberg/rapier3d/compat").then(async (RAPIER) => {
+import("@alexandernanberg/rapier3d/compat").then(async (compat) => {
+    // The testbed types against the package root but loads the `compat` build so the
+    // WASM comes in inline. tsdown emits an independent declaration file per entry
+    // point, so the two describe the same classes as nominally distinct types (their
+    // private fields collide). They are the same API built twice.
+    const RAPIER = compat as unknown as typeof import("@alexandernanberg/rapier3d");
+
     await RAPIER.init();
     let builders = new Map([
         ["collision groups", CollisionGroups.initWorld],

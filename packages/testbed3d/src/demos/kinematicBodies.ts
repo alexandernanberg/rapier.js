@@ -117,6 +117,11 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         let velPlatformBody = testbed.world.getRigidBody(velPlatformHandle);
         let vertPlatformBody = testbed.world.getRigidBody(vertPlatformHandle);
 
+        // The handles go stale if the world is swapped out from under us.
+        if (posPlatformBody === null || velPlatformBody === null || vertPlatformBody === null) {
+            return;
+        }
+
         // Position-based platform: oscillates on X axis.
         let posX = -10.0 + Math.sin(time * horizontalSpeed) * horizontalAmplitude;
         posPlatformBody.setNextKinematicTranslation({x: posX, y: 2.0, z: 0.0});

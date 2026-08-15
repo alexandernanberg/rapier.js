@@ -39,7 +39,9 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             case 2:
                 colliderDesc = RAPIER.ColliderDesc.roundCylinder(rad, rad, rad / 10.0);
                 break;
-            case 3:
+            // `(j / spawn_interval) % 4` is always 0..3 — using `default` for the last
+            // case lets the compiler see `colliderDesc` is always assigned.
+            default:
                 colliderDesc = RAPIER.ColliderDesc.cone(rad, rad);
                 break;
         }
@@ -55,8 +57,12 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         if (removableBodies.length > 400) {
             let rbHandle = removableBodies[0];
             let rb = testbed.world.getRigidBody(rbHandle);
-            testbed.world.removeRigidBody(rb);
-            graphics.removeRigidBody(rb);
+
+            if (rb !== null) {
+                testbed.world.removeRigidBody(rb);
+                graphics.removeRigidBody(rb);
+            }
+
             removableBodies.shift();
         }
     };

@@ -26,12 +26,16 @@ interface InstanceDesc {
     instanceId: number;
     elementId: number;
     highlighted: boolean;
-    scale?: THREE.Vector3;
-    // Interpolation state
-    prevPosition?: THREE.Vector3;
-    prevQuaternion?: THREE.Quaternion;
-    snapshotPosition?: THREE.Vector3;
-    snapshotQuaternion?: THREE.Quaternion;
+    scale: THREE.Vector3;
+    // Interpolation state, populated on the first frame the instance is drawn.
+    interpolation?: Interpolation;
+}
+
+interface Interpolation {
+    prevPosition: THREE.Vector3;
+    prevQuaternion: THREE.Quaternion;
+    snapshotPosition: THREE.Vector3;
+    snapshotQuaternion: THREE.Quaternion;
 }
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
@@ -241,7 +245,8 @@ export class Graphics {
     light: THREE.PointLight;
     lines: THREE.LineSegments;
     controls: OrbitControls;
-    instanceGroups: Array<Array<THREE.InstancedMesh>>;
+    // Assigned by `initInstances()`, called at the end of the constructor.
+    instanceGroups!: Array<Array<THREE.InstancedMesh>>;
 
     constructor() {
         this.raycaster = new THREE.Raycaster();
@@ -443,18 +448,22 @@ export class Graphics {
             if (!!gfx) {
                 let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
 
-                if (!gfx.snapshotPosition) {
-                    gfx.prevPosition = _position.clone();
-                    gfx.prevQuaternion = _quaternion.clone();
-                    gfx.snapshotPosition = _position.clone();
-                    gfx.snapshotQuaternion = _quaternion.clone();
+                let interp = gfx.interpolation;
+                if (interp === undefined) {
+                    interp = {
+                        prevPosition: _position.clone(),
+                        prevQuaternion: _quaternion.clone(),
+                        snapshotPosition: _position.clone(),
+                        snapshotQuaternion: _quaternion.clone(),
+                    };
+                    gfx.interpolation = interp;
                 } else {
-                    gfx.prevPosition.copy(gfx.snapshotPosition);
-                    gfx.prevQuaternion.copy(gfx.snapshotQuaternion);
+                    interp.prevPosition.copy(interp.snapshotPosition);
+                    interp.prevQuaternion.copy(interp.snapshotQuaternion);
                 }
 
-                _prevPosition.copy(gfx.prevPosition);
-                _prevQuaternion.copy(gfx.prevQuaternion);
+                _prevPosition.copy(interp.prevPosition);
+                _prevQuaternion.copy(interp.prevQuaternion);
                 _prevPosition.lerp(_position, alpha);
                 _prevQuaternion.slerp(_quaternion, alpha);
 
@@ -474,8 +483,8 @@ export class Graphics {
                 instance.instanceMatrix.needsUpdate = true;
                 highlightInstance.instanceMatrix.needsUpdate = true;
 
-                gfx.snapshotPosition.copy(_position);
-                gfx.snapshotQuaternion.copy(_quaternion);
+                interp.snapshotPosition.copy(_position);
+                interp.snapshotQuaternion.copy(_quaternion);
             }
 
             let mesh = this.coll2mesh.get(elt.handle);
@@ -539,14 +548,22 @@ export class Graphics {
     // }
 
     removeRigidBody(body: RAPIER.RigidBody) {
-        if (!!this.rb2colls.get(body.handle)) {
-            this.rb2colls.get(body.handle).forEach((coll) => this.removeCollider(coll));
+        let colls = this.rb2colls.get(body.handle);
+
+        if (colls !== undefined) {
+            colls.forEach((coll) => this.removeCollider(coll));
             this.rb2colls.delete(body.handle);
         }
     }
 
     removeCollider(collider: RAPIER.Collider) {
         let gfx = this.coll2instance.get(collider.handle);
+
+        // Shapes drawn as their own mesh (trimesh, heightfield, …) have no instance.
+        if (gfx === undefined) {
+            return;
+        }
+
         let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
 
         if (instance.count > 1) {
@@ -555,7 +572,9 @@ export class Graphics {
             instance.userData.elementId2coll.set(gfx.elementId, coll2);
 
             let gfx2 = this.coll2instance.get(coll2.handle);
-            gfx2.elementId = gfx.elementId;
+            if (gfx2 !== undefined) {
+                gfx2.elementId = gfx.elementId;
+            }
         }
 
         instance.count -= 1;
@@ -565,18 +584,25 @@ export class Graphics {
     addCollider(RAPIER: RAPIER_API, world: RAPIER.World, collider: RAPIER.Collider) {
         this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 2);
         let parent = collider.parent();
-        if (!this.rb2colls.get(parent.handle)) {
-            this.rb2colls.set(parent.handle, [collider]);
-        } else {
-            this.rb2colls.get(parent.handle).push(collider);
+
+        if (parent !== null) {
+            let colls = this.rb2colls.get(parent.handle);
+
+            if (colls === undefined) {
+                this.rb2colls.set(parent.handle, [collider]);
+            } else {
+                colls.push(collider);
+            }
         }
 
         let instance;
         let instanceDesc: InstanceDesc = {
             groupId: 0,
-            instanceId: parent.isFixed() ? 0 : this.colorIndex + 1,
+            // A collider without a parent body is static, so colour it like a fixed one.
+            instanceId: parent === null || parent.isFixed() ? 0 : this.colorIndex + 1,
             elementId: 0,
             highlighted: false,
+            scale: new THREE.Vector3(1.0, 1.0, 1.0),
         };
 
         switch (collider.shapeType()) {
@@ -636,9 +662,15 @@ export class Graphics {
                     indices = collider.indices();
                 }
 
+                // `Collider.indices()` is undefined for shapes that aren't indexed.
+                if (indices === undefined) {
+                    console.log("Shape has no index buffer to render: ", collider.shapeType());
+                    return;
+                }
+
                 geometry.setIndex(Array.from(indices));
                 geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-                let color = parent.isFixed() ? 0 : this.colorIndex + 1;
+                let color = parent !== null && !parent.isFixed() ? this.colorIndex + 1 : 0;
 
                 let material = new THREE.MeshPhongMaterial({
                     color: this.colorPalette[color],

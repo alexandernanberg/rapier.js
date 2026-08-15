@@ -55,6 +55,11 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let updateCharacter = () => {
         let charBody = testbed.world.getRigidBody(characterHandle);
 
+        // The handle goes stale if the world is swapped out from under us.
+        if (charBody === null) {
+            return;
+        }
+
         if (movementDirection.x == 0.0 && movementDirection.y == 0.0) {
             // Only adjust the rotation, but let translation.
             pidController.setAxes(RAPIER.PidAxesMask.AllAng);

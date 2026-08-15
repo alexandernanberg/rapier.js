@@ -51,12 +51,13 @@ export class Testbed {
     demoToken: number;
     mouse: {x: number; y: number};
     events: RAPIER.EventQueue;
-    world: RAPIER.World;
+    // Assigned by `setWorld()`, which every demo builder calls.
+    world!: RAPIER.World;
     preTimestepAction?: (gfx: Graphics) => void;
     stepId: number;
-    prevDemo: string;
+    prevDemo?: string;
     lastMessageTime: number;
-    snap: Uint8Array;
+    snap?: Uint8Array;
     snapStepId: number;
     // Fixed timestep state
     lastFrameTime: number;
@@ -74,13 +75,20 @@ export class Testbed {
         this.demoToken = 0;
         this.mouse = {x: 0, y: 0};
         this.events = new RAPIER.EventQueue(true);
+        this.stepId = 0;
+        this.snapStepId = 0;
+        this.lastMessageTime = new Date().getTime();
 
         // Fixed timestep initialization
         this.lastFrameTime = 0;
         this.accumulator = 0;
         this.maxSubsteps = 6;
 
-        this.switchToDemo(builders.keys().next().value);
+        const firstDemo = builders.keys().next().value;
+        if (firstDemo === undefined) {
+            throw new Error("Testbed needs at least one demo builder.");
+        }
+        this.switchToDemo(firstDemo);
 
         window.addEventListener("mousemove", (event) => {
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -96,7 +104,7 @@ export class Testbed {
         document.onkeydown = null; // Reset key events.
         document.onkeyup = null; // Reset key events.
 
-        this.preTimestepAction = null;
+        this.preTimestepAction = undefined;
         this.world = world;
         this.world.numSolverIterations = this.parameters.numSolverIters;
         this.demoToken += 1;
@@ -127,7 +135,12 @@ export class Testbed {
         this.graphics.reset();
 
         this.parameters.prevBackend = this.parameters.backend;
-        this.parameters.builders.get(demo)(this.RAPIER, this);
+
+        const builder = this.parameters.builders.get(demo);
+        if (builder === undefined) {
+            throw new Error(`Unknown demo: ${demo}`);
+        }
+        builder(this.RAPIER, this);
     }
 
     switchToBackend(_backend: string) {
@@ -141,9 +154,13 @@ export class Testbed {
 
     restoreSnapshot() {
         if (!!this.snap) {
-            this.world.free();
-            this.world = this.RAPIER.World.restoreSnapshot(this.snap);
-            this.stepId = this.snapStepId;
+            const restored = this.RAPIER.World.restoreSnapshot(this.snap);
+
+            if (restored !== null) {
+                this.world.free();
+                this.world = restored;
+                this.stepId = this.snapStepId;
+            }
         }
     }
 
