@@ -7,6 +7,14 @@ beforeAll(async () => {
 
 const scratch = new Float32Array(4);
 
+// Handles are f64-encoded arena slots: low 32 bits index, high 32 generation.
+const _handleBuf = new Float64Array(1);
+const _handleView = new Uint32Array(_handleBuf.buffer);
+function handleIndex(handle: number) {
+    _handleBuf[0] = handle;
+    return _handleView[0];
+}
+
 /** Reads a body's translation straight from WASM, bypassing the shared buffer. */
 function rawBodyTranslation(world: RAPIER.World, body: RAPIER.RigidBody) {
     world.bodies.raw.rbTranslation(body.handle, scratch);
@@ -173,6 +181,38 @@ describe("incremental transform buffer sync", () => {
 
         expect(fresh.translation().x).toBeCloseTo(-40, 5);
         expect(fresh.translation().z).toBeCloseTo(7, 5);
+        expectBufferMatchesWasm(world);
+
+        world.free();
+    });
+
+    test("a fixed body recycling an active body's slot is written", () => {
+        // The refresh list is deduplicated by arena index, but an index outlives
+        // the body that held it: the handle of a body that was active last step
+        // must not shadow the new body that took over its index. It bites hardest
+        // when the newcomer is one the island manager never reports, because then
+        // nothing else would ever write its slot.
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        const bodies = createStack(world, 6);
+
+        // Keep them falling, so the body removed below is in the active set.
+        for (const b of bodies) b.setTranslation({x: b.translation().x, y: 20, z: 0}, true);
+        for (let i = 0; i < 5; i++) world.step();
+        expect(bodies.some((b) => !b.isSleeping())).toBe(true);
+
+        const victim = bodies[3];
+        const victimIndex = handleIndex(victim.handle);
+        world.removeRigidBody(victim);
+
+        const fixed = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(17, 4, -6));
+        world.createCollider(RAPIER.ColliderDesc.ball(0.5), fixed);
+        // The arena hands out the freed index again; without that the test would
+        // not be exercising the collision it is meant to pin.
+        expect(handleIndex(fixed.handle)).toBe(victimIndex);
+
+        world.step();
+
+        expect(fixed.translation()).toEqual({x: 17, y: 4, z: -6});
         expectBufferMatchesWasm(world);
 
         world.free();

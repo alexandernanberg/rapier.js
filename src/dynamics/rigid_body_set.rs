@@ -133,21 +133,25 @@ impl RawRigidBodySet {
         }
         self.num_active = self.synced.len();
 
+        // Removed bodies have to be dropped here rather than skipped at write
+        // time: `synced_set` is keyed by arena index, and an index outlives the
+        // body that held it. A stale handle left in would take the dedup slot of
+        // whatever new body recycled its index, and that body would then never be
+        // written — permanently, if it is one the island manager never reports
+        // (a fixed body, say).
+        //
         // Indexed loops: `prev_synced` and `synced`/`synced_set` are disjoint
         // fields, but a `for` over one of them would still borrow all of `self`.
-        // Handles of removed bodies are not filtered out here — that would cost an
-        // arena lookup per entry, and the sync skips them for free. They can only
-        // enter after the active prefix, so they are never carried over twice.
         for i in 0..self.prev_num_active {
             let handle = self.prev_synced[i];
-            if self.synced_set.insert(handle.arena_index()) {
+            if self.bodies.contains(handle) && self.synced_set.insert(handle.arena_index()) {
                 self.synced.push(handle);
             }
         }
 
         let pending = self.transforms.take_pending();
         for &handle in &pending {
-            if self.synced_set.insert(handle.arena_index()) {
+            if self.bodies.contains(handle) && self.synced_set.insert(handle.arena_index()) {
                 self.synced.push(handle);
             }
         }
