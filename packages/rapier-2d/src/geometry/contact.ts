@@ -1,8 +1,14 @@
 import {Vector, VectorOps} from "../math";
 import {RawShapeContact} from "../raw";
 
-/** Shared scratch buffer for WASM reads (single-threaded, safe to share). */
-const _scratch = new Float32Array(13);
+/**
+ * Shared scratch buffer for WASM reads (single-threaded, safe to share).
+ *
+ * Its length must match exactly what the Rust side writes: `getComponents`
+ * hands the whole payload over in one `Float32Array::copy_from`, which asserts
+ * that the lengths are equal.
+ */
+const _scratch = new Float32Array(9);
 
 /**
  * The contact info between two shapes.

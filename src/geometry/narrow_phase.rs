@@ -92,6 +92,12 @@ impl RawContactPair {
 }
 
 /// Writes a vector's components into a JS buffer.
+///
+/// Written component-wise rather than with `copy_from`, which asserts that the
+/// buffer's length matches the source exactly: these buffers are shared between
+/// getters that write different numbers of components, so they are sized for the
+/// largest one. At `DIM` components the difference is a crossing or two anyway —
+/// see `RawShapeContact::getComponents` for the case where it is worth it.
 fn write_vector(v: Vector, buffer: &js_sys::Float32Array) {
     buffer.set_index(0, v.x);
     buffer.set_index(1, v.y);
