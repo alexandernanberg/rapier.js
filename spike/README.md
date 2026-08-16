@@ -13,6 +13,7 @@ node spike/bench/kernels/divergence.mjs # spike 01 — JS/Rust f32 agreement
 node spike/bench/parallel.ts           # spike 03 — parallel executor + equivalence
 node spike/test/harness.ts             # spike 04 — headless harness (13 checks)
 node spike/test/physics.ts             # spike 05 — Rapier over ECS columns (7 checks)
+node spike/test/koota-eval.ts          # spike 06 — evaluate pmndrs/koota as the ECS
 ```
 
 The kernel benchmarks need the wasm built first:
@@ -197,7 +198,7 @@ oracle exists to prevent.
 A purpose-built Rapier backend (`spike/crates/physics-ecs`) with a raw C ABI and
 **no wasm-bindgen**. It exposes no objects: the hot path is push kinematic, step,
 pull transforms — three calls per frame regardless of body count. The ECS arena is
-allocated *inside this module's linear memory*, so Rapier writes transforms into
+allocated _inside this module's linear memory_, so Rapier writes transforms into
 their final home in the component columns.
 
 ```bash
@@ -205,7 +206,7 @@ cargo build --target wasm32-unknown-unknown -p physics-ecs   # 1.79 MB artifact
 node spike/test/physics.ts                                   # 7 checks
 ```
 
-The tier-1 zero-copy claim holds. Verified: the column's backing buffer *is* the
+The tier-1 zero-copy claim holds. Verified: the column's backing buffer _is_ the
 wasm memory, and stepping mutates the ECS columns directly with no intermediate.
 
 ### Sync is 2.6% of the step it follows
@@ -241,6 +242,69 @@ Two fixes, both kept:
 This is the strongest argument yet for the design's note that a shared memory
 would be preferable: a `SharedArrayBuffer`-backed memory does not detach on grow,
 which removes the whole class of bug rather than mitigating it.
+
+## Spike 06 — can Koota replace the custom ECS?
+
+[pmndrs/koota](https://github.com/pmndrs/koota) 0.6.6 converges on the same shape
+this design arrived at independently: schema-declared traits, SoA stores, and a
+callback query API. So the question is only whether it can carry what the engine
+actually needs from storage.
+
+```bash
+node spike/test/koota-eval.ts
+```
+
+**Both critical gates pass.** Snapshots round-trip exactly via `getStore`, and two
+identical runs stay bit-identical. At 2,000 entities a snapshot costs 0.008 ms, so
+per-frame rewind is free.
+
+| 1M entities, 5 trait combos | throughput |
+| --------------------------- | ---------- |
+| koota `updateEach`          | 9 M/s      |
+| koota raw `getStore` loop   | 68 M/s     |
+| custom ECS, `each(cb)`      | 68 M/s     |
+| custom ECS, raw columns     | 170 M/s    |
+
+Koota's ergonomic API costs **13x** against its own raw store access — a much
+wider spread than the custom ECS's 2.5x, and change detection is not the cause
+(disabling it changed nothing). Its raw path lands exactly where the custom
+ergonomic path does. At the 2,000-entity target scale `updateEach` costs 0.18 ms,
+so none of this decides anything on speed.
+
+**Koota wins on structural change**: 3.3 M ops/s against the custom archetype
+move's 1.6 M/s, exactly as a sparse entity-indexed layout should.
+
+### Two measurement traps worth recording
+
+Both produced wrong numbers before being caught, and both are properties of Koota
+worth knowing:
+
+- **Entity values pack a generation.** After a recycle an entity reads as
+  `1048578`, not `2`. The store is indexed by `unpackEntity(e).entityId`. Using the
+  raw value as an index silently builds a huge sparse array and drops V8 into
+  dictionary mode — measured 1 M/s instead of 68 M/s, with no error.
+- **Entity ids are allocated per process, not per world.** A world created after
+  several others starts at a high id, so its stores carry a large empty prefix and
+  degrade the same way. Benchmarks must build their world first.
+
+### The blocker: no typed arrays
+
+`getStore` returns plain `Array`s. There is no `Float32Array`, `ArrayBuffer` or
+`SharedArrayBuffer` anywhere in koota's public types, and
+[multi-threading](https://github.com/pmndrs/koota/issues/91) is an open initiative
+at 0 of 10 items since April 2025 — its first step is literally "implementing
+buffers within the trait schema".
+
+Plain arrays cannot be shared with a worker. So adopting Koota today forecloses
+the threading path until that initiative lands, which is the one requirement that
+makes typed-array storage non-negotiable.
+
+**Verdict: keep custom typed-array storage, steal Koota's API design.** Relations
+with data (`relation({ store: {...} })`, `autoDestroy`, exclusive, ordered) are the
+biggest gap in the current design and exactly what a contraption game needs. The
+`updateEach` / `useStores` tiering is the same conclusion spike 02 reached by
+measurement. If the threading requirement were dropped, Koota would be the better
+choice on every other axis.
 
 ## Caveat on codegen
 

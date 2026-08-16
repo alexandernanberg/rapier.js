@@ -1,5 +1,8 @@
 {
     "name": "engine-spike",
     "private": true,
-    "type": "module"
+    "type": "module",
+    "dependencies": {
+        "koota": "^0.6.6"
+    }
 }
