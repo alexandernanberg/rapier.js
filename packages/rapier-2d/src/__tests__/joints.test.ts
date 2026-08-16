@@ -102,4 +102,28 @@ describe("multibody joints", () => {
 
         world.free();
     });
+
+    test("a rejected multibody topology throws instead of trapping", () => {
+        // Rapier refuses an insert that would give `parent2` a second parent joint,
+        // or close a loop inside one multibody. The rejection used to come back as a
+        // sentinel handle that `newTyped` immediately looked up, panicking inside
+        // WASM — which takes the whole module down.
+        const world = new RAPIER.World(GRAVITY);
+        const a = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+        const b = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 0));
+        const c = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(2, 0));
+
+        const data = () => RAPIER.JointData.revolute({x: 0, y: 0}, {x: -1, y: 0});
+
+        world.createMultibodyJoint(data(), a, b, true);
+
+        // `b` already has a parent joint.
+        expect(() => world.createMultibodyJoint(data(), c, b, true)).toThrow();
+        // `a` and `b` are already in the same multibody, so this would close a loop.
+        expect(() => world.createMultibodyJoint(data(), b, a, true)).toThrow();
+
+        // The world still steps afterwards, which a trap would have made impossible.
+        world.step();
+        world.free();
+    });
 });

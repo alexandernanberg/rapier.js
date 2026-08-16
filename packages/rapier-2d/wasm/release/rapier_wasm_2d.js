@@ -2667,16 +2667,31 @@ export class RawMultibodyJointSet {
         return ret !== 0;
     }
     /**
+     * Inserts a multibody joint, or returns `None` if it would leave the multibody
+     * in an invalid configuration: `parent2` already has a parent joint, or both
+     * bodies already belong to the same multibody (which would close a loop).
+     *
+     * A failed insert used to come back as `FlatHandle::MAX`, which JS took for a
+     * real handle — the very next accessor looked it up and hit the "Invalid Joint
+     * reference" `expect` in [`Self::map`], i.e. a WASM trap for what is an
+     * ordinary rejected-topology error.
      * @param {RawGenericJoint} params
      * @param {number} parent1
      * @param {number} parent2
      * @param {boolean} wakeUp
-     * @returns {number}
+     * @returns {number | undefined}
      */
     createJoint(params, parent1, parent2, wakeUp) {
-        _assertClass(params, RawGenericJoint);
-        const ret = wasm.rawmultibodyjointset_createJoint(this.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wakeUp);
-        return ret;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            _assertClass(params, RawGenericJoint);
+            wasm.rawmultibodyjointset_createJoint(retptr, this.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wakeUp);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * Applies the given JavaScript function to the integer handle of each joint attached to the given rigid-body.
@@ -4325,14 +4340,18 @@ export class RawShape {
         return ret === 0 ? undefined : RawShapeCastHit.__wrap(ret);
     }
     /**
-     * Builds a compound shape from the given sub-shapes and their local poses.
+     * Builds a compound shape from the given sub-shapes and their local poses, or
+     * returns `None` if the inputs don't describe a compound parry can build.
      *
      * `positions` must contain `DIM` entries per shape. `rotations` must contain one
      * angle per shape in 2D, and one `{x, y, z, w}` quaternion (4 entries) per shape in 3D.
+     * Wrongly sized arrays used to be asserts here, and the two rules `Compound::new`
+     * enforces — at least one part, and no composite part — used to be panics inside
+     * parry. All four are input errors, so they are reported rather than trapped.
      * @param {RawShape[]} shapes
      * @param {Float32Array} positions
      * @param {Float32Array} rotations
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static compound(shapes, positions, rotations) {
         const ptr0 = passArrayJsValueToWasm0(shapes, wasm.__wbindgen_export3);
@@ -4342,7 +4361,7 @@ export class RawShape {
         const ptr2 = passArrayF32ToWasm0(rotations, wasm.__wbindgen_export3);
         const len2 = WASM_VECTOR_LEN;
         const ret = wasm.rawshape_compound(ptr0, len0, ptr1, len1, ptr2, len2);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
     /**
      * The number of sub-shapes of this shape, if it is a compound shape.
@@ -4505,16 +4524,20 @@ export class RawShape {
         return ret === 0 ? undefined : RawVector.__wrap(ret);
     }
     /**
+     * Builds a heightfield, or returns `None` if there are fewer than two heights.
+     *
+     * `HeightField::new` asserts on a degenerate grid: one height describes no
+     * segment, and the constructor computes `heights.len() - 1` of them.
      * @param {Float32Array} heights
      * @param {RawVector} scale
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static heightfield(heights, scale) {
         const ptr0 = passArrayF32ToWasm0(heights, wasm.__wbindgen_export3);
         const len0 = WASM_VECTOR_LEN;
         _assertClass(scale, RawVector);
         const ret = wasm.rawshape_heightfield(ptr0, len0, scale.__wbg_ptr);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
     /**
      * @returns {Float32Array | undefined}
@@ -4599,9 +4622,11 @@ export class RawShape {
         return ret !== 0;
     }
     /**
+     * Builds a polyline, or returns `None` if the buffers are ragged or a segment
+     * index addresses a vertex the vertex buffer doesn't have.
      * @param {Float32Array} vertices
      * @param {Uint32Array} indices
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static polyline(vertices, indices) {
         const ptr0 = passArrayF32ToWasm0(vertices, wasm.__wbindgen_export3);
@@ -4609,7 +4634,7 @@ export class RawShape {
         const ptr1 = passArray32ToWasm0(indices, wasm.__wbindgen_export3);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.rawshape_polyline(ptr0, len0, ptr1, len1);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
     /**
      * @param {RawVector} shapePos
@@ -5117,6 +5142,21 @@ export class RawVector {
 if (Symbol.dispose) RawVector.prototype[Symbol.dispose] = RawVector.prototype.free;
 
 /**
+ * Logs the panic message and its source location before the module aborts.
+ *
+ * `wasm32-unknown-unknown` cannot unwind, so a panic anywhere in here reaches JS
+ * as a bare `RuntimeError: unreachable` — no message, no location, nothing to act
+ * on. The bindings validate their inputs so that a bad argument comes back as
+ * `null` instead of panicking, but a panic that does get through should at least
+ * say what it was.
+ *
+ * This runs on module instantiation, before any binding can be called.
+ */
+export function install_panic_hook() {
+    wasm.install_panic_hook();
+}
+
+/**
  * @param {number} extra_bytes_count
  */
 export function reserve_memory(extra_bytes_count) {
@@ -5208,6 +5248,9 @@ function __wbg_get_imports() {
             const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3), getObject(arg4), getObject(arg5));
             return addHeapObject(ret);
         }, arguments); },
+        __wbg_error_02f7f3ad89b2d9f3: function(arg0, arg1) {
+            console.error(getStringFromWasm0(arg0, arg1));
+        },
         __wbg_length_1009454859bb3e03: function(arg0) {
             const ret = getObject(arg0).length;
             return ret;
@@ -5512,6 +5555,7 @@ function __wbg_finalize_init(instance, module) {
     cachedInt32ArrayMemory0 = null;
     cachedUint32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
+    wasm.__wbindgen_start();
     return wasm;
 }
 

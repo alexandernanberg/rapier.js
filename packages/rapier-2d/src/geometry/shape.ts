@@ -6,6 +6,23 @@ import {PointProjection} from "./point";
 import {Ray, RayIntersection} from "./ray";
 import {ShapeCastHit} from "./toi";
 
+/**
+ * Unwraps a raw shape constructor that reports invalid input by returning nothing.
+ *
+ * These constructors take user-supplied buffers, and building a shape parry cannot
+ * represent (a ragged vertex array, an index pointing past the last vertex, a
+ * degenerate heightfield grid) used to trap inside WASM — which surfaces in JS as
+ * `RuntimeError: unreachable`, with no indication of which input was wrong. They
+ * now return nothing instead, so the input error can be reported here.
+ */
+function expectRawShape(rawShape: RawShape | undefined, reason: string): RawShape {
+    if (!rawShape) {
+        throw new Error(reason);
+    }
+
+    return rawShape;
+}
+
 export abstract class Shape {
     public abstract intoRaw(): RawShape;
 
@@ -402,6 +419,16 @@ export enum ShapeType {
     Voxels = 14,
 }
 
+/**
+ * The shapes parry treats as composite, i.e. as a collection of sub-shapes with its
+ * own acceleration structure. They cannot be nested inside a {@link Compound}.
+ */
+const COMPOSITE_SHAPE_TYPES: ReadonlySet<ShapeType> = new Set([
+    ShapeType.Compound,
+    ShapeType.TriMesh,
+    ShapeType.Polyline,
+]);
+
 // NOTE: this **must** match the TriMeshFlags on the rust side.
 /**
  * Flags controlling the behavior of the triangle mesh creation and of some
@@ -781,7 +808,11 @@ export class Polyline extends Shape {
     }
 
     public intoRaw(): RawShape {
-        return RawShape.polyline(this.vertices, this.indices);
+        return expectRawShape(
+            RawShape.polyline(this.vertices, this.indices),
+            "invalid polyline: `vertices` must hold 2 coordinates per vertex, and `indices` " +
+                "2 in-range vertex indices per segment",
+        );
     }
 }
 
@@ -859,7 +890,8 @@ export class Compound extends Shape {
      * Creates a new compound shape.
      *
      * @param shapes - The shapes composing this compound. Must not be empty, and must not
-     *                 contain other compound shapes (nested compounds are not allowed).
+     *                 contain composite shapes (compounds, triangle meshes and polylines
+     *                 cannot be nested inside a compound).
      * @param positions - The position of each sub-shape.
      * @param rotations - The rotation of each sub-shape.
      */
@@ -874,8 +906,13 @@ export class Compound extends Shape {
             throw new Error("a compound shape must contain at least one shape");
         }
 
-        if (shapes.some((shape) => shape.type === ShapeType.Compound)) {
-            throw new Error("nested compound shapes are not allowed");
+        // Triangle meshes and polylines are composite shapes too, so they are just as
+        // illegal here as a nested compound: all three make the WASM-side builder trap.
+        const nested = shapes.find((shape) => COMPOSITE_SHAPE_TYPES.has(shape.type));
+        if (nested !== undefined) {
+            throw new Error(
+                `nested composite shapes are not allowed in a compound (got ${ShapeType[nested.type]})`,
+            );
         }
 
         this.shapes = shapes;
@@ -925,7 +962,11 @@ export class Compound extends Shape {
             rotations[i] = rot;
         });
 
-        return RawShape.compound(rawShapes, positions, rotations);
+        return expectRawShape(
+            RawShape.compound(rawShapes, positions, rotations),
+            "invalid compound shape: expected at least one non-composite sub-shape, with a " +
+                "position and a rotation each",
+        );
     }
 }
 
@@ -964,7 +1005,11 @@ export class TriMesh extends Shape {
     }
 
     public intoRaw(): RawShape {
-        return RawShape.trimesh(this.vertices, this.indices, this.flags)!;
+        return expectRawShape(
+            RawShape.trimesh(this.vertices, this.indices, this.flags),
+            "invalid triangle mesh: `vertices` must hold 2 coordinates per vertex, and " +
+                "`indices` 3 in-range vertex indices per triangle",
+        );
     }
 }
 
@@ -1000,9 +1045,17 @@ export class ConvexPolygon extends Shape {
 
     public intoRaw(): RawShape {
         if (this.skipConvexHullComputation) {
-            return RawShape.convexPolyline(this.vertices)!;
+            return expectRawShape(
+                RawShape.convexPolyline(this.vertices),
+                "invalid convex polygon: `vertices` must hold 2 coordinates per vertex, and " +
+                    "the points must already form a convex polyline",
+            );
         } else {
-            return RawShape.convexHull(this.vertices)!;
+            return expectRawShape(
+                RawShape.convexHull(this.vertices),
+                "invalid convex hull: `vertices` must hold 2 coordinates per vertex, and the " +
+                    "points must not be degenerate",
+            );
         }
     }
 }
@@ -1046,9 +1099,17 @@ export class RoundConvexPolygon extends Shape {
 
     public intoRaw(): RawShape {
         if (this.skipConvexHullComputation) {
-            return RawShape.roundConvexPolyline(this.vertices, this.borderRadius)!;
+            return expectRawShape(
+                RawShape.roundConvexPolyline(this.vertices, this.borderRadius),
+                "invalid round convex polygon: `vertices` must hold 2 coordinates per vertex, " +
+                    "and the points must already form a convex polyline",
+            );
         } else {
-            return RawShape.roundConvexHull(this.vertices, this.borderRadius)!;
+            return expectRawShape(
+                RawShape.roundConvexHull(this.vertices, this.borderRadius),
+                "invalid round convex hull: `vertices` must hold 2 coordinates per vertex, and " +
+                    "the points must not be degenerate",
+            );
         }
     }
 }
@@ -1085,6 +1146,10 @@ export class Heightfield extends Shape {
         let rawScale = VectorOps.intoRaw(this.scale);
         let rawShape = RawShape.heightfield(this.heights, rawScale);
         rawScale.free();
-        return rawShape;
+
+        return expectRawShape(
+            rawShape,
+            "invalid heightfield: `heights` must hold at least 2 entries",
+        );
     }
 }

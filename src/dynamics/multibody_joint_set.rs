@@ -35,21 +35,27 @@ impl RawMultibodyJointSet {
         RawMultibodyJointSet(MultibodyJointSet::new())
     }
 
+    /// Inserts a multibody joint, or returns `None` if it would leave the multibody
+    /// in an invalid configuration: `parent2` already has a parent joint, or both
+    /// bodies already belong to the same multibody (which would close a loop).
+    ///
+    /// A failed insert used to come back as `FlatHandle::MAX`, which JS took for a
+    /// real handle — the very next accessor looked it up and hit the "Invalid Joint
+    /// reference" `expect` in [`Self::map`], i.e. a WASM trap for what is an
+    /// ordinary rejected-topology error.
     pub fn createJoint(
         &mut self,
         params: &RawGenericJoint,
         parent1: FlatHandle,
         parent2: FlatHandle,
         wakeUp: bool,
-    ) -> FlatHandle {
-        // TODO: avoid the unwrap?
+    ) -> Option<FlatHandle> {
         let parent1 = utils::body_handle(parent1);
         let parent2 = utils::body_handle(parent2);
 
         self.0
             .insert(parent1, parent2, params.0.clone(), wakeUp)
             .map(|h| utils::flat_handle(h.0))
-            .unwrap_or(FlatHandle::MAX)
     }
 
     pub fn remove(&mut self, handle: FlatHandle, wakeUp: bool) {

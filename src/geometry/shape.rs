@@ -29,8 +29,8 @@ pub(crate) fn normalized_convex_polyhedron_mesh(
 /// These arrays come straight from user data (a mesh loader's buffers, a typed
 /// array sliced by hand), so a bad length is an input error, not a bug. Letting
 /// `chunks` hand a short slice to `Vector::from_slice` would panic, and a panic
-/// reaches JS as a bare `RuntimeError: unreachable` — this crate installs no
-/// panic hook, so even the message is lost.
+/// aborts the module: it reaches JS as an uncatchable `RuntimeError: unreachable`,
+/// and every later call fails too.
 fn to_points(flat: &[f32]) -> Option<Vec<Vector>> {
     if flat.len() % DIM != 0 {
         return None;
@@ -49,6 +49,20 @@ fn to_indices<const N: usize>(flat: &[u32]) -> Option<Vec<[u32; N]>> {
     flat.chunks_exact(N)
         .map(|element| element.first_chunk::<N>().copied())
         .collect()
+}
+
+/// Whether every index addresses a vertex of a mesh with `num_vertices` vertices.
+///
+/// Parry indexes the vertex buffer directly when building a polyline, a convex mesh
+/// or a convex decomposition — `TriMesh` is the only builder that validates its
+/// indices and reports an error. Everywhere else an out-of-range index is an
+/// out-of-bounds panic. Index buffers are user data, so this is an input error to
+/// report, not a bug to trap on. See [`to_points`].
+fn indices_in_range<const N: usize>(indices: &[[u32; N]], num_vertices: usize) -> bool {
+    indices
+        .iter()
+        .flatten()
+        .all(|index| (*index as usize) < num_vertices)
 }
 
 pub trait SharedShapeUtility {
@@ -740,17 +754,20 @@ impl RawShape {
         Self(SharedShape::voxels_from_points(voxel_size.0, &points))
     }
 
-    pub fn polyline(vertices: Vec<f32>, indices: Vec<u32>) -> Self {
-        // `chunks_exact` rather than `chunks`, as in `voxels` above: this returns a
-        // shape rather than an `Option`, so a trailing partial vertex or segment has
-        // to be dropped. `chunks` would hand a short slice to `from_slice` and panic.
-        let vertices = vertices.chunks_exact(DIM).map(Vector::from_slice).collect();
-        let indices: Vec<_> = indices.chunks_exact(2).map(|v| [v[0], v[1]]).collect();
-        if indices.is_empty() {
-            Self(SharedShape::polyline(vertices, None))
-        } else {
-            Self(SharedShape::polyline(vertices, Some(indices)))
+    /// Builds a polyline, or returns `None` if the buffers are ragged or a segment
+    /// index addresses a vertex the vertex buffer doesn't have.
+    pub fn polyline(vertices: Vec<f32>, indices: Vec<u32>) -> Option<RawShape> {
+        let vertices = to_points(&vertices)?;
+        let indices = to_indices::<2>(&indices)?;
+
+        // `Polyline::new` reads `vertices[index]` for every segment endpoint.
+        if !indices_in_range(&indices, vertices.len()) {
+            return None;
         }
+
+        // An empty index buffer means "connect the vertices into a line strip".
+        let indices = (!indices.is_empty()).then_some(indices);
+        Some(Self(SharedShape::polyline(vertices, indices)))
     }
 
     pub fn trimesh(vertices: Vec<f32>, indices: Vec<u32>, flags: u32) -> Option<RawShape> {
@@ -762,11 +779,24 @@ impl RawShape {
             .map(Self)
     }
 
+    /// Builds a heightfield, or returns `None` if there are fewer than two heights.
+    ///
+    /// `HeightField::new` asserts on a degenerate grid: one height describes no
+    /// segment, and the constructor computes `heights.len() - 1` of them.
     #[cfg(feature = "dim2")]
-    pub fn heightfield(heights: Vec<f32>, scale: &RawVector) -> Self {
-        Self(SharedShape::heightfield(heights, scale.0))
+    pub fn heightfield(heights: Vec<f32>, scale: &RawVector) -> Option<RawShape> {
+        if heights.len() < 2 {
+            return None;
+        }
+
+        Some(Self(SharedShape::heightfield(heights, scale.0)))
     }
 
+    /// Builds a heightfield, or returns `None` if the grid is degenerate or the
+    /// height buffer doesn't hold exactly `(nrows + 1) * (ncols + 1)` entries.
+    ///
+    /// Both are asserts inside parry (in `Array2::new` and `HeightField::with_flags`
+    /// respectively), and the grid dimensions come from user data.
     #[cfg(feature = "dim3")]
     pub fn heightfield(
         nrows: u32,
@@ -774,12 +804,25 @@ impl RawShape {
         heights: Vec<f32>,
         scale: &RawVector,
         flags: u32,
-    ) -> Self {
+    ) -> Option<RawShape> {
         use rapier::parry::utils::Array2;
+
+        // `usize` is 32-bit on wasm32, so the row/column counts are one `u32::MAX`
+        // away from wrapping and the product overflows well before that.
+        let nrows = (nrows as usize).checked_add(1)?;
+        let ncols = (ncols as usize).checked_add(1)?;
+        let expected_heights = nrows.checked_mul(ncols)?;
+
+        if nrows < 2 || ncols < 2 || heights.len() != expected_heights {
+            return None;
+        }
+
         let flags =
             rapier::parry::shape::HeightFieldFlags::from_bits(flags as u8).unwrap_or_default();
-        let heights = Array2::new(nrows as usize + 1, ncols as usize + 1, heights);
-        Self(SharedShape::heightfield_with_flags(heights, scale.0, flags))
+        let heights = Array2::new(nrows, ncols, heights);
+        Some(Self(SharedShape::heightfield_with_flags(
+            heights, scale.0, flags,
+        )))
     }
 
     pub fn segment(p1: &RawVector, p2: &RawVector) -> Self {
@@ -830,6 +873,13 @@ impl RawShape {
     pub fn convexMesh(vertices: Vec<f32>, indices: Vec<u32>) -> Option<RawShape> {
         let vertices = to_points(&vertices)?;
         let indices = to_indices::<3>(&indices)?;
+
+        // `ConvexPolyhedron::from_convex_mesh` reads `points[index]` while walking
+        // the faces, so it panics rather than returning `None` on a bad index.
+        if !indices_in_range(&indices, vertices.len()) {
+            return None;
+        }
+
         SharedShape::convex_mesh(vertices, &indices).map(|s| Self(s))
     }
 
@@ -841,33 +891,49 @@ impl RawShape {
     ) -> Option<RawShape> {
         let vertices = to_points(&vertices)?;
         let indices = to_indices::<3>(&indices)?;
+
+        if !indices_in_range(&indices, vertices.len()) {
+            return None;
+        }
+
         SharedShape::round_convex_mesh(vertices, &indices, borderRadius).map(|s| Self(s))
     }
 
-    /// Builds a compound shape from the given sub-shapes and their local poses.
+    /// Builds a compound shape from the given sub-shapes and their local poses, or
+    /// returns `None` if the inputs don't describe a compound parry can build.
     ///
     /// `positions` must contain `DIM` entries per shape. `rotations` must contain one
     /// angle per shape in 2D, and one `{x, y, z, w}` quaternion (4 entries) per shape in 3D.
-    pub fn compound(shapes: Vec<RawShape>, positions: Vec<f32>, rotations: Vec<f32>) -> RawShape {
+    /// Wrongly sized arrays used to be asserts here, and the two rules `Compound::new`
+    /// enforces — at least one part, and no composite part — used to be panics inside
+    /// parry. All four are input errors, so they are reported rather than trapped.
+    pub fn compound(
+        shapes: Vec<RawShape>,
+        positions: Vec<f32>,
+        rotations: Vec<f32>,
+    ) -> Option<RawShape> {
         let num_shapes = shapes.len();
 
-        assert_eq!(
-            positions.len(),
-            num_shapes * DIM,
-            "The compound positions array must contain DIM entries per shape."
-        );
         #[cfg(feature = "dim2")]
-        assert_eq!(
-            rotations.len(),
-            num_shapes,
-            "The compound rotations array must contain one angle per shape."
-        );
+        const ROTATION_LEN: usize = 1;
         #[cfg(feature = "dim3")]
-        assert_eq!(
-            rotations.len(),
-            num_shapes * 4,
-            "The compound rotations array must contain one quaternion (4 entries) per shape."
-        );
+        const ROTATION_LEN: usize = 4;
+
+        if num_shapes == 0
+            || positions.len() != num_shapes * DIM
+            || rotations.len() != num_shapes * ROTATION_LEN
+        {
+            return None;
+        }
+
+        // A compound, trimesh or polyline part makes `Compound::new` panic with
+        // "Nested composite shapes are not allowed."
+        if shapes
+            .iter()
+            .any(|shape| shape.0.as_composite_shape().is_some())
+        {
+            return None;
+        }
 
         let mut parts = Vec::with_capacity(num_shapes);
 
@@ -890,7 +956,7 @@ impl RawShape {
             parts.push((Pose::from_parts(translation, rotation), shape.0.clone()));
         }
 
-        Self(SharedShape::compound(parts))
+        Some(Self(SharedShape::compound(parts)))
     }
 
     /// Decomposes the given mesh into a compound of convex parts, using VHACD with its
@@ -911,6 +977,11 @@ impl RawShape {
         let indices = to_indices::<2>(&indices)?;
         #[cfg(feature = "dim3")]
         let indices = to_indices::<3>(&indices)?;
+
+        // The voxelization pass reads `points[index]` for every element corner.
+        if !indices_in_range(&indices, vertices.len()) {
+            return None;
+        }
 
         // Same as `SharedShape::convex_decomposition_with_params`, except that a
         // decomposition yielding no convex part returns `None` instead of panicking when
