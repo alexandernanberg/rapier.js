@@ -184,11 +184,20 @@ describe("shape families", () => {
 
         expect(
             () =>
-                new RAPIER.Compound([new RAPIER.TriMesh(vertices, new Uint32Array([0, 1, 2]))], at, facing),
+                new RAPIER.Compound(
+                    [new RAPIER.TriMesh(vertices, new Uint32Array([0, 1, 2]))],
+                    at,
+                    facing,
+                ),
         ).toThrow();
         expect(() => new RAPIER.Compound([new RAPIER.Polyline(vertices)], at, facing)).toThrow();
         expect(
-            () => new RAPIER.Compound([new RAPIER.Compound([new RAPIER.Ball(1)], at, facing)], at, facing),
+            () =>
+                new RAPIER.Compound(
+                    [new RAPIER.Compound([new RAPIER.Ball(1)], at, facing)],
+                    at,
+                    facing,
+                ),
         ).toThrow();
 
         const ok = new RAPIER.Compound([new RAPIER.Ball(1)], at, facing).intoRaw();

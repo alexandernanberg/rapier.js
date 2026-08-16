@@ -148,5 +148,4 @@ describe("multibody joints", () => {
         world.step();
         world.free();
     });
-
 });
