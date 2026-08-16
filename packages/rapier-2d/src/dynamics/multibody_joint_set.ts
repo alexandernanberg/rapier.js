@@ -47,6 +47,10 @@ export class MultibodyJointSet {
      * @param parent1 - The handle of the first rigid-body this joint is attached to.
      * @param parent2 - The handle of the second rigid-body this joint is attached to.
      * @param wakeUp - Should the attached rigid-bodies be awakened?
+     *
+     * @throws If the joint would leave the multibody in an invalid configuration:
+     *         `parent2` already has a parent joint, or both bodies already belong to
+     *         the same multibody, which would close a loop.
      */
     public createJoint(
         desc: JointData,
@@ -57,6 +61,14 @@ export class MultibodyJointSet {
         const rawParams = desc.intoRaw();
         const handle = this.raw.createJoint(rawParams, parent1, parent2, wakeUp);
         rawParams.free();
+
+        if (handle === undefined) {
+            throw new Error(
+                "could not create the multibody joint: `parent2` already has a parent joint, " +
+                    "or both bodies already belong to the same multibody",
+            );
+        }
+
         let joint = MultibodyJoint.newTyped(this.raw, handle);
         this.map.set(handle, joint);
         return joint;

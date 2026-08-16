@@ -96,18 +96,17 @@ describe("shape families", () => {
     test("mesh builders reject a ragged vertex or index array", () => {
         // A trailing partial vertex/segment used to reach `Vector::from_slice`
         // through `chunks`, panicking — which surfaces in JS as a bare
-        // `RuntimeError: unreachable`, since the crate installs no panic hook.
-        // The shape wrappers only reach WASM at `intoRaw()`, so that is where the
-        // rejection is visible.
+        // `RuntimeError: unreachable`. The shape wrappers only reach WASM at
+        // `intoRaw()`, so that is where the rejection is visible.
         const ragged = new Float32Array([0, 0, 1, 0, 1, 1, 5]);
         const whole = new Float32Array([0, 0, 1, 0, 1, 1]);
         const raggedIdx = new Uint32Array([0, 1, 2, 0]);
         const wholeIdx = new Uint32Array([0, 1, 2]);
 
-        expect(new RAPIER.TriMesh(ragged, wholeIdx).intoRaw()).toBeUndefined();
-        expect(new RAPIER.TriMesh(whole, raggedIdx).intoRaw()).toBeUndefined();
-        expect(new RAPIER.ConvexPolygon(ragged, false).intoRaw()).toBeUndefined();
-        expect(new RAPIER.ConvexPolygon(ragged, true).intoRaw()).toBeUndefined();
+        expect(() => new RAPIER.TriMesh(ragged, wholeIdx).intoRaw()).toThrow();
+        expect(() => new RAPIER.TriMesh(whole, raggedIdx).intoRaw()).toThrow();
+        expect(() => new RAPIER.ConvexPolygon(ragged, false).intoRaw()).toThrow();
+        expect(() => new RAPIER.ConvexPolygon(ragged, true).intoRaw()).toThrow();
         expect(RAPIER.ColliderDesc.convexDecomposition(ragged, wholeIdx)).toBeNull();
 
         // A well-formed mesh still builds, so the guard is not just rejecting
@@ -123,5 +122,67 @@ describe("shape families", () => {
         world.step();
         expect(body.translation().y).toBeLessThan(5);
         world.free();
+    });
+
+    test("mesh builders reject an index that points past the last vertex", () => {
+        // Only `TriMesh` validates its indices inside parry. Everything else here
+        // indexes the vertex buffer directly while building, so an out-of-range
+        // index used to be an out-of-bounds panic inside WASM.
+        const vertices = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
+        const outOfRange = new Uint32Array([0, 1, 9]);
+
+        expect(() => new RAPIER.TriMesh(vertices, outOfRange).intoRaw()).toThrow();
+        expect(() => new RAPIER.Polyline(vertices, new Uint32Array([0, 4])).intoRaw()).toThrow();
+        expect(
+            RAPIER.ColliderDesc.convexDecomposition(vertices, new Uint32Array([0, 9])),
+        ).toBeNull();
+
+        // An empty index buffer means "line strip", and is still accepted.
+        const strip = new RAPIER.Polyline(vertices).intoRaw();
+        expect(strip).toBeDefined();
+        strip.free();
+    });
+
+    test("heightfields reject fewer than two heights", () => {
+        // One height describes no segment, and `HeightField::new` computes
+        // `heights.len() - 1` of them behind an `assert!`.
+        const scale = {x: 10, y: 1};
+
+        expect(() => new RAPIER.Heightfield(new Float32Array([]), scale).intoRaw()).toThrow();
+        expect(() => new RAPIER.Heightfield(new Float32Array([0]), scale).intoRaw()).toThrow();
+
+        const ok = new RAPIER.Heightfield(new Float32Array([0, 0]), scale).intoRaw();
+        expect(ok).toBeDefined();
+        ok.free();
+    });
+
+    test("compounds reject composite sub-shapes", () => {
+        // Compounds, triangle meshes and polylines are all composite shapes, and
+        // parry panics with "Nested composite shapes are not allowed." for each.
+        const at = [{x: 0, y: 0}];
+        const facing = [0];
+        const vertices = new Float32Array([0, 0, 1, 0, 1, 1]);
+
+        expect(
+            () =>
+                new RAPIER.Compound(
+                    [new RAPIER.TriMesh(vertices, new Uint32Array([0, 1, 2]))],
+                    at,
+                    facing,
+                ),
+        ).toThrow();
+        expect(() => new RAPIER.Compound([new RAPIER.Polyline(vertices)], at, facing)).toThrow();
+        expect(
+            () =>
+                new RAPIER.Compound(
+                    [new RAPIER.Compound([new RAPIER.Ball(1)], at, facing)],
+                    at,
+                    facing,
+                ),
+        ).toThrow();
+
+        const ok = new RAPIER.Compound([new RAPIER.Ball(1)], at, facing).intoRaw();
+        expect(ok).toBeDefined();
+        ok.free();
     });
 });
