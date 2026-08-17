@@ -160,9 +160,27 @@ const _pos = {x: 0, y: 0, z: 0};
 body.translation(_pos); // writes into _pos
 ```
 
-Supported methods: `translation()`, `rotation()`, `linvel()`, `angvel()`,
-`nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()` on RigidBody,
-and `translation()`, `rotation()` on Collider.
+Supported methods:
+
+- **RigidBody**: `translation()`, `rotation()`, `linvel()`, `angvel()`,
+  `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`,
+  `velocityAtPoint()`, `effectiveInvMass()`, `userForce()`, and (3D only)
+  `userTorque()`, `principalInertia()`, `invPrincipalInertia()`,
+  `principalInertiaLocalFrame()`, `effectiveAngularInertia()`,
+  `effectiveWorldInvInertia()`
+- **Collider**: `translation()`, `rotation()`, `halfExtents()`,
+  `heightfieldScale()`, `projectPoint()`, `castShape()`, `castCollider()`,
+  `contactShape()`, `contactCollider()`, `castRayAndGetNormal()`
+- **Shape**: `projectPoint()`, `castShape()`, `contactShape()`,
+  `castRayAndGetNormal()`
+- **World / BroadPhase**: `castRayAndGetNormal()`, `projectPoint()`,
+  `projectPointAndGetFeature()`, `castShape()`
+- **ImpulseJoint**: `anchor1()`, `anchor2()`, and (3D only) `frameX1()`,
+  `frameX2()`
+- **DynamicRayCastVehicleController** (3D): the wheel vector getters
+
+Queries take `target` as their last argument, after the filter arguments. When a
+query misses, it returns `null` and leaves the target untouched.
 
 ## 2D vs 3D Differences
 

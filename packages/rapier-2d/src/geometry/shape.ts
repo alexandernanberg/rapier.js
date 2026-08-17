@@ -170,6 +170,7 @@ export abstract class Shape {
         targetDistance: number,
         maxToi: number,
         stopAtPenetration: boolean,
+        target?: ShapeCastHit,
     ): ShapeCastHit | null {
         let rawPos1 = VectorOps.intoRaw(shapePos1);
         let rawRot1 = RotationOps.intoRaw(shapeRot1);
@@ -195,6 +196,7 @@ export abstract class Shape {
                 maxToi,
                 stopAtPenetration,
             )!,
+            target,
         );
 
         rawPos1.free();
@@ -266,6 +268,7 @@ export abstract class Shape {
         shapePos2: Vector,
         shapeRot2: Rotation,
         prediction: number,
+        target?: ShapeContact,
     ): ShapeContact | null {
         let rawPos1 = VectorOps.intoRaw(shapePos1);
         let rawRot1 = RotationOps.intoRaw(shapeRot1);
@@ -277,6 +280,7 @@ export abstract class Shape {
 
         let result = ShapeContact.fromRaw(
             rawShape1.contactShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2, prediction)!,
+            target,
         );
 
         rawPos1.free();
@@ -311,6 +315,7 @@ export abstract class Shape {
         shapeRot: Rotation,
         point: Vector,
         solid: boolean,
+        target?: PointProjection,
     ): PointProjection {
         let rawPos = VectorOps.intoRaw(shapePos);
         let rawRot = RotationOps.intoRaw(shapeRot);
@@ -319,6 +324,7 @@ export abstract class Shape {
 
         let result = PointProjection.fromRaw(
             rawShape.projectPoint(rawPos, rawRot, rawPoint, solid)!,
+            target,
         )!;
 
         rawPos.free();
@@ -377,6 +383,7 @@ export abstract class Shape {
         shapeRot: Rotation,
         maxToi: number,
         solid: boolean,
+        target?: RayIntersection,
     ): RayIntersection {
         let rawPos = VectorOps.intoRaw(shapePos);
         let rawRot = RotationOps.intoRaw(shapeRot);
@@ -386,6 +393,7 @@ export abstract class Shape {
 
         let result = RayIntersection.fromRaw(
             rawShape.castRayAndGetNormal(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid)!,
+            target,
         )!;
 
         rawPos.free();

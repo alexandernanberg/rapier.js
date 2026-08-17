@@ -41,28 +41,34 @@ export class ShapeContact {
         this.normal2 = normal2;
     }
 
-    public static fromRaw(raw: RawShapeContact): ShapeContact | null {
+    /**
+     * Reads a shape contact from its raw representation.
+     *
+     * @param raw - The raw contact. It is always freed before returning.
+     * @param target - Optional target object to write the result to (avoids allocation).
+     */
+    public static fromRaw(raw: RawShapeContact, target?: ShapeContact): ShapeContact | null {
         if (!raw) return null;
 
         raw.getComponents();
         const s = scratch();
         raw.free();
 
-        const result = new ShapeContact(
-            s[0],
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-        );
-        result.point1.x = s[1];
-        result.point1.y = s[2];
-        result.point2.x = s[3];
-        result.point2.y = s[4];
-        result.normal1.x = s[5];
-        result.normal1.y = s[6];
-        result.normal2.x = s[7];
-        result.normal2.y = s[8];
+        const result =
+            target ??
+            new ShapeContact(
+                0,
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+            );
+
+        result.distance = s[0];
+        result.point1 = VectorOps.set(result.point1, s[1], s[2]);
+        result.point2 = VectorOps.set(result.point2, s[3], s[4]);
+        result.normal1 = VectorOps.set(result.normal1, s[5], s[6]);
+        result.normal2 = VectorOps.set(result.normal2, s[7], s[8]);
         return result;
     }
 }

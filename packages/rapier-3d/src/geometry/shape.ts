@@ -200,6 +200,7 @@ export abstract class Shape {
      * @param stopAtPenetration - If set to `false`, the linear shape-cast won’t immediately stop if
      *   the shape is penetrating another shape at its starting point **and** its trajectory is such
      *   that it’s on a path to exit that penetration state.
+     * @param target - Optional target object to write the result to (avoids allocation).
      * @returns If the two moving shapes collider at some point along their trajectories, this returns the
      *  time at which the two shape collider as well as the contact information during the impact. Returns
      *  `null`if the two shapes never collide along their paths.
@@ -215,6 +216,7 @@ export abstract class Shape {
         targetDistance: number,
         maxToi: number,
         stopAtPenetration: boolean,
+        target?: ShapeCastHit,
     ): ShapeCastHit | null {
         let rawPos1 = VectorOps.intoRaw(shapePos1);
         let rawRot1 = RotationOps.intoRaw(shapeRot1);
@@ -240,6 +242,7 @@ export abstract class Shape {
                 maxToi,
                 stopAtPenetration,
             )!,
+            target,
         );
 
         rawPos1.free();
@@ -302,6 +305,7 @@ export abstract class Shape {
      * @param shapePos2 - The initial position of the second shape.
      * @param shapeRot2 - The rotation of the second shape.
      * @param prediction - The prediction value, if the shapes are separated by a distance greater than this value, test will fail.
+     * @param target - Optional target object to write the result to (avoids allocation).
      * @returns `null` if the shapes are separated by a distance greater than prediction, otherwise contact details. The result is given in world-space.
      */
     contactShape(
@@ -311,6 +315,7 @@ export abstract class Shape {
         shapePos2: Vector,
         shapeRot2: Rotation,
         prediction: number,
+        target?: ShapeContact,
     ): ShapeContact | null {
         let rawPos1 = VectorOps.intoRaw(shapePos1);
         let rawRot1 = RotationOps.intoRaw(shapeRot1);
@@ -322,6 +327,7 @@ export abstract class Shape {
 
         let result = ShapeContact.fromRaw(
             rawShape1.contactShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2, prediction)!,
+            target,
         );
 
         rawPos1.free();
@@ -356,6 +362,7 @@ export abstract class Shape {
         shapeRot: Rotation,
         point: Vector,
         solid: boolean,
+        target?: PointProjection,
     ): PointProjection {
         let rawPos = VectorOps.intoRaw(shapePos);
         let rawRot = RotationOps.intoRaw(shapeRot);
@@ -364,6 +371,7 @@ export abstract class Shape {
 
         let result = PointProjection.fromRaw(
             rawShape.projectPoint(rawPos, rawRot, rawPoint, solid),
+            target,
         );
 
         rawPos.free();
@@ -422,6 +430,7 @@ export abstract class Shape {
         shapeRot: Rotation,
         maxToi: number,
         solid: boolean,
+        target?: RayIntersection,
     ): RayIntersection {
         let rawPos = VectorOps.intoRaw(shapePos);
         let rawRot = RotationOps.intoRaw(shapeRot);
@@ -431,6 +440,7 @@ export abstract class Shape {
 
         let result = RayIntersection.fromRaw(
             rawShape.castRayAndGetNormal(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid)!,
+            target,
         );
 
         rawPos.free();

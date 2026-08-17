@@ -541,10 +541,15 @@ export class RigidBody {
 
     /**
      * The velocity of the given world-space point on this rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public velocityAtPoint(point: Vector): Vector {
+    public velocityAtPoint(point: Vector, target?: Vector): Vector {
         const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(this.rawSet.rbVelocityAtPoint(this.handle, rawPoint));
+        let result = VectorOps.fromRaw(
+            this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
+            target,
+        );
         rawPoint.free();
         return result!;
     }
@@ -577,9 +582,11 @@ export class RigidBody {
 
     /**
      * The inverse mass taking into account translation locking.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public effectiveInvMass(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle))!;
+    public effectiveInvMass(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle), target)!;
     }
 
     /**
@@ -615,39 +622,49 @@ export class RigidBody {
      * The inverse of the principal angular inertia of the rigid-body.
      *
      * Components set to zero are assumed to be infinite along the corresponding principal axis.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public invPrincipalInertia(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbInvPrincipalInertia(this.handle))!;
+    public invPrincipalInertia(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.rbInvPrincipalInertia(this.handle), target)!;
     }
 
     /**
      * The angular inertia along the principal inertia axes of the rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public principalInertia(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbPrincipalInertia(this.handle))!;
+    public principalInertia(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.rbPrincipalInertia(this.handle), target)!;
     }
 
     /**
      * The principal vectors of the local angular inertia tensor of the rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public principalInertiaLocalFrame(): Rotation {
-        return RotationOps.fromRaw(this.rawSet.rbPrincipalInertiaLocalFrame(this.handle))!;
+    public principalInertiaLocalFrame(target?: Rotation): Rotation {
+        return RotationOps.fromRaw(this.rawSet.rbPrincipalInertiaLocalFrame(this.handle), target)!;
     }
 
     /**
      * The world-space inverse angular inertia tensor of the rigid-body,
      * taking into account rotation locking.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public effectiveWorldInvInertia(): SdpMatrix3 {
-        return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveWorldInvInertia(this.handle));
+    public effectiveWorldInvInertia(target?: SdpMatrix3): SdpMatrix3 {
+        return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveWorldInvInertia(this.handle), target);
     }
 
     /**
      * The effective world-space angular inertia (that takes the potential rotation locking into account) of
      * this rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public effectiveAngularInertia(): SdpMatrix3 {
-        return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveAngularInertia(this.handle));
+    public effectiveAngularInertia(target?: SdpMatrix3): SdpMatrix3 {
+        return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveAngularInertia(this.handle), target);
     }
 
     /**
@@ -973,17 +990,21 @@ export class RigidBody {
     /**
      * Retrieves the constant force(s) the user added to this rigid-body
      * Returns zero if the rigid-body is not dynamic.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public userForce(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle))!;
+    public userForce(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle), target)!;
     }
 
     /**
      * Retrieves the constant torque(s) the user added to this rigid-body
      * Returns zero if the rigid-body is not dynamic.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public userTorque(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserTorque(this.handle))!;
+    public userTorque(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.rbUserTorque(this.handle), target)!;
     }
 }
 

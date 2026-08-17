@@ -72,17 +72,31 @@ export class RayIntersection {
         if (featureType !== undefined) this.featureType = featureType;
     }
 
-    public static fromRaw(raw: RawRayIntersection): RayIntersection | null {
+    /**
+     * Reads a ray intersection from its raw representation.
+     *
+     * @param raw - The raw intersection. It is always freed before returning.
+     * @param target - Optional target object to write the result to (avoids allocation).
+     */
+    public static fromRaw(
+        raw: RawRayIntersection,
+        target?: RayIntersection,
+    ): RayIntersection | null {
         if (!raw) return null;
 
-        const result = new RayIntersection(
-            raw.time_of_impact(),
-            VectorOps.fromRaw(raw.normal())!,
-            raw.featureType() as number as FeatureType,
-            raw.featureId(),
-        );
+        const timeOfImpact = raw.time_of_impact();
+        const normal = VectorOps.fromRaw(raw.normal(), target?.normal)!;
+        const featureType = raw.featureType() as number as FeatureType;
+        const featureId = raw.featureId();
         raw.free();
-        return result;
+
+        if (!target) return new RayIntersection(timeOfImpact, normal, featureType, featureId);
+
+        target.timeOfImpact = timeOfImpact;
+        target.normal = normal;
+        target.featureType = featureType;
+        target.featureId = featureId;
+        return target;
     }
 }
 

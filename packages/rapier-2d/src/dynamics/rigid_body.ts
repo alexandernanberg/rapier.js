@@ -447,10 +447,15 @@ export class RigidBody {
 
     /**
      * The velocity of the given world-space point on this rigid-body.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public velocityAtPoint(point: Vector): Vector {
+    public velocityAtPoint(point: Vector, target?: Vector): Vector {
         const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(this.rawSet.rbVelocityAtPoint(this.handle, rawPoint))!;
+        let result = VectorOps.fromRaw(
+            this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
+            target,
+        )!;
         rawPoint.free();
         return result;
     }
@@ -475,9 +480,11 @@ export class RigidBody {
 
     /**
      * The inverse mass taking into account translation locking.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public effectiveInvMass(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle))!;
+    public effectiveInvMass(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle), target)!;
     }
 
     /**
@@ -839,9 +846,11 @@ export class RigidBody {
     /**
      * Retrieves the constant force(s) the user added to this rigid-body
      * Returns zero if the rigid-body is not dynamic.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public userForce(): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle))!;
+    public userForce(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle), target)!;
     }
 
     /**

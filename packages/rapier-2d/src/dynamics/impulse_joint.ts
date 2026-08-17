@@ -143,9 +143,11 @@ export class ImpulseJoint {
      *
      * The first anchor gives the position of the application point on the
      * local frame of the first rigid-body it is attached to.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public anchor1(): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle))!;
+    public anchor1(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle), target)!;
     }
 
     /**
@@ -153,9 +155,11 @@ export class ImpulseJoint {
      *
      * The second anchor gives the position of the application point on the
      * local frame of the second rigid-body it is attached to.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public anchor2(): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle))!;
+    public anchor2(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle), target)!;
     }
 
     /**

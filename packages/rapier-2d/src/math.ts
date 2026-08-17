@@ -47,6 +47,18 @@ export class VectorOps {
         out.y = input.y;
     }
 
+    /**
+     * Writes the given components into `target`, allocating a new vector only if
+     * `target` wasn’t provided.
+     */
+    public static set(target: Vector | undefined, x: number, y: number): Vector {
+        if (!target) return VectorOps.new(x, y);
+
+        target.x = x;
+        target.y = y;
+        return target;
+    }
+
     public static fromBuffer(buffer: Float32Array, target?: Vector): Vector {
         target ??= VectorOps.zeros();
         target.x = buffer[0];

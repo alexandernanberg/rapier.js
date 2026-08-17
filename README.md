@@ -31,8 +31,9 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 - Rapier 0.35 with glam math library
 - pnpm monorepo with tsdown bundler
 - Contiguous transform buffer (body reads with zero WASM crossings)
-- Zero-allocation getters (optional target parameter)
+- Zero-allocation getters and scene queries (optional target parameter)
 - Batch transform setters (`setTransform`, `setNextKinematicTransform`)
+- Full `IntegrationParameters` surface (warm-starting, contact softness, contact clustering/recycling, friction model)
 - Built-in benchmarks
 - Simplified package variants (2 per dimension, SIMD by default)
 
@@ -79,6 +80,29 @@ body.translation(_pos);
 ```
 
 Supported: `translation()`, `rotation()`, `linvel()`, `angvel()`, `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`
+
+**Zero-allocation scene queries**
+
+Scene queries and the remaining vector getters take the same optional `target`, passed as the last argument (after the filter arguments). The target is returned as-is, so a hot loop can reuse one result object:
+
+```typescript
+const _hit = new RAPIER.RayColliderIntersection(undefined!, 0, {x: 0, y: 0, z: 0});
+
+// Writes into _hit instead of allocating a hit and a normal vector
+const hit = world.castRayAndGetNormal(
+    ray,
+    100,
+    true,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    _hit,
+);
+```
+
+Supported on `castRayAndGetNormal()`, `projectPoint()`, `projectPointAndGetFeature()` and `castShape()` (on `World` and `BroadPhase`), on the `Collider` and `Shape` query methods, on the mass-property and force getters of `RigidBody`, on joint anchors and frames, and on the vehicle controller's wheel getters. A query that misses returns `null` and leaves the target untouched.
 
 **Optimized ray casting**
 

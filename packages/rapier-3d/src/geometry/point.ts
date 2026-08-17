@@ -21,12 +21,27 @@ export class PointProjection {
         this.isInside = isInside;
     }
 
-    public static fromRaw(raw: RawPointProjection): PointProjection | null {
+    /**
+     * Reads a point projection from its raw representation.
+     *
+     * @param raw - The raw projection. It is always freed before returning.
+     * @param target - Optional target object to write the result to (avoids allocation).
+     */
+    public static fromRaw(
+        raw: RawPointProjection,
+        target?: PointProjection,
+    ): PointProjection | null {
         if (!raw) return null;
 
-        const result = new PointProjection(VectorOps.fromRaw(raw.point())!, raw.isInside());
+        const point = VectorOps.fromRaw(raw.point(), target?.point)!;
+        const isInside = raw.isInside();
         raw.free();
-        return result;
+
+        if (!target) return new PointProjection(point, isInside);
+
+        target.point = point;
+        target.isInside = isInside;
+        return target;
     }
 }
 
