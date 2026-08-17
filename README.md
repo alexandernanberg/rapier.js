@@ -196,14 +196,28 @@ pnpm dev:testbed3d      # http://localhost:5173
 pnpm bench                    # Run and compare against baseline
 pnpm bench --save-baseline    # Save current results as new baseline
 pnpm bench --no-compare       # Run without baseline comparison
+pnpm bench --no-memory        # Skip the allocation/GC measurements
 pnpm bench:2d                 # Full 2D benchmark
 pnpm bench --quick            # Quick mode (fewer iterations)
 ```
 
+**Allocations:** after the timing benchmarks, the suite measures how much JS heap
+each read path allocates per operation, and how much GC that causes per million
+operations. Timing and allocation are measured separately: allocation needs a
+quiet heap and forced collections, which the timing harness deliberately avoids.
+
+Each measurement window is sized to stay inside the young generation and repeated
+seven times, discarding the windows where a collection ran and taking the
+smallest of the rest — background allocation only ever adds to a window, and a
+collection only ever subtracts. The scene and the query set are seeded, since how
+much a query allocates depends on how often it hits.
+
 **Baseline comparison:**
 
 - Results are compared against `packages/benchmarks/baseline.json`
-- Thresholds: >15% = warning, >30% = regression
+- Timing thresholds: >15% = warning, >30% = regression
+- Allocation thresholds: >25% = warning, >50% = regression, ignoring changes
+  under 128 bytes/op (below that it is measurement noise)
 - Exit code 1 on regression (useful for CI)
 
 ## License

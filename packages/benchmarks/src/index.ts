@@ -5,11 +5,15 @@ import {
     loadBaseline,
     saveBaseline,
     compareToBaseline,
+    compareMemoryToBaseline,
     hasRegression,
     summarizeComparison,
     printComparisonTable,
+    printMemoryComparisonTable,
     type BenchResult,
 } from "./baseline.js";
+import {gcAvailable, measureMemory, printMemoryTable, type MemoryResult} from "./memory.js";
+import {allocationBenches} from "./scenarios/allocations.js";
 import {benchGetters} from "./scenarios/getters.js";
 import {benchLifecycle} from "./scenarios/lifecycle.js";
 import {benchQueries} from "./scenarios/queries.js";
@@ -45,6 +49,7 @@ function parseArgs() {
     let noCompare = false;
     let simd = false;
     let official = false;
+    let noMemory = false;
 
     for (const arg of args) {
         if (arg === "--dim=2d") dim = "2d";
@@ -54,6 +59,7 @@ function parseArgs() {
         else if (arg === "--no-compare") noCompare = true;
         else if (arg === "--simd") simd = true;
         else if (arg === "--official") official = true;
+        else if (arg === "--no-memory") noMemory = true;
         else if (arg === "--help" || arg === "-h") {
             console.log(`
 Rapier.js Benchmark Suite
@@ -67,6 +73,7 @@ Options:
                     this fork is always SIMD)
   --official        Use official @dimforge/rapier packages instead of fork
   --quick           Run with fewer bodies (faster setup, same measurement precision)
+  --no-memory       Skip the allocation/GC measurements
   --save-baseline   Save current results as new baseline
   --no-compare      Run without baseline comparison
   --help, -h        Show this help message
@@ -84,11 +91,11 @@ Examples:
         }
     }
 
-    return {dim, quick, saveBaselineFlag, noCompare, simd, official};
+    return {dim, quick, saveBaselineFlag, noCompare, simd, official, noMemory};
 }
 
 async function main() {
-    const {dim, quick, saveBaselineFlag, noCompare, simd, official} = parseArgs();
+    const {dim, quick, saveBaselineFlag, noCompare, simd, official, noMemory} = parseArgs();
     const is3D = dim === "3d";
 
     const modifiers = [
@@ -114,6 +121,21 @@ async function main() {
 
     // Run all registered benchmarks
     const {benchmarks} = await run();
+
+    // Allocation and GC pressure, measured separately: these need a quiet heap
+    // and forced collections, which the timing harness deliberately avoids.
+    let memory: MemoryResult[] = [];
+    if (!noMemory) {
+        if (!gcAvailable()) {
+            console.log(
+                "\nSkipping allocation measurements: could not expose `gc` " +
+                    "(run node with --expose-gc).",
+            );
+        } else {
+            memory = await measureMemory(allocationBenches(RAPIER, is3D, quick), quick);
+            printMemoryTable(memory);
+        }
+    }
 
     // Extract results from mitata's format
     const results: BenchResult[] = benchmarks.flatMap((trial) =>
@@ -150,6 +172,12 @@ async function main() {
                             samples: r.stats!.samples.length,
                         })),
                 ),
+                memory: memory.map((m) => ({
+                    name: m.name,
+                    bytesPerOp: m.bytesPerOp,
+                    gcPerMillionOps: m.gcPerMillionOps,
+                    gcPauseMsPerMillionOps: m.gcPauseMsPerMillionOps,
+                })),
             },
             null,
             2,
@@ -159,13 +187,19 @@ async function main() {
 
     // Handle baseline operations
     if (saveBaselineFlag) {
-        saveBaseline(dim, results);
+        saveBaseline(dim, results, memory);
     } else if (!noCompare) {
         const baseline = loadBaseline();
 
         if (baseline && Object.keys(baseline[dim]).length > 0) {
             const comparisons = compareToBaseline(dim, results, baseline);
             printComparisonTable(comparisons);
+
+            if (memory.length > 0) {
+                const memoryComparisons = compareMemoryToBaseline(dim, memory, baseline);
+                printMemoryComparisonTable(memoryComparisons);
+                comparisons.push(...memoryComparisons);
+            }
 
             const summaryResult = summarizeComparison(comparisons);
             const parts: string[] = [];

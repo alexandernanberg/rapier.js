@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {formatBytes, type MemoryResult} from "./memory.js";
 
 export interface BenchResult {
     name: string;
@@ -12,6 +13,10 @@ export interface BaselineEntry {
     tolerance?: number;
 }
 
+export interface MemoryBaselineEntry {
+    bytesPerOp: number;
+}
+
 export interface BaselineData {
     version: number;
     created: string;
@@ -21,6 +26,10 @@ export interface BaselineData {
     };
     "2d": Record<string, BaselineEntry>;
     "3d": Record<string, BaselineEntry>;
+    memory?: {
+        "2d": Record<string, MemoryBaselineEntry>;
+        "3d": Record<string, MemoryBaselineEntry>;
+    };
 }
 
 export type ComparisonStatus = "pass" | "warning" | "regression" | "new";
@@ -36,6 +45,18 @@ export interface ComparisonResult {
 const DEFAULT_THRESHOLDS = {
     warning: 0.15,
     regression: 0.3,
+};
+
+/**
+ * Allocation thresholds, calibrated against the measured run-to-run spread: the
+ * rows that allocate hundreds of bytes per op repeat to within a few percent,
+ * while the near-zero rows wander by a few tens of bytes. Hence the absolute
+ * floor — below it, a change is measurement noise rather than a real one.
+ */
+const MEMORY_THRESHOLDS = {
+    warning: 0.25,
+    regression: 0.5,
+    minBytesDelta: 128,
 };
 
 function getBaselinePath(): string {
@@ -58,7 +79,11 @@ export function loadBaseline(): BaselineData | null {
     }
 }
 
-export function saveBaseline(dim: "2d" | "3d", results: BenchResult[]): void {
+export function saveBaseline(
+    dim: "2d" | "3d",
+    results: BenchResult[],
+    memory: MemoryResult[] = [],
+): void {
     const baselinePath = getBaselinePath();
     let baseline: BaselineData;
 
@@ -81,6 +106,12 @@ export function saveBaseline(dim: "2d" | "3d", results: BenchResult[]): void {
         };
     }
 
+    baseline.memory ??= {"2d": {}, "3d": {}};
+    baseline.memory[dim] = {};
+    for (const result of memory) {
+        baseline.memory[dim][result.name] = {bytesPerOp: result.bytesPerOp};
+    }
+
     // Update timestamp
     baseline.created = new Date().toISOString();
 
@@ -95,7 +126,78 @@ function createEmptyBaseline(): BaselineData {
         thresholds: DEFAULT_THRESHOLDS,
         "2d": {},
         "3d": {},
+        memory: {"2d": {}, "3d": {}},
     };
+}
+
+export function compareMemoryToBaseline(
+    dim: "2d" | "3d",
+    results: MemoryResult[],
+    baseline: BaselineData,
+): ComparisonResult[] {
+    const entries = baseline.memory?.[dim] ?? {};
+
+    return results.map((result) => {
+        const entry = entries[result.name];
+
+        if (!entry) {
+            return {
+                name: result.name,
+                mean: result.bytesPerOp,
+                baseline: null,
+                percentChange: null,
+                status: "new" as ComparisonStatus,
+            };
+        }
+
+        const delta = result.bytesPerOp - entry.bytesPerOp;
+
+        // Below the floor the change is noise, and a ratio against a near-zero
+        // baseline would report it as a spectacular percentage. Call it flat.
+        if (Math.abs(delta) < MEMORY_THRESHOLDS.minBytesDelta) {
+            return {
+                name: result.name,
+                mean: result.bytesPerOp,
+                baseline: entry.bytesPerOp,
+                percentChange: 0,
+                status: "pass" as ComparisonStatus,
+            };
+        }
+
+        const percentChange = entry.bytesPerOp > 0 ? delta / entry.bytesPerOp : 1;
+
+        let status: ComparisonStatus;
+        if (percentChange > MEMORY_THRESHOLDS.regression) {
+            status = "regression";
+        } else if (percentChange > MEMORY_THRESHOLDS.warning) {
+            status = "warning";
+        } else {
+            status = "pass";
+        }
+
+        return {
+            name: result.name,
+            mean: result.bytesPerOp,
+            baseline: entry.bytesPerOp,
+            percentChange,
+            status,
+        };
+    });
+}
+
+export function printMemoryComparisonTable(comparisons: ComparisonResult[]): void {
+    console.log("\nAllocation Baseline Comparison:");
+    console.log("┌─────────────────────────────────┬──────────┬──────────┬────────────┐");
+    console.log("│ Benchmark                       │ Bytes/op │ Baseline │ Status     │");
+    console.log("├─────────────────────────────────┼──────────┼──────────┼────────────┤");
+    for (const c of comparisons) {
+        const name = c.name.slice(0, 31).padEnd(31);
+        const bytes = formatBytes(c.mean).padStart(8);
+        const base = c.baseline !== null ? formatBytes(c.baseline).padStart(8) : "     N/A";
+        const status = formatStatus(c.percentChange, c.status).padEnd(10);
+        console.log(`│ ${name} │ ${bytes} │ ${base} │ ${status} │`);
+    }
+    console.log("└─────────────────────────────────┴──────────┴──────────┴────────────┘");
 }
 
 export function compareToBaseline(

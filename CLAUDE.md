@@ -88,8 +88,18 @@ pnpm bench:quick        # Quick mode (fewer iterations)
 - **Lifecycle**: Body creation/destruction throughput
 - **Queries**: Ray casting and point projection performance
 - **Getters**: Property access with/without allocation
+- **Allocations**: bytes of JS heap per operation, and the GC count/pause time
+  that causes per million operations, for each read path with and without its
+  `target` form (`--no-memory` skips this pass)
 
 Results are saved to `packages/benchmarks/results/` as timestamped JSON files.
+
+The allocation pass (`src/memory.ts`) is separate from mitata: it forces a
+collection, sizes each measurement window to stay inside the young generation,
+and takes the smallest of seven GC-free windows. Two things it must keep doing —
+results have to escape into a sink (otherwise V8's escape analysis deletes the
+allocation being measured), and the heap has to be sampled before awaiting the
+GC observer's flush (the observer only receives entries on a later timer turn).
 
 ## Critical Memory Management Patterns
 
