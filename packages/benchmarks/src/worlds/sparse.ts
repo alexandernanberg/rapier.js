@@ -1,6 +1,12 @@
 import type {World} from "@alexandernanberg/rapier3d";
+import type {WorldOptions} from "./pyramid.js";
 
-export function createSparseWorld(RAPIER: any, is3D: boolean, bodyCount: number): World {
+export function createSparseWorld(
+    RAPIER: any,
+    is3D: boolean,
+    bodyCount: number,
+    options: WorldOptions = {},
+): World {
     const gravity = is3D ? {x: 0, y: -9.81, z: 0} : {x: 0, y: -9.81};
     const world = new RAPIER.World(gravity);
 
@@ -25,11 +31,15 @@ export function createSparseWorld(RAPIER: any, is3D: boolean, bodyCount: number)
 
         if (is3D) {
             const z = (gridY / gridSize - 0.5) * spread;
-            const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
+            const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
+                .setTranslation(x, y, z)
+                .setCanSleep(options.canSleep ?? true);
             const body = world.createRigidBody(bodyDesc);
             world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
         } else {
-            const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x + gridY * 0.1, y);
+            const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
+                .setTranslation(x + gridY * 0.1, y)
+                .setCanSleep(options.canSleep ?? true);
             const body = world.createRigidBody(bodyDesc);
             world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
         }

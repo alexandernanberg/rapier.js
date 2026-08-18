@@ -541,8 +541,8 @@ export class Collider {
     /**
      * The half-extents of this collider if it is a cuboid shape.
      */
-    public halfExtents(): Vector {
-        return VectorOps.fromRaw(this.colliderSet.raw.coHalfExtents(this.handle)!)!;
+    public halfExtents(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.colliderSet.raw.coHalfExtents(this.handle)!, target)!;
     }
 
     /**
@@ -718,9 +718,9 @@ export class Collider {
      * If this collider has a heightfield shape, this returns the scale
      * applied to it.
      */
-    public heightfieldScale(): Vector {
+    public heightfieldScale(target?: Vector): Vector {
         let scale = this.colliderSet.raw.coHeightfieldScale(this.handle)!;
-        return VectorOps.fromRaw(scale)!;
+        return VectorOps.fromRaw(scale, target)!;
     }
 
     /**
@@ -803,10 +803,15 @@ export class Collider {
      *   (if the point is located inside of an hollow shape, it is projected on the shape's
      *   boundary).
      */
-    public projectPoint(point: Vector, solid: boolean): PointProjection | null {
+    public projectPoint(
+        point: Vector,
+        solid: boolean,
+        target?: PointProjection,
+    ): PointProjection | null {
         let rawPoint = VectorOps.intoRaw(point);
         let result = PointProjection.fromRaw(
             this.colliderSet.raw.coProjectPoint(this.handle, rawPoint, solid),
+            target,
         );
 
         rawPoint.free();
@@ -857,6 +862,7 @@ export class Collider {
         targetDistance: number,
         maxToi: number,
         stopAtPenetration: boolean,
+        target?: ShapeCastHit,
     ): ShapeCastHit | null {
         let rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
         let rawShape2Pos = VectorOps.intoRaw(shape2Pos);
@@ -877,6 +883,7 @@ export class Collider {
                 maxToi,
                 stopAtPenetration,
             )!,
+            target,
         );
 
         rawCollider1Vel.free();
@@ -909,6 +916,7 @@ export class Collider {
         targetDistance: number,
         maxToi: number,
         stopAtPenetration: boolean,
+        target?: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
         let rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
         let rawCollider2Vel = VectorOps.intoRaw(collider2Vel);
@@ -924,6 +932,7 @@ export class Collider {
                 maxToi,
                 stopAtPenetration,
             )!,
+            target,
         );
 
         rawCollider1Vel.free();
@@ -965,6 +974,7 @@ export class Collider {
         shape2Pos: Vector,
         shape2Rot: Rotation,
         prediction: number,
+        target?: ShapeContact,
     ): ShapeContact | null {
         let rawPos2 = VectorOps.intoRaw(shape2Pos);
         let rawRot2 = RotationOps.intoRaw(shape2Rot);
@@ -978,6 +988,7 @@ export class Collider {
                 rawRot2,
                 prediction,
             )!,
+            target,
         );
 
         rawPos2.free();
@@ -994,9 +1005,14 @@ export class Collider {
      * @param prediction - The prediction value, if the shapes are separated by a distance greater than this value, test will fail.
      * @returns `null` if the shapes are separated by a distance greater than prediction, otherwise contact details. The result is given in world-space.
      */
-    contactCollider(collider2: Collider, prediction: number): ShapeContact | null {
+    contactCollider(
+        collider2: Collider,
+        prediction: number,
+        target?: ShapeContact,
+    ): ShapeContact | null {
         return ShapeContact.fromRaw(
             this.colliderSet.raw.coContactCollider(this.handle, collider2.handle, prediction)!,
+            target,
         );
     }
 
@@ -1034,7 +1050,12 @@ export class Collider {
      *   origin already lies inside of a shape. In other terms, `true` implies that all shapes are plain,
      *   whereas `false` implies that all shapes are hollow for this ray-cast.
      */
-    public castRayAndGetNormal(ray: Ray, maxToi: number, solid: boolean): RayIntersection | null {
+    public castRayAndGetNormal(
+        ray: Ray,
+        maxToi: number,
+        solid: boolean,
+        target?: RayIntersection,
+    ): RayIntersection | null {
         let rawOrig = VectorOps.intoRaw(ray.origin);
         let rawDir = VectorOps.intoRaw(ray.dir);
         let result = RayIntersection.fromRaw(
@@ -1045,6 +1066,7 @@ export class Collider {
                 maxToi,
                 solid,
             )!,
+            target,
         );
 
         rawOrig.free();

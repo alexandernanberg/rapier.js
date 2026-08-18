@@ -1,12 +1,17 @@
 import {bench, summary} from "mitata";
 
-export function benchLifecycle(RAPIER: any, is3D: boolean, _quick: boolean): void {
+export function benchLifecycle(RAPIER: any, is3D: boolean, quick: boolean): void {
     const gravity = is3D ? {x: 0, y: -9.81, z: 0} : {x: 0, y: -9.81};
+    const createCount = quick ? 1000 : 5000;
+    const churnCount = quick ? 200 : 500;
+    // Spawning into an empty world is not the case that stresses the sets; the
+    // churn benchmark runs against a world that already holds bodies.
+    const residentCount = 1000;
 
     summary(() => {
-        bench("create 1000 bodies+colliders", () => {
+        bench(`create ${createCount} bodies+colliders`, () => {
             const world = new RAPIER.World(gravity);
-            for (let i = 0; i < 1000; i++) {
+            for (let i = 0; i < createCount; i++) {
                 const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
                 world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
             }
@@ -18,7 +23,7 @@ export function benchLifecycle(RAPIER: any, is3D: boolean, _quick: boolean): voi
     const world = new RAPIER.World(gravity);
 
     // Pre-create some bodies to have a realistic scenario
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < residentCount; i++) {
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
         if (is3D) {
             world.createCollider(RAPIER.ColliderDesc.cuboid(1, 1, 1), body);
@@ -28,10 +33,10 @@ export function benchLifecycle(RAPIER: any, is3D: boolean, _quick: boolean): voi
     }
 
     summary(() => {
-        bench("spawn+despawn 100 bodies", () => {
+        bench(`spawn+despawn ${churnCount} bodies (${residentCount} resident)`, () => {
             const bodies = [];
 
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < churnCount; i++) {
                 const bodyDesc = RAPIER.RigidBodyDesc.dynamic();
                 if (is3D) {
                     bodyDesc.setTranslation(

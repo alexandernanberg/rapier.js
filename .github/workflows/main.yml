@@ -173,6 +173,22 @@ jobs:
                     md += '| ' + r.name + ' | ' + formatTime(r.mean) + ' | ' + formatTime(r.min) + ' | ' + formatTime(r.max) + ' |\n';
                   }
 
+                  function formatBytes(b) {
+                    if (b < 0.5) return '0 b';
+                    if (b < 1024) return b.toFixed(b < 10 ? 1 : 0) + ' b';
+                    return (b / 1024).toFixed(1) + ' kb';
+                  }
+
+                  if (data.memory && data.memory.length > 0) {
+                    md += '\n### Allocations\n\n';
+                    md += '| Benchmark | Bytes/op | GC / 1M ops | GC pause / 1M ops |\n';
+                    md += '|-----------|----------|-------------|-------------------|\n';
+                    for (const m of data.memory) {
+                      md += '| ' + m.name + ' | ' + formatBytes(m.bytesPerOp) + ' | ' + m.gcPerMillionOps.toFixed(0) + ' | ' + m.gcPauseMsPerMillionOps.toFixed(1) + 'ms |\n';
+                    }
+                    md += '\nBytes/op repeats to within a few percent; the GC columns depend on nursery sizing and are indicative only.\n';
+                  }
+
                   md += '\n<details>\n<summary>Environment</summary>\n\n';
                   md += '- **Node:** ' + data.node + '\n';
                   md += '- **Platform:** ' + data.platform + '/' + data.arch + '\n';

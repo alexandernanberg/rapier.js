@@ -51,6 +51,19 @@ export class VectorOps {
         out.z = input.z;
     }
 
+    /**
+     * Writes the given components into `target`, allocating a new vector only if
+     * `target` wasn’t provided.
+     */
+    public static set(target: Vector | undefined, x: number, y: number, z: number): Vector {
+        if (!target) return VectorOps.new(x, y, z);
+
+        target.x = x;
+        target.y = y;
+        target.z = z;
+        return target;
+    }
+
     public static fromBuffer(buffer: Float32Array, target?: Vector): Vector {
         target ??= VectorOps.zeros();
         target.x = buffer[0];
@@ -208,9 +221,13 @@ export class SdpMatrix3 {
 }
 
 export class SdpMatrix3Ops {
-    public static fromRaw(raw: RawSdpMatrix3): SdpMatrix3 {
-        const sdpMatrix3 = new SdpMatrix3(raw.elements());
+    public static fromRaw(raw: RawSdpMatrix3, target?: SdpMatrix3): SdpMatrix3 {
+        const elements = raw.elements();
         raw.free();
-        return sdpMatrix3;
+
+        if (!target) return new SdpMatrix3(elements);
+
+        target.elements.set(elements);
+        return target;
     }
 }

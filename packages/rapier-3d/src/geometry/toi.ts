@@ -47,9 +47,16 @@ export class ShapeCastHit {
         this.normal2 = normal2;
     }
 
+    /**
+     * Reads a shape-cast hit from its raw representation.
+     *
+     * @param raw - The raw hit. It is always freed before returning.
+     * @param target - Optional target object to write the result to (avoids allocation).
+     */
     public static fromRaw(
         colliderSet: ColliderSet | null,
         raw: RawShapeCastHit,
+        target?: ShapeCastHit,
     ): ShapeCastHit | null {
         if (!raw) return null;
 
@@ -57,25 +64,21 @@ export class ShapeCastHit {
         const s = scratch();
         raw.free();
 
-        const result = new ShapeCastHit(
-            s[0],
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-        );
-        result.witness1.x = s[1];
-        result.witness1.y = s[2];
-        result.witness1.z = s[3];
-        result.witness2.x = s[4];
-        result.witness2.y = s[5];
-        result.witness2.z = s[6];
-        result.normal1.x = s[7];
-        result.normal1.y = s[8];
-        result.normal1.z = s[9];
-        result.normal2.x = s[10];
-        result.normal2.y = s[11];
-        result.normal2.z = s[12];
+        const result =
+            target ??
+            new ShapeCastHit(
+                0,
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+            );
+
+        result.time_of_impact = s[0];
+        result.witness1 = VectorOps.set(result.witness1, s[1], s[2], s[3]);
+        result.witness2 = VectorOps.set(result.witness2, s[4], s[5], s[6]);
+        result.normal1 = VectorOps.set(result.normal1, s[7], s[8], s[9]);
+        result.normal2 = VectorOps.set(result.normal2, s[10], s[11], s[12]);
         return result;
     }
 }
@@ -101,9 +104,16 @@ export class ColliderShapeCastHit extends ShapeCastHit {
         this.collider = collider;
     }
 
+    /**
+     * Reads a collider shape-cast hit from its raw representation.
+     *
+     * @param raw - The raw hit. It is always freed before returning.
+     * @param target - Optional target object to write the result to (avoids allocation).
+     */
     public static fromRaw(
         colliderSet: ColliderSet,
         raw: RawColliderShapeCastHit,
+        target?: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
         if (!raw) return null;
 
@@ -112,26 +122,23 @@ export class ColliderShapeCastHit extends ShapeCastHit {
         const s = scratch();
         raw.free();
 
-        const result = new ColliderShapeCastHit(
-            collider,
-            s[0],
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-            VectorOps.zeros(),
-        );
-        result.witness1.x = s[1];
-        result.witness1.y = s[2];
-        result.witness1.z = s[3];
-        result.witness2.x = s[4];
-        result.witness2.y = s[5];
-        result.witness2.z = s[6];
-        result.normal1.x = s[7];
-        result.normal1.y = s[8];
-        result.normal1.z = s[9];
-        result.normal2.x = s[10];
-        result.normal2.y = s[11];
-        result.normal2.z = s[12];
+        const result =
+            target ??
+            new ColliderShapeCastHit(
+                collider,
+                0,
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+                VectorOps.zeros(),
+            );
+
+        result.collider = collider;
+        result.time_of_impact = s[0];
+        result.witness1 = VectorOps.set(result.witness1, s[1], s[2], s[3]);
+        result.witness2 = VectorOps.set(result.witness2, s[4], s[5], s[6]);
+        result.normal1 = VectorOps.set(result.normal1, s[7], s[8], s[9]);
+        result.normal2 = VectorOps.set(result.normal2, s[10], s[11], s[12]);
         return result;
     }
 }

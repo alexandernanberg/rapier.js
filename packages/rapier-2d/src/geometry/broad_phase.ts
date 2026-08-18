@@ -70,27 +70,53 @@ export class BroadPhase {
     }
 
     /** Reads the ray intersection currently held by the result buffer. */
-    private rayIntersectionFromResults(colliders: ColliderSet): RayColliderIntersection {
+    private rayIntersectionFromResults(
+        colliders: ColliderSet,
+        target?: RayColliderIntersection,
+    ): RayColliderIntersection {
         const r = this.results();
-        return new RayColliderIntersection(
-            colliders.get(r[0])!,
-            r[1],
-            VectorOps.new(r[2], r[3]),
-            r[4] as FeatureType,
-            r[5] < 0 ? undefined : r[5],
-        );
+
+        if (!target) {
+            return new RayColliderIntersection(
+                colliders.get(r[0])!,
+                r[1],
+                VectorOps.new(r[2], r[3]),
+                r[4] as FeatureType,
+                r[5] < 0 ? undefined : r[5],
+            );
+        }
+
+        target.collider = colliders.get(r[0])!;
+        target.timeOfImpact = r[1];
+        target.normal = VectorOps.set(target.normal, r[2], r[3]);
+        target.featureType = r[4] as FeatureType;
+        target.featureId = r[5] < 0 ? undefined : r[5];
+        return target;
     }
 
     /** Reads the point projection currently held by the result buffer. */
-    private pointProjectionFromResults(colliders: ColliderSet): PointColliderProjection {
+    private pointProjectionFromResults(
+        colliders: ColliderSet,
+        target?: PointColliderProjection,
+    ): PointColliderProjection {
         const r = this.results();
-        return new PointColliderProjection(
-            colliders.get(r[0])!,
-            VectorOps.new(r[1], r[2]),
-            r[3] !== 0,
-            r[4] as FeatureType,
-            r[5] < 0 ? undefined : r[5],
-        );
+
+        if (!target) {
+            return new PointColliderProjection(
+                colliders.get(r[0])!,
+                VectorOps.new(r[1], r[2]),
+                r[3] !== 0,
+                r[4] as FeatureType,
+                r[5] < 0 ? undefined : r[5],
+            );
+        }
+
+        target.collider = colliders.get(r[0])!;
+        target.point = VectorOps.set(target.point, r[1], r[2]);
+        target.isInside = r[3] !== 0;
+        target.featureType = r[4] as FeatureType;
+        target.featureId = r[5] < 0 ? undefined : r[5];
+        return target;
     }
 
     /**
@@ -154,6 +180,7 @@ export class BroadPhase {
      *   origin already lies inside of a shape. In other terms, `true` implies that all shapes are plain,
      *   whereas `false` implies that all shapes are hollow for this ray-cast.
      * @param groups - Used to filter the colliders that can or cannot be hit by the ray.
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
     public castRayAndGetNormal(
         narrowPhase: NarrowPhase,
@@ -167,6 +194,7 @@ export class BroadPhase {
         filterExcludeCollider?: ColliderHandle,
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
+        target?: RayColliderIntersection,
     ): RayColliderIntersection | null {
         const hit = this.raw.castRayAndGetNormal(
             narrowPhase.raw,
@@ -187,7 +215,7 @@ export class BroadPhase {
 
         if (!hit) return null;
 
-        return this.rayIntersectionFromResults(colliders);
+        return this.rayIntersectionFromResults(colliders, target);
     }
 
     /**
@@ -299,6 +327,7 @@ export class BroadPhase {
      *   boundary).
      * @param groups - The bit groups and filter associated to the point to project, in order to only
      *   project on colliders with collision groups compatible with the ray's group.
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
     public projectPoint(
         narrowPhase: NarrowPhase,
@@ -311,6 +340,7 @@ export class BroadPhase {
         filterExcludeCollider?: ColliderHandle,
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
+        target?: PointColliderProjection,
     ): PointColliderProjection | null {
         const hit = this.raw.projectPoint(
             narrowPhase.raw,
@@ -328,7 +358,7 @@ export class BroadPhase {
 
         if (!hit) return null;
 
-        return this.pointProjectionFromResults(colliders);
+        return this.pointProjectionFromResults(colliders, target);
     }
 
     /**
@@ -338,6 +368,7 @@ export class BroadPhase {
      * @param point - The point to project.
      * @param groups - The bit groups and filter associated to the point to project, in order to only
      *   project on colliders with collision groups compatible with the ray's group.
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
     public projectPointAndGetFeature(
         narrowPhase: NarrowPhase,
@@ -349,6 +380,7 @@ export class BroadPhase {
         filterExcludeCollider?: ColliderHandle,
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
+        target?: PointColliderProjection,
     ): PointColliderProjection | null {
         const hit = this.raw.projectPointAndGetFeature(
             narrowPhase.raw,
@@ -365,7 +397,7 @@ export class BroadPhase {
 
         if (!hit) return null;
 
-        return this.pointProjectionFromResults(colliders);
+        return this.pointProjectionFromResults(colliders, target);
     }
 
     /**
@@ -424,6 +456,7 @@ export class BroadPhase {
      *   that it’s on a path to exit that penetration state.
      * @param groups - The bit groups and filter associated to the shape to cast, in order to only
      *   test on colliders with collision groups compatible with this group.
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
     public castShape(
         narrowPhase: NarrowPhase,
@@ -441,6 +474,7 @@ export class BroadPhase {
         filterExcludeCollider?: ColliderHandle,
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
+        target?: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
         let rawPos = VectorOps.intoRaw(shapePos);
         let rawRot = RotationOps.intoRaw(shapeRot);
@@ -466,6 +500,7 @@ export class BroadPhase {
                 filterExcludeRigidBody,
                 filterPredicate as unknown as Function,
             )!,
+            target,
         );
 
         rawPos.free();

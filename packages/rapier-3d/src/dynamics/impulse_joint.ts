@@ -149,16 +149,20 @@ export class ImpulseJoint {
 
     /**
      * The rotation quaternion that aligns this joint's first local axis to the `x` axis.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public frameX1(): Rotation {
-        return RotationOps.fromRaw(this.rawSet.jointFrameX1(this.handle))!;
+    public frameX1(target?: Rotation): Rotation {
+        return RotationOps.fromRaw(this.rawSet.jointFrameX1(this.handle), target)!;
     }
 
     /**
      * The rotation matrix that aligns this joint's second local axis to the `x` axis.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public frameX2(): Rotation {
-        return RotationOps.fromRaw(this.rawSet.jointFrameX2(this.handle))!;
+    public frameX2(target?: Rotation): Rotation {
+        return RotationOps.fromRaw(this.rawSet.jointFrameX2(this.handle), target)!;
     }
 
     /**
@@ -166,9 +170,11 @@ export class ImpulseJoint {
      *
      * The first anchor gives the position of the application point on the
      * local frame of the first rigid-body it is attached to.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public anchor1(): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle))!;
+    public anchor1(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle), target)!;
     }
 
     /**
@@ -176,9 +182,11 @@ export class ImpulseJoint {
      *
      * The second anchor gives the position of the application point on the
      * local frame of the second rigid-body it is attached to.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public anchor2(): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle))!;
+    public anchor2(target?: Vector): Vector {
+        return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle), target)!;
     }
 
     /**

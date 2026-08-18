@@ -31,8 +31,9 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 - Rapier 0.35 with glam math library
 - pnpm monorepo with tsdown bundler
 - Contiguous transform buffer (body reads with zero WASM crossings)
-- Zero-allocation getters (optional target parameter)
+- Zero-allocation getters and scene queries (optional target parameter)
 - Batch transform setters (`setTransform`, `setNextKinematicTransform`)
+- Full `IntegrationParameters` surface (warm-starting, contact softness, contact clustering/recycling, friction model)
 - Built-in benchmarks
 - Simplified package variants (2 per dimension, SIMD by default)
 
@@ -63,6 +64,10 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 
 Official = `@dimforge/rapier3d-compat` v0.19.3. Reuse = zero-allocation target parameter (fork only), speedup compared against official alloc. Getter times are for 1000 bodies. Run `pnpm bench` / `pnpm bench --official` to benchmark on your machine.
 
+> These figures predate the larger benchmark sizes (5000 bodies, 1000 casts) and
+> the split of `world.step()` into its active and sleeping cases, so they no
+> longer line up with what the suite prints — re-run both to refresh them.
+
 ### What Makes It Faster
 
 **Contiguous transform buffer (zero WASM crossings for body reads)**
@@ -79,6 +84,29 @@ body.translation(_pos);
 ```
 
 Supported: `translation()`, `rotation()`, `linvel()`, `angvel()`, `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`
+
+**Zero-allocation scene queries**
+
+Scene queries and the remaining vector getters take the same optional `target`, passed as the last argument (after the filter arguments). The target is returned as-is, so a hot loop can reuse one result object:
+
+```typescript
+const _hit = new RAPIER.RayColliderIntersection(undefined!, 0, {x: 0, y: 0, z: 0});
+
+// Writes into _hit instead of allocating a hit and a normal vector
+const hit = world.castRayAndGetNormal(
+    ray,
+    100,
+    true,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    _hit,
+);
+```
+
+Supported on `castRayAndGetNormal()`, `projectPoint()`, `projectPointAndGetFeature()` and `castShape()` (on `World` and `BroadPhase`), on the `Collider` and `Shape` query methods, on the mass-property and force getters of `RigidBody`, on joint anchors and frames, and on the vehicle controller's wheel getters. A query that misses returns `null` and leaves the target untouched.
 
 **Optimized ray casting**
 
@@ -172,14 +200,38 @@ pnpm dev:testbed3d      # http://localhost:5173
 pnpm bench                    # Run and compare against baseline
 pnpm bench --save-baseline    # Save current results as new baseline
 pnpm bench --no-compare       # Run without baseline comparison
+pnpm bench --no-memory        # Skip the allocation/GC measurements
 pnpm bench:2d                 # Full 2D benchmark
 pnpm bench --quick            # Quick mode (fewer iterations)
 ```
 
+**Sizes:** 5000 bodies and 1000 casts per iteration (1000 and 250 under
+`--quick`), so that one iteration is hundreds of microseconds of real work rather
+than a handful of operations wrapped in loop and timer overhead.
+
+`world.step()` is measured twice. A settled pyramid puts essentially every island
+to sleep — 1 of 3001 bodies stays awake — and stepping it costs about a thousand
+times less than stepping the same scene while it is active, so the two are
+reported separately rather than as one number that depends on how long the scene
+was left to settle.
+
+**Allocations:** after the timing benchmarks, the suite measures how much JS heap
+each read path allocates per operation, and how much GC that causes per million
+operations. Timing and allocation are measured separately: allocation needs a
+quiet heap and forced collections, which the timing harness deliberately avoids.
+
+Each measurement window is sized to stay inside the young generation and repeated
+seven times, discarding the windows where a collection ran and taking the
+smallest of the rest — background allocation only ever adds to a window, and a
+collection only ever subtracts. The scene and the query set are seeded, since how
+much a query allocates depends on how often it hits.
+
 **Baseline comparison:**
 
 - Results are compared against `packages/benchmarks/baseline.json`
-- Thresholds: >15% = warning, >30% = regression
+- Timing thresholds: >15% = warning, >30% = regression
+- Allocation thresholds: >25% = warning, >50% = regression, ignoring changes
+  under 128 bytes/op (below that it is measurement noise)
 - Exit code 1 on regression (useful for CI)
 
 ## License

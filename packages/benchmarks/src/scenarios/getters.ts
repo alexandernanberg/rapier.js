@@ -1,7 +1,7 @@
 import {bench, summary} from "mitata";
 
-export function benchGetters(RAPIER: any, is3D: boolean, _quick: boolean): void {
-    const bodyCount = 1000;
+export function benchGetters(RAPIER: any, is3D: boolean, quick: boolean): void {
+    const bodyCount = quick ? 1000 : 5000;
 
     const gravity = is3D ? {x: 0, y: -9.81, z: 0} : {x: 0, y: -9.81};
     const world = new RAPIER.World(gravity);
@@ -41,52 +41,52 @@ export function benchGetters(RAPIER: any, is3D: boolean, _quick: boolean): void 
     })();
 
     summary(() => {
-        bench(`body.translation() [alloc]`, () => {
+        bench(`body.translation() x${bodyCount} [alloc]`, () => {
             for (const b of bodies) b.translation();
         });
 
         if (supportsTargetParam) {
             const translationTarget = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};
-            bench(`body.translation() [reuse]`, () => {
+            bench(`body.translation() x${bodyCount} [reuse]`, () => {
                 for (const b of bodies) b.translation(translationTarget);
             });
         }
     });
 
     summary(() => {
-        bench(`body.rotation() [alloc]`, () => {
+        bench(`body.rotation() x${bodyCount} [alloc]`, () => {
             for (const b of bodies) b.rotation();
         });
 
         if (supportsTargetParam && is3D) {
             const rotationTarget = {x: 0, y: 0, z: 0, w: 1};
-            bench(`body.rotation() [reuse]`, () => {
+            bench(`body.rotation() x${bodyCount} [reuse]`, () => {
                 for (const b of bodies) b.rotation(rotationTarget);
             });
         }
     });
 
     summary(() => {
-        bench(`body.linvel() [alloc]`, () => {
+        bench(`body.linvel() x${bodyCount} [alloc]`, () => {
             for (const b of bodies) b.linvel();
         });
 
         if (supportsTargetParam) {
             const linvelTarget = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};
-            bench(`body.linvel() [reuse]`, () => {
+            bench(`body.linvel() x${bodyCount} [reuse]`, () => {
                 for (const b of bodies) b.linvel(linvelTarget);
             });
         }
     });
 
     summary(() => {
-        bench(`collider.translation() [alloc]`, () => {
+        bench(`collider.translation() x${bodyCount} [alloc]`, () => {
             for (const c of colliders) c.translation();
         });
 
         if (supportsTargetParam) {
             const colliderTransTarget = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};
-            bench(`collider.translation() [reuse]`, () => {
+            bench(`collider.translation() x${bodyCount} [reuse]`, () => {
                 for (const c of colliders) c.translation(colliderTransTarget);
             });
         }

@@ -159,9 +159,11 @@ export class DynamicRayCastVehicleController {
      */
     /**
      * The position of the i-th wheel, relative to the chassis.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public wheelChassisConnectionPointCs(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_chassis_connection_point_cs(i)!);
+    public wheelChassisConnectionPointCs(i: number, target?: Vector): Vector | null {
+        return VectorOps.fromRaw(this.raw.wheel_chassis_connection_point_cs(i)!, target);
     }
 
     /**
@@ -325,9 +327,11 @@ export class DynamicRayCastVehicleController {
      * The direction of the i-th wheel’s suspension, relative to the chassis.
      *
      * The ray-casting will happen following this direction to detect the ground.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public wheelDirectionCs(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_direction_cs(i)!);
+    public wheelDirectionCs(i: number, target?: Vector): Vector | null {
+        return VectorOps.fromRaw(this.raw.wheel_direction_cs(i)!, target);
     }
 
     /**
@@ -345,9 +349,11 @@ export class DynamicRayCastVehicleController {
      * The i-th wheel’s axle axis, relative to the chassis.
      *
      * The axis index defined as 0 = X, 1 = Y, 2 = Z.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public wheelAxleCs(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_axle_cs(i)!);
+    public wheelAxleCs(i: number, target?: Vector): Vector | null {
+        return VectorOps.fromRaw(this.raw.wheel_axle_cs(i)!, target);
     }
 
     /**
@@ -433,16 +439,20 @@ export class DynamicRayCastVehicleController {
 
     /**
      *  The (world-space) contact normal between the i-th wheel and the floor.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public wheelContactNormal(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_contact_normal_ws(i)!);
+    public wheelContactNormal(i: number, target?: Vector): Vector | null {
+        return VectorOps.fromRaw(this.raw.wheel_contact_normal_ws(i)!, target);
     }
 
     /**
      *  The (world-space) point hit by the wheel’s ray-cast for the i-th wheel.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public wheelContactPoint(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_contact_point_ws(i)!);
+    public wheelContactPoint(i: number, target?: Vector): Vector | null {
+        return VectorOps.fromRaw(this.raw.wheel_contact_point_ws(i)!, target);
     }
 
     /**
@@ -454,9 +464,11 @@ export class DynamicRayCastVehicleController {
 
     /**
      *  The (world-space) starting point of the ray-cast for the i-th wheel.
+     *
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public wheelHardPoint(i: number): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_hard_point_ws(i)!);
+    public wheelHardPoint(i: number, target?: Vector): Vector | null {
+        return VectorOps.fromRaw(this.raw.wheel_hard_point_ws(i)!, target);
     }
 
     /**

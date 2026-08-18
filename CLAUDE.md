@@ -84,12 +84,28 @@ pnpm bench:quick        # Quick mode (fewer iterations)
 
 **Benchmark categories:**
 
-- **Simulation**: `world.step()` performance with stacked bodies
+- **Simulation**: `world.step()` on a 3000-body pyramid, measured both active
+  (sleeping disabled) and settled — a settled scene sleeps and steps ~1000x
+  faster, so the two are separate benchmarks
 - **Lifecycle**: Body creation/destruction throughput
-- **Queries**: Ray casting and point projection performance
-- **Getters**: Property access with/without allocation
+- **Queries**: Ray casting and point projection, 1000 casts against 5000 bodies
+- **Getters**: Property access with/without allocation, over 5000 bodies
+- **Allocations**: bytes of JS heap per operation, and the GC count/pause time
+  that causes per million operations, for each read path with and without its
+  `target` form (`--no-memory` skips this pass)
+
+Sizes drop to 1000 bodies / 250 casts under `--quick` (what CI runs). Benchmark
+names embed their size, so a `--quick` run is never compared against a full-run
+baseline.
 
 Results are saved to `packages/benchmarks/results/` as timestamped JSON files.
+
+The allocation pass (`src/memory.ts`) is separate from mitata: it forces a
+collection, sizes each measurement window to stay inside the young generation,
+and takes the smallest of seven GC-free windows. Two things it must keep doing —
+results have to escape into a sink (otherwise V8's escape analysis deletes the
+allocation being measured), and the heap has to be sampled before awaiting the
+GC observer's flush (the observer only receives entries on a later timer turn).
 
 ## Critical Memory Management Patterns
 
@@ -160,9 +176,27 @@ const _pos = {x: 0, y: 0, z: 0};
 body.translation(_pos); // writes into _pos
 ```
 
-Supported methods: `translation()`, `rotation()`, `linvel()`, `angvel()`,
-`nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()` on RigidBody,
-and `translation()`, `rotation()` on Collider.
+Supported methods:
+
+- **RigidBody**: `translation()`, `rotation()`, `linvel()`, `angvel()`,
+  `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`,
+  `velocityAtPoint()`, `effectiveInvMass()`, `userForce()`, and (3D only)
+  `userTorque()`, `principalInertia()`, `invPrincipalInertia()`,
+  `principalInertiaLocalFrame()`, `effectiveAngularInertia()`,
+  `effectiveWorldInvInertia()`
+- **Collider**: `translation()`, `rotation()`, `halfExtents()`,
+  `heightfieldScale()`, `projectPoint()`, `castShape()`, `castCollider()`,
+  `contactShape()`, `contactCollider()`, `castRayAndGetNormal()`
+- **Shape**: `projectPoint()`, `castShape()`, `contactShape()`,
+  `castRayAndGetNormal()`
+- **World / BroadPhase**: `castRayAndGetNormal()`, `projectPoint()`,
+  `projectPointAndGetFeature()`, `castShape()`
+- **ImpulseJoint**: `anchor1()`, `anchor2()`, and (3D only) `frameX1()`,
+  `frameX2()`
+- **DynamicRayCastVehicleController** (3D): the wheel vector getters
+
+Queries take `target` as their last argument, after the filter arguments. When a
+query misses, it returns `null` and leaves the target untouched.
 
 ## 2D vs 3D Differences
 

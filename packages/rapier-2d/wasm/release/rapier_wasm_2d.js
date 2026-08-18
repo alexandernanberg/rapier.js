@@ -2233,6 +2233,34 @@ export class RawIntegrationParameters {
         wasm.__wbg_rawintegrationparameters_free(ptr, 0);
     }
     /**
+     * @returns {boolean}
+     */
+    get contactClustering() {
+        const ret = wasm.rawintegrationparameters_contactClustering(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get contactDampingRatio() {
+        const ret = wasm.rawintegrationparameters_contactDampingRatio(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get contactNaturalFrequency() {
+        const ret = wasm.rawintegrationparameters_contactNaturalFrequency(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {boolean}
+     */
+    get contactRecycling() {
+        const ret = wasm.rawintegrationparameters_contactRecycling(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
      * @returns {number}
      */
     get contact_erp() {
@@ -2245,6 +2273,13 @@ export class RawIntegrationParameters {
     get dt() {
         const ret = wasm.rawintegrationparameters_dt(this.__wbg_ptr);
         return ret;
+    }
+    /**
+     * @returns {boolean}
+     */
+    get frictionInBiasPass() {
+        const ret = wasm.rawintegrationparameters_frictionInBiasPass(this.__wbg_ptr);
+        return ret !== 0;
     }
     /**
      * @returns {number}
@@ -2260,6 +2295,13 @@ export class RawIntegrationParameters {
         const ret = wasm.rawintegrationparameters_maxCcdSubsteps(this.__wbg_ptr);
         return ret >>> 0;
     }
+    /**
+     * @returns {number}
+     */
+    get minCcdDt() {
+        const ret = wasm.rawintegrationparameters_minCcdDt(this.__wbg_ptr);
+        return ret;
+    }
     constructor() {
         const ret = wasm.rawintegrationparameters_new();
         this.__wbg_ptr = ret;
@@ -2271,6 +2313,27 @@ export class RawIntegrationParameters {
      */
     get normalizedAllowedLinearError() {
         const ret = wasm.rawintegrationparameters_normalizedAllowedLinearError(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get normalizedContactRecycleDistance() {
+        const ret = wasm.rawintegrationparameters_normalizedContactRecycleDistance(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get normalizedMaxCorrectiveVelocity() {
+        const ret = wasm.rawintegrationparameters_normalizedMaxCorrectiveVelocity(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get normalizedMaxLinearVelocity() {
+        const ret = wasm.rawintegrationparameters_normalizedMaxLinearVelocity(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -2290,9 +2353,40 @@ export class RawIntegrationParameters {
     /**
      * @returns {number}
      */
+    get numInternalStabilizationIterations() {
+        const ret = wasm.rawintegrationparameters_numInternalStabilizationIterations(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
     get numSolverIterations() {
         const ret = wasm.rawintegrationparameters_numSolverIterations(this.__wbg_ptr);
         return ret >>> 0;
+    }
+    /**
+     * @param {boolean} value
+     */
+    set contactClustering(value) {
+        wasm.rawintegrationparameters_set_contactClustering(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
+    set contactDampingRatio(value) {
+        wasm.rawintegrationparameters_set_contactDampingRatio(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
+    set contactNaturalFrequency(value) {
+        wasm.rawintegrationparameters_set_contactNaturalFrequency(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {boolean} value
+     */
+    set contactRecycling(value) {
+        wasm.rawintegrationparameters_set_contactRecycling(this.__wbg_ptr, value);
     }
     /**
      * @param {number} value
@@ -2305,6 +2399,12 @@ export class RawIntegrationParameters {
      */
     set dt(value) {
         wasm.rawintegrationparameters_set_dt(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {boolean} value
+     */
+    set frictionInBiasPass(value) {
+        wasm.rawintegrationparameters_set_frictionInBiasPass(this.__wbg_ptr, value);
     }
     /**
      * @param {number} value
@@ -2321,8 +2421,32 @@ export class RawIntegrationParameters {
     /**
      * @param {number} value
      */
+    set minCcdDt(value) {
+        wasm.rawintegrationparameters_set_minCcdDt(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
     set normalizedAllowedLinearError(value) {
         wasm.rawintegrationparameters_set_normalizedAllowedLinearError(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
+    set normalizedContactRecycleDistance(value) {
+        wasm.rawintegrationparameters_set_normalizedContactRecycleDistance(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
+    set normalizedMaxCorrectiveVelocity(value) {
+        wasm.rawintegrationparameters_set_normalizedMaxCorrectiveVelocity(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
+    set normalizedMaxLinearVelocity(value) {
+        wasm.rawintegrationparameters_set_normalizedMaxLinearVelocity(this.__wbg_ptr, value);
     }
     /**
      * @param {number} value
@@ -2339,8 +2463,66 @@ export class RawIntegrationParameters {
     /**
      * @param {number} value
      */
+    set numInternalStabilizationIterations(value) {
+        wasm.rawintegrationparameters_set_numInternalStabilizationIterations(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
     set numSolverIterations(value) {
         wasm.rawintegrationparameters_set_numSolverIterations(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
+    set staticContactDampingRatio(value) {
+        wasm.rawintegrationparameters_set_staticContactDampingRatio(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
+    set staticContactNaturalFrequency(value) {
+        wasm.rawintegrationparameters_set_staticContactNaturalFrequency(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {number} value
+     */
+    set warmstartCoefficient(value) {
+        wasm.rawintegrationparameters_set_warmstartCoefficient(this.__wbg_ptr, value);
+    }
+    /**
+     * @param {boolean} value
+     */
+    set warmstartJoints(value) {
+        wasm.rawintegrationparameters_set_warmstartJoints(this.__wbg_ptr, value);
+    }
+    /**
+     * @returns {number}
+     */
+    get staticContactDampingRatio() {
+        const ret = wasm.rawintegrationparameters_staticContactDampingRatio(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get staticContactNaturalFrequency() {
+        const ret = wasm.rawintegrationparameters_staticContactNaturalFrequency(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get warmstartCoefficient() {
+        const ret = wasm.rawintegrationparameters_warmstartCoefficient(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {boolean}
+     */
+    get warmstartJoints() {
+        const ret = wasm.rawintegrationparameters_warmstartJoints(this.__wbg_ptr);
+        return ret !== 0;
     }
 }
 if (Symbol.dispose) RawIntegrationParameters.prototype[Symbol.dispose] = RawIntegrationParameters.prototype.free;
