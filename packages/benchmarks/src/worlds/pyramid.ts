@@ -1,6 +1,20 @@
 import type {World} from "@alexandernanberg/rapier3d";
 
-export function createPyramidWorld(RAPIER: any, is3D: boolean, bodyCount: number): World {
+export interface WorldOptions {
+    /**
+     * Keep the bodies out of the sleeping state. A settled scene puts nearly
+     * every island to sleep, and stepping one is a different (much cheaper)
+     * measurement than stepping an active scene.
+     */
+    canSleep?: boolean;
+}
+
+export function createPyramidWorld(
+    RAPIER: any,
+    is3D: boolean,
+    bodyCount: number,
+    options: WorldOptions = {},
+): World {
     const gravity = is3D ? {x: 0, y: -9.81, z: 0} : {x: 0, y: -9.81};
     const world = new RAPIER.World(gravity);
 
@@ -28,13 +42,17 @@ export function createPyramidWorld(RAPIER: any, is3D: boolean, bodyCount: number
             if (is3D) {
                 for (let j = 0; j < rowWidth && created < bodyCount; j++) {
                     const z = (j - rowWidth / 2) * spacing;
-                    const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
+                    const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
+                        .setTranslation(x, y, z)
+                        .setCanSleep(options.canSleep ?? true);
                     const body = world.createRigidBody(bodyDesc);
                     world.createCollider(RAPIER.ColliderDesc.cuboid(size, size, size), body);
                     created++;
                 }
             } else {
-                const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
+                const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
+                    .setTranslation(x, y)
+                    .setCanSleep(options.canSleep ?? true);
                 const body = world.createRigidBody(bodyDesc);
                 world.createCollider(RAPIER.ColliderDesc.cuboid(size, size), body);
                 created++;

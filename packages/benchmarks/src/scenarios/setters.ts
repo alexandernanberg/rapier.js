@@ -1,7 +1,7 @@
 import {bench, summary} from "mitata";
 
-export function benchSetters(RAPIER: any, is3D: boolean, _quick: boolean): void {
-    const bodyCount = 1000;
+export function benchSetters(RAPIER: any, is3D: boolean, quick: boolean): void {
+    const bodyCount = quick ? 1000 : 5000;
 
     const gravity = is3D ? {x: 0, y: -9.81, z: 0} : {x: 0, y: -9.81};
     const world = new RAPIER.World(gravity);
@@ -75,13 +75,13 @@ export function benchSetters(RAPIER: any, is3D: boolean, _quick: boolean): void 
 
     summary(() => {
         if (supportsBatchTransform) {
-            bench(`body.setTransform()`, () => {
+            bench(`body.setTransform() x${bodyCount}`, () => {
                 for (let i = 0; i < dynamicBodies.length; i++) {
                     dynamicBodies[i].setTransform(translations[i], rotations[i], true);
                 }
             });
         } else {
-            bench(`body.setTransform()`, () => {
+            bench(`body.setTransform() x${bodyCount}`, () => {
                 for (let i = 0; i < dynamicBodies.length; i++) {
                     dynamicBodies[i].setTranslation(translations[i], false);
                     dynamicBodies[i].setRotation(rotations[i], true);
@@ -90,13 +90,13 @@ export function benchSetters(RAPIER: any, is3D: boolean, _quick: boolean): void 
         }
 
         if (supportsBatchTransform) {
-            bench(`body.setNextKinematicTransform()`, () => {
+            bench(`body.setNextKinematicTransform() x${bodyCount}`, () => {
                 for (let i = 0; i < kinematicBodies.length; i++) {
                     kinematicBodies[i].setNextKinematicTransform(translations[i], rotations[i]);
                 }
             });
         } else {
-            bench(`body.setNextKinematicTransform()`, () => {
+            bench(`body.setNextKinematicTransform() x${bodyCount}`, () => {
                 for (let i = 0; i < kinematicBodies.length; i++) {
                     kinematicBodies[i].setNextKinematicTranslation(translations[i]);
                     kinematicBodies[i].setNextKinematicRotation(rotations[i]);
@@ -111,16 +111,16 @@ export function benchSetters(RAPIER: any, is3D: boolean, _quick: boolean): void 
     const pt = is3D ? {x: 0.5, y: 0.5, z: 0.5} : {x: 0.5, y: 0.5};
 
     summary(() => {
-        bench(`body.setLinvel()`, () => {
+        bench(`body.setLinvel() x${bodyCount}`, () => {
             for (const b of dynamicBodies) b.setLinvel(vec, true);
         });
-        bench(`body.applyImpulse()`, () => {
+        bench(`body.applyImpulse() x${bodyCount}`, () => {
             for (const b of dynamicBodies) b.applyImpulse(vec, true);
         });
-        bench(`body.addForce()`, () => {
+        bench(`body.addForce() x${bodyCount}`, () => {
             for (const b of dynamicBodies) b.addForce(vec, true);
         });
-        bench(`body.applyImpulseAtPoint()`, () => {
+        bench(`body.applyImpulseAtPoint() x${bodyCount}`, () => {
             for (const b of dynamicBodies) b.applyImpulseAtPoint(vec, pt, true);
         });
     });

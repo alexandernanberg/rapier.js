@@ -36,16 +36,20 @@ function withSeededRandom<T>(seed: number, build: () => T): T {
 }
 
 export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): MemoryBench[] {
-    const bodyCount = quick ? 200 : 1000;
-    const queryCount = 100;
+    const bodyCount = quick ? 1000 : 5000;
+    const queryCount = quick ? 250 : 1000;
 
     const world = withSeededRandom(0x5eed, () => createSparseWorld(RAPIER, is3D, bodyCount));
     for (let i = 0; i < 60; i++) world.step();
 
-    // A separate, much smaller world for the stepping canary: allocation per step
+    // A separate, smaller world for the stepping canary: allocation per step
     // barely depends on body count, and a cheap step means the measurement window
-    // can hold enough of them to rise above the noise floor.
-    const stepWorld = withSeededRandom(0xb0d1, () => createSparseWorld(RAPIER, is3D, 50));
+    // can hold enough of them to rise above the noise floor. Sleeping is off, so
+    // this measures a step that actually simulates rather than one that skips.
+    const stepBodyCount = 100;
+    const stepWorld = withSeededRandom(0xb0d1, () =>
+        createSparseWorld(RAPIER, is3D, stepBodyCount, {canSleep: false}),
+    );
     for (let i = 0; i < 60; i++) stepWorld.step();
 
     const bodies: any[] = [];
@@ -81,9 +85,9 @@ export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): M
 
     const benches: MemoryBench[] = [
         {
-            name: "world.step() (50 bodies)",
+            name: `world.step() (${stepBodyCount} bodies)`,
             opsPerCall: 1,
-            maxCalls: quick ? 2_000 : 10_000,
+            maxCalls: quick ? 500 : 2_000,
             fn: () => stepWorld.step(),
         },
     ];

@@ -64,6 +64,10 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 
 Official = `@dimforge/rapier3d-compat` v0.19.3. Reuse = zero-allocation target parameter (fork only), speedup compared against official alloc. Getter times are for 1000 bodies. Run `pnpm bench` / `pnpm bench --official` to benchmark on your machine.
 
+> These figures predate the larger benchmark sizes (5000 bodies, 1000 casts) and
+> the split of `world.step()` into its active and sleeping cases, so they no
+> longer line up with what the suite prints — re-run both to refresh them.
+
 ### What Makes It Faster
 
 **Contiguous transform buffer (zero WASM crossings for body reads)**
@@ -200,6 +204,16 @@ pnpm bench --no-memory        # Skip the allocation/GC measurements
 pnpm bench:2d                 # Full 2D benchmark
 pnpm bench --quick            # Quick mode (fewer iterations)
 ```
+
+**Sizes:** 5000 bodies and 1000 casts per iteration (1000 and 250 under
+`--quick`), so that one iteration is hundreds of microseconds of real work rather
+than a handful of operations wrapped in loop and timer overhead.
+
+`world.step()` is measured twice. A settled pyramid puts essentially every island
+to sleep — 1 of 3001 bodies stays awake — and stepping it costs about a thousand
+times less than stepping the same scene while it is active, so the two are
+reported separately rather than as one number that depends on how long the scene
+was left to settle.
 
 **Allocations:** after the timing benchmarks, the suite measures how much JS heap
 each read path allocates per operation, and how much GC that causes per million

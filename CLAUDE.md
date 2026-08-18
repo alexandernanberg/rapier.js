@@ -84,13 +84,19 @@ pnpm bench:quick        # Quick mode (fewer iterations)
 
 **Benchmark categories:**
 
-- **Simulation**: `world.step()` performance with stacked bodies
+- **Simulation**: `world.step()` on a 3000-body pyramid, measured both active
+  (sleeping disabled) and settled — a settled scene sleeps and steps ~1000x
+  faster, so the two are separate benchmarks
 - **Lifecycle**: Body creation/destruction throughput
-- **Queries**: Ray casting and point projection performance
-- **Getters**: Property access with/without allocation
+- **Queries**: Ray casting and point projection, 1000 casts against 5000 bodies
+- **Getters**: Property access with/without allocation, over 5000 bodies
 - **Allocations**: bytes of JS heap per operation, and the GC count/pause time
   that causes per million operations, for each read path with and without its
   `target` form (`--no-memory` skips this pass)
+
+Sizes drop to 1000 bodies / 250 casts under `--quick` (what CI runs). Benchmark
+names embed their size, so a `--quick` run is never compared against a full-run
+baseline.
 
 Results are saved to `packages/benchmarks/results/` as timestamped JSON files.
 

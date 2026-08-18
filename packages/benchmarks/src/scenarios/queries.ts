@@ -1,8 +1,6 @@
 import {bench, summary} from "mitata";
 import {createSparseWorld} from "../worlds/sparse.js";
 
-const RAY_COUNT = 100;
-
 function createRays(RAPIER: any, is3D: boolean, count: number) {
     const rays = [];
     for (let i = 0; i < count; i++) {
@@ -20,7 +18,10 @@ function createRays(RAPIER: any, is3D: boolean, count: number) {
 }
 
 export function benchQueries(RAPIER: any, is3D: boolean, quick: boolean): void {
-    const bodyCount = quick ? 500 : 2000;
+    const bodyCount = quick ? 1000 : 5000;
+    // Enough casts that one iteration is hundreds of microseconds of real query
+    // work, rather than a handful of casts wrapped in loop and timer overhead.
+    const RAY_COUNT = quick ? 250 : 1000;
 
     const world = createSparseWorld(RAPIER, is3D, bodyCount);
 
