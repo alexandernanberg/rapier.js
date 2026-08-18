@@ -603,22 +603,6 @@ export class RawColliderSet {
         return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
-     * @param {number} handle
-     * @returns {RawVector | undefined}
-     */
-    coHalfspaceNormal(handle) {
-        const ret = wasm.rawcolliderset_coHalfspaceNormal(this.__wbg_ptr, handle);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
-    }
-    /**
-     * @param {number} handle
-     * @returns {number | undefined}
-     */
-    coHeightFieldFlags(handle) {
-        const ret = wasm.rawcolliderset_coHeightFieldFlags(this.__wbg_ptr, handle);
-        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
-    }
-    /**
      * The height of this heightfield if it is one.
      * @param {number} handle
      * @returns {Float32Array | undefined}
@@ -1103,14 +1087,6 @@ export class RawColliderSet {
         return ret !== 0;
     }
     /**
-     * @param {number} handle
-     * @returns {number | undefined}
-     */
-    coTriMeshFlags(handle) {
-        const ret = wasm.rawcolliderset_coTriMeshFlags(this.__wbg_ptr, handle);
-        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
-    }
-    /**
      * The vertices of this triangle mesh, polyline, convex polyhedron, segment, triangle or convex polyhedron, if it is one.
      * @param {number} handle
      * @returns {Float32Array | undefined}
@@ -1139,34 +1115,6 @@ export class RawColliderSet {
     coVolume(handle) {
         const ret = wasm.rawcolliderset_coVolume(this.__wbg_ptr, handle);
         return ret;
-    }
-    /**
-     * @param {number} handle
-     * @returns {Int32Array | undefined}
-     */
-    coVoxelData(handle) {
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.rawcolliderset_coVoxelData(retptr, this.__wbg_ptr, handle);
-            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-            let v1;
-            if (r0 !== 0) {
-                v1 = getArrayI32FromWasm0(r0, r1).slice();
-                wasm.__wbindgen_export2(r0, r1 * 4, 4);
-            }
-            return v1;
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-        }
-    }
-    /**
-     * @param {number} handle
-     * @returns {RawVector | undefined}
-     */
-    coVoxelSize(handle) {
-        const ret = wasm.rawcolliderset_coVoxelSize(this.__wbg_ptr, handle);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
     }
     /**
      * @param {number} handle
@@ -1245,15 +1193,6 @@ export class RawColliderSet {
         } finally {
             heap[stack_pointer++] = undefined;
         }
-    }
-    /**
-     * Checks if a collider with the given integer handle exists.
-     * @param {number} handle
-     * @returns {boolean}
-     */
-    isHandleValid(handle) {
-        const ret = wasm.rawcolliderset_isHandleValid(this.__wbg_ptr, handle);
-        return ret !== 0;
     }
     /**
      * @returns {number}
@@ -1598,8 +1537,262 @@ export class RawContactManifold {
         const ret = wasm.rawcontactmanifold_subshape2(this.__wbg_ptr);
         return ret >>> 0;
     }
+    /**
+     * The user-defined data attached to this manifold, as set from a
+     * contact-modification hook. Preserved across steps.
+     * @returns {number}
+     */
+    user_data() {
+        const ret = wasm.rawcontactmanifold_user_data(this.__wbg_ptr);
+        return ret >>> 0;
+    }
 }
 if (Symbol.dispose) RawContactManifold.prototype[Symbol.dispose] = RawContactManifold.prototype.free;
+
+/**
+ * A handle to the contact-modification context of the hook call in progress.
+ *
+ * JS constructs one of these once and reuses it: all the accessors read the
+ * context that [`RawPhysicsHooks::modify_solver_contacts`] made current, so the
+ * hook needs no per-call allocation. Outside of a hook call every getter reads
+ * zero and every setter is a no-op.
+ */
+export class RawContactModificationContext {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        RawContactModificationContextFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_rawcontactmodificationcontext_free(ptr, 0);
+    }
+    /**
+     * Removes every solver contact, disabling the contact response for this
+     * manifold while still reporting the collision.
+     */
+    clearSolverContacts() {
+        wasm.rawcontactmodificationcontext_clearSolverContacts(this.__wbg_ptr);
+    }
+    /**
+     * @returns {number | undefined}
+     */
+    collider1() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawcontactmodificationcontext_collider1(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number | undefined}
+     */
+    collider2() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawcontactmodificationcontext_collider2(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * The friction coefficient applied to every contact of this manifold.
+     * @returns {number}
+     */
+    friction() {
+        const ret = wasm.rawcontactmodificationcontext_friction(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Is a contact-modification hook call currently in progress?
+     * @returns {boolean}
+     */
+    isActive() {
+        const ret = wasm.rawcontactmodificationcontext_isActive(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    constructor() {
+        const ret = wasm.rawcontactmodificationcontext_new();
+        this.__wbg_ptr = ret;
+        RawContactModificationContextFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * Writes the contact normal into the scratch buffer.
+     * @returns {boolean}
+     */
+    normal() {
+        const ret = wasm.rawcontactmodificationcontext_normal(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * @returns {number}
+     */
+    numSolverContacts() {
+        const ret = wasm.rawcontactmodificationcontext_numSolverContacts(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Removes the `i`-th solver contact, so the solver ignores it entirely.
+     *
+     * This swaps the last contact into `i`, so contact indices shift: iterate
+     * backwards when removing more than one.
+     * @param {number} i
+     */
+    removeSolverContact(i) {
+        wasm.rawcontactmodificationcontext_removeSolverContact(this.__wbg_ptr, i);
+    }
+    /**
+     * The restitution coefficient applied to every contact of this manifold.
+     * @returns {number}
+     */
+    restitution() {
+        const ret = wasm.rawcontactmodificationcontext_restitution(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number | undefined}
+     */
+    rigidBody1() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawcontactmodificationcontext_rigidBody1(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @returns {number | undefined}
+     */
+    rigidBody2() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawcontactmodificationcontext_rigidBody2(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @param {number} friction
+     */
+    setFriction(friction) {
+        wasm.rawcontactmodificationcontext_setFriction(this.__wbg_ptr, friction);
+    }
+    /**
+     * Sets the contact normal. It is expected to be a unit vector pointing from
+     * the first collider towards the second one.
+     * @param {RawVector} normal
+     */
+    setNormal(normal) {
+        _assertClass(normal, RawVector);
+        wasm.rawcontactmodificationcontext_setNormal(this.__wbg_ptr, normal.__wbg_ptr);
+    }
+    /**
+     * @param {number} restitution
+     */
+    setRestitution(restitution) {
+        wasm.rawcontactmodificationcontext_setRestitution(this.__wbg_ptr, restitution);
+    }
+    /**
+     * @param {number} i
+     * @param {number} dist
+     */
+    setSolverContactDist(i, dist) {
+        wasm.rawcontactmodificationcontext_setSolverContactDist(this.__wbg_ptr, i, dist);
+    }
+    /**
+     * @param {number} i
+     * @param {RawVector} point
+     */
+    setSolverContactPoint1(i, point) {
+        _assertClass(point, RawVector);
+        wasm.rawcontactmodificationcontext_setSolverContactPoint1(this.__wbg_ptr, i, point.__wbg_ptr);
+    }
+    /**
+     * @param {number} i
+     * @param {RawVector} point
+     */
+    setSolverContactPoint2(i, point) {
+        _assertClass(point, RawVector);
+        wasm.rawcontactmodificationcontext_setSolverContactPoint2(this.__wbg_ptr, i, point.__wbg_ptr);
+    }
+    /**
+     * Sets the tangent (surface) velocity of the `i`-th solver contact, which is
+     * what makes a collider behave like a conveyor belt.
+     * @param {number} i
+     * @param {RawVector} velocity
+     */
+    setSolverContactTangentVelocity(i, velocity) {
+        _assertClass(velocity, RawVector);
+        wasm.rawcontactmodificationcontext_setSolverContactTangentVelocity(this.__wbg_ptr, i, velocity.__wbg_ptr);
+    }
+    /**
+     * @param {number} userData
+     */
+    setUserData(userData) {
+        wasm.rawcontactmodificationcontext_setUserData(this.__wbg_ptr, userData);
+    }
+    /**
+     * The separation of the `i`-th solver contact: negative means penetration.
+     * @param {number} i
+     * @returns {number}
+     */
+    solverContactDist(i) {
+        const ret = wasm.rawcontactmodificationcontext_solverContactDist(this.__wbg_ptr, i);
+        return ret;
+    }
+    /**
+     * Writes the world-space contact point on the first collider into the scratch buffer.
+     * @param {number} i
+     * @returns {boolean}
+     */
+    solverContactPoint1(i) {
+        const ret = wasm.rawcontactmodificationcontext_solverContactPoint1(this.__wbg_ptr, i);
+        return ret !== 0;
+    }
+    /**
+     * Writes the world-space contact point on the second collider into the scratch buffer.
+     * @param {number} i
+     * @returns {boolean}
+     */
+    solverContactPoint2(i) {
+        const ret = wasm.rawcontactmodificationcontext_solverContactPoint2(this.__wbg_ptr, i);
+        return ret !== 0;
+    }
+    /**
+     * Writes the tangent (surface) velocity of the `i`-th solver contact into the
+     * scratch buffer.
+     * @param {number} i
+     * @returns {boolean}
+     */
+    solverContactTangentVelocity(i) {
+        const ret = wasm.rawcontactmodificationcontext_solverContactTangentVelocity(this.__wbg_ptr, i);
+        return ret !== 0;
+    }
+    /**
+     * The user-defined data attached to the manifold. It is preserved across steps.
+     * @returns {number}
+     */
+    userData() {
+        const ret = wasm.rawcontactmodificationcontext_userData(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+}
+if (Symbol.dispose) RawContactModificationContext.prototype[Symbol.dispose] = RawContactModificationContext.prototype.free;
 
 export class RawContactPair {
     static __wrap(ptr) {
@@ -3586,6 +3779,80 @@ export class RawMultibodyJointSet {
         return RawVector.__wrap(ret);
     }
     /**
+     * The unique integer identifier of the first rigid-body this joint is attached to.
+     *
+     * That is the rigid-body of the parent link: a multibody joint attaches a link to
+     * its parent, and the joint’s handle is the child body’s handle (a rigid-body can
+     * only have one parent link). Returns `None` for the root link, which has no parent.
+     * @param {number} handle
+     * @returns {number | undefined}
+     */
+    jointBodyHandle1(handle) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawmultibodyjointset_jointBodyHandle1(retptr, this.__wbg_ptr, handle);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * The unique integer identifier of the second rigid-body this joint is attached to.
+     * @param {number} handle
+     * @returns {number | undefined}
+     */
+    jointBodyHandle2(handle) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawmultibodyjointset_jointBodyHandle2(retptr, this.__wbg_ptr, handle);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
+     * @param {number} handle
+     * @param {RawJointAxis} axis
+     * @param {number} targetPos
+     * @param {number} targetVel
+     * @param {number} stiffness
+     * @param {number} damping
+     */
+    jointConfigureMotor(handle, axis, targetPos, targetVel, stiffness, damping) {
+        wasm.rawmultibodyjointset_jointConfigureMotor(this.__wbg_ptr, handle, axis, targetPos, targetVel, stiffness, damping);
+    }
+    /**
+     * @param {number} handle
+     * @param {RawJointAxis} axis
+     * @param {RawMotorModel} model
+     */
+    jointConfigureMotorModel(handle, axis, model) {
+        wasm.rawmultibodyjointset_jointConfigureMotorModel(this.__wbg_ptr, handle, axis, model);
+    }
+    /**
+     * @param {number} handle
+     * @param {RawJointAxis} axis
+     * @param {number} targetPos
+     * @param {number} stiffness
+     * @param {number} damping
+     */
+    jointConfigureMotorPosition(handle, axis, targetPos, stiffness, damping) {
+        wasm.rawmultibodyjointset_jointConfigureMotorPosition(this.__wbg_ptr, handle, axis, targetPos, stiffness, damping);
+    }
+    /**
+     * @param {number} handle
+     * @param {RawJointAxis} axis
+     * @param {number} targetVel
+     * @param {number} factor
+     */
+    jointConfigureMotorVelocity(handle, axis, targetVel, factor) {
+        wasm.rawmultibodyjointset_jointConfigureMotorVelocity(this.__wbg_ptr, handle, axis, targetVel, factor);
+    }
+    /**
      * Are contacts between the rigid-bodies attached by this joint enabled?
      * @param {number} handle
      * @returns {boolean}
@@ -3649,6 +3916,26 @@ export class RawMultibodyJointSet {
      */
     jointSetContactsEnabled(handle, enabled) {
         wasm.rawmultibodyjointset_jointSetContactsEnabled(this.__wbg_ptr, handle, enabled);
+    }
+    /**
+     * Enables and sets the joint limits
+     * @param {number} handle
+     * @param {RawJointAxis} axis
+     * @param {number} min
+     * @param {number} max
+     */
+    jointSetLimits(handle, axis, min, max) {
+        wasm.rawmultibodyjointset_jointSetLimits(this.__wbg_ptr, handle, axis, min, max);
+    }
+    /**
+     * Sets the maximum force (or torque, for angular axes) the motor of the
+     * given axis can deliver.
+     * @param {number} handle
+     * @param {RawJointAxis} axis
+     * @param {number} maxForce
+     */
+    jointSetMotorMaxForce(handle, axis, maxForce) {
+        wasm.rawmultibodyjointset_jointSetMotorMaxForce(this.__wbg_ptr, handle, axis, maxForce);
     }
     /**
      * The type of this joint.
@@ -3801,10 +4088,11 @@ export class RawPhysicsPipeline {
      * @param {RawCCDSolver} ccd_solver
      * @param {RawEventQueue} eventQueue
      * @param {object} hookObject
-     * @param {Function} hookFilterContactPair
-     * @param {Function} hookFilterIntersectionPair
+     * @param {Function | null} [hookFilterContactPair]
+     * @param {Function | null} [hookFilterIntersectionPair]
+     * @param {Function | null} [hookModifySolverContacts]
      */
-    stepWithEvents(gravity, integrationParameters, islands, broadPhase, narrowPhase, bodies, colliders, joints, articulations, ccd_solver, eventQueue, hookObject, hookFilterContactPair, hookFilterIntersectionPair) {
+    stepWithEvents(gravity, integrationParameters, islands, broadPhase, narrowPhase, bodies, colliders, joints, articulations, ccd_solver, eventQueue, hookObject, hookFilterContactPair, hookFilterIntersectionPair, hookModifySolverContacts) {
         _assertClass(gravity, RawVector);
         _assertClass(integrationParameters, RawIntegrationParameters);
         _assertClass(islands, RawIslandManager);
@@ -3816,7 +4104,7 @@ export class RawPhysicsPipeline {
         _assertClass(articulations, RawMultibodyJointSet);
         _assertClass(ccd_solver, RawCCDSolver);
         _assertClass(eventQueue, RawEventQueue);
-        wasm.rawphysicspipeline_stepWithEvents(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, eventQueue.__wbg_ptr, addHeapObject(hookObject), addHeapObject(hookFilterContactPair), addHeapObject(hookFilterIntersectionPair));
+        wasm.rawphysicspipeline_stepWithEvents(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, eventQueue.__wbg_ptr, addHeapObject(hookObject), isLikeNone(hookFilterContactPair) ? 0 : addHeapObject(hookFilterContactPair), isLikeNone(hookFilterIntersectionPair) ? 0 : addHeapObject(hookFilterIntersectionPair), isLikeNone(hookModifySolverContacts) ? 0 : addHeapObject(hookModifySolverContacts));
     }
     /**
      * Steps with physics hooks but without an event queue.
@@ -3834,10 +4122,11 @@ export class RawPhysicsPipeline {
      * @param {RawMultibodyJointSet} articulations
      * @param {RawCCDSolver} ccd_solver
      * @param {object} hookObject
-     * @param {Function} hookFilterContactPair
-     * @param {Function} hookFilterIntersectionPair
+     * @param {Function | null} [hookFilterContactPair]
+     * @param {Function | null} [hookFilterIntersectionPair]
+     * @param {Function | null} [hookModifySolverContacts]
      */
-    stepWithHooks(gravity, integrationParameters, islands, broadPhase, narrowPhase, bodies, colliders, joints, articulations, ccd_solver, hookObject, hookFilterContactPair, hookFilterIntersectionPair) {
+    stepWithHooks(gravity, integrationParameters, islands, broadPhase, narrowPhase, bodies, colliders, joints, articulations, ccd_solver, hookObject, hookFilterContactPair, hookFilterIntersectionPair, hookModifySolverContacts) {
         _assertClass(gravity, RawVector);
         _assertClass(integrationParameters, RawIntegrationParameters);
         _assertClass(islands, RawIslandManager);
@@ -3848,7 +4137,7 @@ export class RawPhysicsPipeline {
         _assertClass(joints, RawImpulseJointSet);
         _assertClass(articulations, RawMultibodyJointSet);
         _assertClass(ccd_solver, RawCCDSolver);
-        wasm.rawphysicspipeline_stepWithHooks(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, addHeapObject(hookObject), addHeapObject(hookFilterContactPair), addHeapObject(hookFilterIntersectionPair));
+        wasm.rawphysicspipeline_stepWithHooks(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, addHeapObject(hookObject), isLikeNone(hookFilterContactPair) ? 0 : addHeapObject(hookFilterContactPair), isLikeNone(hookFilterIntersectionPair) ? 0 : addHeapObject(hookFilterIntersectionPair), isLikeNone(hookModifySolverContacts) ? 0 : addHeapObject(hookModifySolverContacts));
     }
     /**
      * @returns {number}
@@ -4927,17 +5216,6 @@ export class RawRigidBodySet {
         wasm.rawrigidbodyset_rbSetTranslation(this.__wbg_ptr, handle, x, y, z, wakeUp);
     }
     /**
-     * Sets the user-defined 32-bit integer of this rigid-body.
-     *
-     * # Parameters
-     * - `data`: an arbitrary user-defined 32-bit integer.
-     * @param {number} handle
-     * @param {number} data
-     */
-    rbSetUserData(handle, data) {
-        wasm.rawrigidbodyset_rbSetUserData(this.__wbg_ptr, handle, data);
-    }
-    /**
      * Put the given rigid-body to sleep.
      * @param {number} handle
      */
@@ -4958,15 +5236,6 @@ export class RawRigidBodySet {
      */
     rbTranslation(handle) {
         wasm.rawrigidbodyset_rbTranslation(this.__wbg_ptr, handle);
-    }
-    /**
-     * An arbitrary user-defined 32-bit integer
-     * @param {number} handle
-     * @returns {number}
-     */
-    rbUserData(handle) {
-        const ret = wasm.rawrigidbodyset_rbUserData(this.__wbg_ptr, handle);
-        return ret >>> 0;
     }
     /**
      * Retrieves the constant force(s) the user added to this rigid-body.
@@ -6434,6 +6703,9 @@ const RawContactForceEventFinalization = (typeof FinalizationRegistry === 'undef
 const RawContactManifoldFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactmanifold_free(ptr, 1));
+const RawContactModificationContextFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactmodificationcontext_free(ptr, 1));
 const RawContactPairFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactpair_free(ptr, 1));

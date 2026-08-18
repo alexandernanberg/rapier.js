@@ -13,6 +13,26 @@ beforeAll(async () => {
  * only ever creates balls, cuboids and capsules.
  */
 describe("shape families", () => {
+    test("a halfspace collider round-trips and stops a falling body", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const ground = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+        const collider = world.createCollider(
+            RAPIER.ColliderDesc.halfspace({x: 0, y: 1, z: 0}),
+            ground,
+        );
+        expect(collider.shape).toBeInstanceOf(RAPIER.HalfSpace);
+        expect((collider.shape as RAPIER.HalfSpace).normal).toEqual({x: 0, y: 1, z: 0});
+
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 3, 0));
+        world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+
+        for (let i = 0; i < 120; i++) world.step();
+
+        expect(body.translation().y).toBeGreaterThan(0);
+
+        world.free();
+    });
+
     test("cylinder and cone colliders round-trip through the shape wrapper", () => {
         const world = new RAPIER.World(GRAVITY);
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());

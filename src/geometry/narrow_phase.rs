@@ -98,9 +98,11 @@ impl RawContactManifold {
         unsafe { scratch::write_vector((*self.0).data.normal) }
     }
 
-    // pub fn user_data(&self) -> u32 {
-    //     unsafe { (*self.0).data.user_data }
-    // }
+    /// The user-defined data attached to this manifold, as set from a
+    /// contact-modification hook. Preserved across steps.
+    pub fn user_data(&self) -> u32 {
+        unsafe { (*self.0).data.user_data }
+    }
 
     pub fn local_n1(&self) {
         unsafe { scratch::write_vector((*self.0).local_n1) }

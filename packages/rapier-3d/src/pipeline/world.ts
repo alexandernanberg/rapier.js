@@ -157,6 +157,7 @@ export class World {
         this.vehicleControllers = new Set<DynamicRayCastVehicleController>();
 
         this.impulseJoints.finalizeDeserialization(this.bodies);
+        this.multibodyJoints.finalizeDeserialization(this.bodies);
         this.bodies.finalizeDeserialization(this.colliders);
         this.colliders.finalizeDeserialization(this.bodies);
     }
@@ -555,7 +556,13 @@ export class World {
         parent2: RigidBody,
         wakeUp: boolean,
     ): MultibodyJoint {
-        return this.multibodyJoints.createJoint(params, parent1.handle, parent2.handle, wakeUp);
+        return this.multibodyJoints.createJoint(
+            this.bodies,
+            params,
+            parent1.handle,
+            parent2.handle,
+            wakeUp,
+        );
     }
 
     /**

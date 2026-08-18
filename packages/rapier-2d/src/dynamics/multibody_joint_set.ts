@@ -3,6 +3,7 @@ import {RawMultibodyJointSet} from "../raw";
 import {JointData} from "./impulse_joint";
 import {MultibodyJoint, MultibodyJointHandle} from "./multibody_joint";
 import {RigidBodyHandle} from "./rigid_body";
+import {RigidBodySet} from "./rigid_body_set";
 
 /**
  * A set of joints.
@@ -35,14 +36,20 @@ export class MultibodyJointSet {
         // Initialize the map with the existing elements, if any.
         if (raw) {
             raw.forEachJointHandle((handle: MultibodyJointHandle) => {
-                this.map.set(handle, MultibodyJoint.newTyped(this.raw, handle));
+                this.map.set(handle, MultibodyJoint.newTyped(this.raw, null!, handle));
             });
         }
+    }
+
+    /** @internal */
+    public finalizeDeserialization(bodies: RigidBodySet) {
+        this.map.forEach((joint) => joint.finalizeDeserialization(bodies));
     }
 
     /**
      * Creates a new joint and return its integer handle.
      *
+     * @param bodies - The set of rigid-bodies containing the bodies the joint is attached to.
      * @param desc - The joint's parameters.
      * @param parent1 - The handle of the first rigid-body this joint is attached to.
      * @param parent2 - The handle of the second rigid-body this joint is attached to.
@@ -53,6 +60,7 @@ export class MultibodyJointSet {
      *         the same multibody, which would close a loop.
      */
     public createJoint(
+        bodies: RigidBodySet,
         desc: JointData,
         parent1: RigidBodyHandle,
         parent2: RigidBodyHandle,
@@ -69,7 +77,7 @@ export class MultibodyJointSet {
             );
         }
 
-        let joint = MultibodyJoint.newTyped(this.raw, handle);
+        let joint = MultibodyJoint.newTyped(this.raw, bodies, handle);
         this.map.set(handle, joint);
         return joint;
     }

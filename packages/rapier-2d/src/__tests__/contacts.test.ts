@@ -172,6 +172,20 @@ describe("physics hooks", () => {
         world.free();
     });
 
+    // The hook methods are optional, so a collider can carry the filter flag while
+    // the hooks object only implements contact modification. A missing filter must
+    // leave the pair alone rather than dropping it.
+    test("a hooks object without filterContactPair leaves contacts alone", () => {
+        const {world, body} = hookScene();
+        const hooks: RAPIER.PhysicsHooks = {};
+
+        for (let i = 0; i < 60; i++) world.step(undefined, hooks);
+
+        expect(body.translation().y).toBeGreaterThan(0);
+
+        world.free();
+    });
+
     // `step()` used to forward hooks only on the `stepWithEvents` branch, so
     // stepping with hooks but no event queue silently ignored them.
     test("filterContactPair is honoured without an event queue", () => {

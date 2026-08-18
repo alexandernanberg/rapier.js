@@ -248,12 +248,6 @@ impl RawColliderSet {
         self.map(handle, |co| RawShape(co.shared_shape().clone()))
     }
 
-    pub fn coHalfspaceNormal(&self, handle: FlatHandle) -> Option<RawVector> {
-        self.map(handle, |co| {
-            co.shape().as_halfspace().map(|h| h.normal.into())
-        })
-    }
-
     /// The half-extents of this collider if it is has a cuboid shape.
     pub fn coHalfExtents(&self, handle: FlatHandle) -> Option<RawVector> {
         self.map(handle, |co| {
@@ -426,25 +420,6 @@ impl RawColliderSet {
                 .map(|b| b.border_radius = newBorderRadius),
             _ => None,
         });
-    }
-
-    pub fn coVoxelData(&self, handle: FlatHandle) -> Option<Vec<i32>> {
-        self.map(handle, |co| {
-            let vox = co.shape().as_voxels()?;
-            let coords = vox
-                .voxels()
-                .filter_map(|vox| (!vox.state.is_empty()).then_some(vox.grid_coords))
-                .flat_map(|ids| ids.to_array())
-                .collect();
-            Some(coords)
-        })
-    }
-
-    pub fn coVoxelSize(&self, handle: FlatHandle) -> Option<RawVector> {
-        self.map(handle, |co| {
-            let vox = co.shape().as_voxels()?;
-            Some(RawVector(vox.voxel_size()))
-        })
     }
 
     #[cfg(feature = "dim2")]
@@ -626,21 +601,6 @@ impl RawColliderSet {
                 .and_then(|p| normalized_convex_polyhedron_mesh(&p.inner_shape))
                 .map(|(_, indices)| indices),
             _ => None,
-        })
-    }
-
-    pub fn coTriMeshFlags(&self, handle: FlatHandle) -> Option<u32> {
-        self.map(handle, |co| {
-            co.shape().as_trimesh().map(|tri| tri.flags().bits() as u32)
-        })
-    }
-
-    #[cfg(feature = "dim3")]
-    pub fn coHeightFieldFlags(&self, handle: FlatHandle) -> Option<u32> {
-        self.map(handle, |co| {
-            co.shape()
-                .as_heightfield()
-                .map(|hf| hf.flags().bits() as u32)
         })
     }
 

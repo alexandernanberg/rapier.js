@@ -15,6 +15,7 @@ import {
     Compound,
     Cuboid,
     Ball,
+    HalfSpace,
     ShapeType,
     Capsule,
     Voxels,
@@ -1390,6 +1391,16 @@ export class ColliderDesc {
         borderRadius: number,
     ): ColliderDesc {
         const shape = new RoundCuboid(hx, hy, hz, borderRadius);
+        return new ColliderDesc(shape);
+    }
+
+    /**
+     * Creates a new collider description with a halfspace (infinite plane) shape.
+     *
+     * @param normal - The outward normal of the plane.
+     */
+    public static halfspace(normal: Vector): ColliderDesc {
+        const shape = new HalfSpace(normal);
         return new ColliderDesc(shape);
     }
 

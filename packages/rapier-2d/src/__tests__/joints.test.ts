@@ -127,3 +127,86 @@ describe("multibody joints", () => {
         world.free();
     });
 });
+
+/**
+ * Multibody joints used to expose almost nothing: their anchors, limits and
+ * motors were commented out on both sides of the boundary, so only the joint
+ * type and the contact flag were reachable from JS.
+ */
+describe("multibody joint properties", () => {
+    // A pendulum: the pivot sits on the fixed anchor body, one unit away from the
+    // arm's center of mass, so gravity actually has a lever to swing it with.
+    function armWorld(gravity = GRAVITY) {
+        const world = new RAPIER.World(gravity);
+        const anchor = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 5));
+        const arm = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 5));
+        world.createCollider(RAPIER.ColliderDesc.ball(0.1), anchor);
+        world.createCollider(RAPIER.ColliderDesc.ball(0.1), arm);
+
+        const joint = world.createMultibodyJoint(
+            RAPIER.JointData.revolute({x: 0, y: 0}, {x: -1, y: 0}),
+            anchor,
+            arm,
+            true,
+        ) as RAPIER.RevoluteMultibodyJoint;
+
+        return {world, anchor, arm, joint};
+    }
+
+    test("a multibody joint reports its bodies, type and anchors", () => {
+        const {world, anchor, arm, joint} = armWorld();
+
+        expect(joint.type()).toBe(RAPIER.JointType.Revolute);
+        expect(joint.body1()!.handle).toBe(anchor.handle);
+        expect(joint.body2()!.handle).toBe(arm.handle);
+        expect(joint.anchor1()).toEqual({x: 0, y: 0});
+        expect(joint.anchor2()).toEqual({x: -1, y: 0});
+
+        // The zero-allocation form writes into the object it is given.
+        const target = {x: 0, y: 0};
+        expect(joint.anchor2(target)).toBe(target);
+        expect(target).toEqual({x: -1, y: 0});
+
+        world.free();
+    });
+
+    test("limits keep the arm within its angular range", () => {
+        const limited = armWorld();
+        expect(limited.joint.limitsEnabled()).toBe(false);
+        limited.joint.setLimits(-0.1, 0.1);
+        expect(limited.joint.limitsEnabled()).toBe(true);
+        expect(limited.joint.limitsMin()).toBeCloseTo(-0.1, 5);
+        expect(limited.joint.limitsMax()).toBeCloseTo(0.1, 5);
+
+        const free = armWorld();
+
+        for (let i = 0; i < 120; i++) {
+            limited.world.step();
+            free.world.step();
+        }
+
+        // The limit holds the arm within sin(0.1) of the horizontal, while the
+        // unconstrained arm swings well past that.
+        expect(limited.arm.translation().y).toBeGreaterThan(5 - 0.15);
+        expect(free.arm.translation().y).toBeLessThan(4.8);
+
+        limited.world.free();
+        free.world.free();
+    });
+
+    test("a velocity motor drives the arm around its axis", () => {
+        const {world, arm, joint} = armWorld({x: 0, y: 0});
+
+        joint.configureMotorModel(RAPIER.MotorModel.AccelerationBased);
+        joint.setMotorMaxForce(1000);
+        joint.configureMotorVelocity(2, 1);
+
+        for (let i = 0; i < 30; i++) world.step();
+
+        // Turning counter-clockwise with the arm out along +x lifts it.
+        expect(arm.translation().y).toBeGreaterThan(5.5);
+        expect(arm.translation().x).toBeLessThan(0.8);
+
+        world.free();
+    });
+});

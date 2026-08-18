@@ -466,11 +466,6 @@ impl RawColliderSet {
             .remove(handle, &mut islands.0, &mut bodies.bodies, wakeUp);
     }
 
-    /// Checks if a collider with the given integer handle exists.
-    pub fn isHandleValid(&self, handle: FlatHandle) -> bool {
-        self.0.get(utils::collider_handle(handle)).is_some()
-    }
-
     /// Applies the given JavaScript function to the integer handle of each collider managed by this collider set.
     ///
     /// # Parameters

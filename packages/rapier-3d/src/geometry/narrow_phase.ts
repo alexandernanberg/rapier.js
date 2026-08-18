@@ -131,6 +131,15 @@ export class TempContactManifold {
         return VectorOps.fromBuffer(scratch(), target);
     }
 
+    /**
+     * The user-defined 32-bit integer attached to this manifold by a
+     * `PhysicsHooks.modifySolverContacts` hook. Preserved across steps, and `0`
+     * if no hook ever set it.
+     */
+    public userData(): number {
+        return this.raw.user_data();
+    }
+
     public subshape1(): number {
         return this.raw.subshape1();
     }

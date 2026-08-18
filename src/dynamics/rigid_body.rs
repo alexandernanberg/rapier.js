@@ -986,21 +986,6 @@ impl RawRigidBodySet {
         })
     }
 
-    /// An arbitrary user-defined 32-bit integer
-    pub fn rbUserData(&self, handle: FlatHandle) -> u32 {
-        self.map(handle, |rb| rb.user_data as u32)
-    }
-
-    /// Sets the user-defined 32-bit integer of this rigid-body.
-    ///
-    /// # Parameters
-    /// - `data`: an arbitrary user-defined 32-bit integer.
-    pub fn rbSetUserData(&mut self, handle: FlatHandle, data: u32) {
-        self.map_mut(handle, |rb| {
-            rb.user_data = data as u128;
-        })
-    }
-
     /// Retrieves the constant force(s) the user added to this rigid-body.
     /// Returns zero if the rigid-body is not dynamic.
     pub fn rbUserForce(&self, handle: FlatHandle) -> RawVector {
