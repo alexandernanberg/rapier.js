@@ -150,13 +150,15 @@ impl RawPhysicsPipeline {
         articulations: &mut RawMultibodyJointSet,
         ccd_solver: &mut RawCCDSolver,
         hookObject: js_sys::Object,
-        hookFilterContactPair: js_sys::Function,
-        hookFilterIntersectionPair: js_sys::Function,
+        hookFilterContactPair: Option<js_sys::Function>,
+        hookFilterIntersectionPair: Option<js_sys::Function>,
+        hookModifySolverContacts: Option<js_sys::Function>,
     ) {
         let hooks = RawPhysicsHooks {
             this: hookObject,
             filter_contact_pair: hookFilterContactPair,
             filter_intersection_pair: hookFilterIntersectionPair,
+            modify_solver_contacts: hookModifySolverContacts,
         };
 
         self.0.step(
@@ -197,8 +199,9 @@ impl RawPhysicsPipeline {
         ccd_solver: &mut RawCCDSolver,
         eventQueue: &mut RawEventQueue,
         hookObject: js_sys::Object,
-        hookFilterContactPair: js_sys::Function,
-        hookFilterIntersectionPair: js_sys::Function,
+        hookFilterContactPair: Option<js_sys::Function>,
+        hookFilterIntersectionPair: Option<js_sys::Function>,
+        hookModifySolverContacts: Option<js_sys::Function>,
     ) {
         if eventQueue.auto_drain {
             eventQueue.clear();
@@ -208,6 +211,7 @@ impl RawPhysicsPipeline {
             this: hookObject,
             filter_contact_pair: hookFilterContactPair,
             filter_intersection_pair: hookFilterIntersectionPair,
+            modify_solver_contacts: hookModifySolverContacts,
         };
 
         self.0.step(

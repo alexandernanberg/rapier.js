@@ -34,6 +34,7 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 - Zero-allocation getters and scene queries (optional target parameter)
 - Batch transform setters (`setTransform`, `setNextKinematicTransform`)
 - Full `IntegrationParameters` surface (warm-starting, contact softness, contact clustering/recycling, friction model)
+- Contact modification hooks (`PhysicsHooks.modifySolverContacts`) and the full multibody joint API (anchors, limits, motors)
 - Built-in benchmarks
 - Simplified package variants (2 per dimension, SIMD by default)
 

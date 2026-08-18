@@ -100,11 +100,11 @@ impl RawPidController {
             self.controller.pd.lin_kd.x = kd;
         }
         if axes.contains(AxesMask::LIN_Y) {
-            self.controller.pd.lin_kd.x = kd;
+            self.controller.pd.lin_kd.y = kd;
         }
         #[cfg(feature = "dim3")]
         if axes.contains(AxesMask::LIN_Z) {
-            self.controller.pd.lin_kd.x = kd;
+            self.controller.pd.lin_kd.z = kd;
         }
         #[cfg(feature = "dim3")]
         if axes.contains(AxesMask::ANG_X) {

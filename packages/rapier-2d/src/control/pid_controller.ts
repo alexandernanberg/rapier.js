@@ -67,11 +67,11 @@ export class PidController {
     }
 
     public setKi(ki: number, axes: PidAxesMask) {
-        this.raw.set_kp(ki, axes);
+        this.raw.set_ki(ki, axes);
     }
 
     public setKd(kd: number, axes: PidAxesMask) {
-        this.raw.set_kp(kd, axes);
+        this.raw.set_kd(kd, axes);
     }
 
     public setAxes(axes: PidAxesMask) {

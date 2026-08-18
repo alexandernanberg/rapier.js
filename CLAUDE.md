@@ -191,8 +191,10 @@ Supported methods:
   `castRayAndGetNormal()`
 - **World / BroadPhase**: `castRayAndGetNormal()`, `projectPoint()`,
   `projectPointAndGetFeature()`, `castShape()`
-- **ImpulseJoint**: `anchor1()`, `anchor2()`, and (3D only) `frameX1()`,
-  `frameX2()`
+- **ImpulseJoint / MultibodyJoint**: `anchor1()`, `anchor2()`, and (3D only)
+  `frameX1()`, `frameX2()`
+- **ContactModificationContext**: `normal()`, `solverContactPoint1()`,
+  `solverContactPoint2()`, `solverContactTangentVelocity()`
 - **DynamicRayCastVehicleController** (3D): the wheel vector getters
 
 Queries take `target` as their last argument, after the filter arguments. When a
