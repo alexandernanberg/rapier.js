@@ -78,7 +78,9 @@ function createCar(world: RAPIER.World, options: SimVehicleOptions = {}) {
             .setTranslation(0, 0.8, 0)
             .setAdditionalMassProperties(
                 MASS,
-                {x: 0, y: -0.15, z: 0},
+                // Matches the demo: low enough that the rollover threshold sits
+                // above the tyres' peak grip.
+                {x: 0, y: -0.28, z: 0},
                 {
                     x: (MASS / 12) * (h * h + d * d),
                     y: (MASS / 12) * (w * w + d * d),
@@ -422,6 +424,33 @@ describe("wheel dynamics", () => {
         // driving round the corner instead of spinning on the spot.
         expect(on.peakSlip).toBeLessThan(off.peakSlip / 4);
         expect(on.speed).toBeGreaterThan(off.speed);
+    });
+
+    test("a handbrake turn slides the car rather than tipping it onto two wheels", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world, {tractionControl: 0.25});
+        settle(world, car);
+        drive(world, car, {throttle: 0.7}, 220);
+
+        let lightestWheel = Infinity;
+        let framesAirborne = 0;
+        drive(world, car, {handbrake: true, steer: 1}, 150, () => {
+            const lightest = Math.min(...car.wheels.map((w) => w.load));
+            lightestWheel = Math.min(lightestWheel, lightest);
+            if (lightest < 50) framesAirborne++;
+        });
+
+        // A car tips when the lateral force it can generate exceeds its
+        // rollover threshold, roughly halfTrack / centreOfMassHeight. With the
+        // centre of mass at 0.55 m that was 1.41 g against tyres good for about
+        // 1.5 g, so a handbrake turn lifted the inside wheels and dropped them
+        // again, over and over -- the car appeared to juggle. Keeping the mass
+        // low enough that the tyres let go first is what stops it.
+        expect(framesAirborne).toBe(0);
+        expect(lightestWheel).toBeGreaterThan(200);
+
+        world.free();
     });
 
     test("the left-hand wheels really are on the left", () => {

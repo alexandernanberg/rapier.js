@@ -97,7 +97,13 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             .setTranslation(spawn.x, spawn.y, spawn.z)
             .setAdditionalMassProperties(
                 MASS,
-                {x: 0, y: -0.15, z: 0},
+                // Centre of mass well below the body. With a half-track of
+                // 0.78 m this puts the rollover threshold near 1.9 g, above
+                // what the tyres can pull (~1.5 g), so the car slides before
+                // it lifts a wheel. At the old -0.15 the threshold was 1.41 g,
+                // under the grip limit, and a handbrake turn would rock it up
+                // onto two wheels and drop it back, over and over.
+                {x: 0, y: -0.28, z: 0},
                 {
                     x: (MASS / 12) * (h * h + d * d),
                     y: (MASS / 12) * (w * w + d * d),
