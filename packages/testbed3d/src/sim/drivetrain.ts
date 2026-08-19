@@ -18,6 +18,8 @@ export interface EngineOptions {
     redlineRpm?: number;
     /** Engine braking torque (Nm) at zero throttle, scaled by rpm. */
     engineBrakeTorque?: number;
+    /** RPM band below the redline over which the rev limiter cuts fuel. */
+    revLimiterBand?: number;
     /**
      * Rotational inertia (kg·m²) of the engine, flywheel and gearbox, reflected
      * onto the driven wheels through the square of the gearing.
@@ -68,6 +70,7 @@ export const DEFAULT_ENGINE: Required<EngineOptions> = {
     idleRpm: 800,
     redlineRpm: 7500,
     engineBrakeTorque: 45,
+    revLimiterBand: 250,
     inertia: 0,
 };
 
@@ -139,8 +142,33 @@ export function rpmFromWheels(
     o: Required<GearboxOptions>,
     engine: Required<EngineOptions>,
 ): number {
-    const rpm = (Math.abs(wheelOmega) * Math.abs(gearRatio) * o.finalDrive * 60) / (2 * Math.PI);
-    return Math.min(engine.redlineRpm, Math.max(engine.idleRpm, rpm));
+    return Math.min(
+        engine.redlineRpm,
+        Math.max(engine.idleRpm, rawRpmFromWheels(wheelOmega, gearRatio, o)),
+    );
+}
+
+/** Engine speed the gearing implies, *un*clamped — may exceed the redline. */
+export function rawRpmFromWheels(
+    wheelOmega: number,
+    gearRatio: number,
+    o: Required<GearboxOptions>,
+): number {
+    return (Math.abs(wheelOmega) * Math.abs(gearRatio) * o.finalDrive * 60) / (2 * Math.PI);
+}
+
+/**
+ * Rev limiter: the fraction of engine torque still delivered at `rawRpm`.
+ *
+ * Without one the torque curve simply reports its redline value forever, so
+ * anything that lets the wheels outrun the engine — a driven wheel on ice, or
+ * reverse, which has only one gear and so never upshifts — accelerates without
+ * limit. Fuel is cut over a narrow band rather than at a hard edge so the
+ * engine sits on the limiter instead of chattering on and off it.
+ */
+export function revLimiterFactor(rawRpm: number, o: Required<EngineOptions>): number {
+    const band = Math.max(1, o.revLimiterBand);
+    return Math.max(0, Math.min(1, (o.redlineRpm - rawRpm) / band));
 }
 
 export interface GearState {
@@ -202,9 +230,15 @@ export function splitDifferential(
     omegaLeft: number,
     omegaRight: number,
     o: Required<DifferentialOptions>,
+    out?: AxleTorques,
 ): AxleTorques {
+    const result: AxleTorques = out ?? {left: 0, right: 0};
     const even = axleTorque / 2;
-    if (o.type === "open") return {left: even, right: even};
+    if (o.type === "open") {
+        result.left = even;
+        result.right = even;
+        return result;
+    }
 
     const stiffness = o.type === "locked" ? o.lockingStiffness * 8 : o.lockingStiffness;
     const preload = o.type === "locked" ? o.preload * 3 : o.preload;
@@ -223,5 +257,7 @@ export function splitDifferential(
     const limit = Math.abs(axleTorque) * o.maxBias + (o.type === "locked" ? o.preload * 3 : 0);
     const transfer = Math.max(-limit, Math.min(limit, transferRaw));
 
-    return {left: even - transfer, right: even + transfer};
+    result.left = even - transfer;
+    result.right = even + transfer;
+    return result;
 }

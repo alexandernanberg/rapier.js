@@ -453,6 +453,74 @@ describe("wheel dynamics", () => {
         world.free();
     });
 
+    test("the rev limiter stops the wheels outrunning the engine", () => {
+        // On near-frictionless ground the tyre gives the driven wheels almost
+        // no reaction torque, so nothing but the limiter bounds them. The
+        // torque curve simply reports its redline value for any rpm above the
+        // redline, so without a limiter they accelerated forever -- 2141 rad/s,
+        // about 257,000 rpm at the crank.
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world, 0.02);
+        const car = createCar(world);
+        settle(world, car);
+        drive(world, car, {throttle: 1, steer: 1}, 600);
+
+        for (const wheel of car.wheels) {
+            expect(Number.isFinite(wheel.omega)).toBe(true);
+            expect(Math.abs(wheel.omega)).toBeLessThan(400);
+        }
+
+        world.free();
+    });
+
+    test("reverse is limited too, having only one gear to run out of", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world);
+        settle(world, car);
+
+        drive(world, car, {brake: 1}, 600);
+
+        // Reverse never upshifts, so the same missing limiter let it reach
+        // -47 m/s, about 170 km/h backwards. On the limiter it now settles at
+        // the speed the gearing allows at the redline: 7500 rpm through
+        // 3.2 * 3.7 is 66 rad/s at the wheel, so 66 * 0.33 m ~= 22 m/s.
+        expect(car.forwardSpeed()).toBeLessThan(-2); // it does reverse...
+        expect(car.forwardSpeed()).toBeGreaterThan(-24); // ...up to the gearing
+
+        world.free();
+    });
+
+    test("the car survives being thrown at its edge cases", () => {
+        // Nothing here should produce a non-finite state, a negative wheel
+        // load, or a runaway wheel.
+        const scenarios: Array<[string, Partial<SimVehicleInput>]> = [
+            ["everything at once", {throttle: 1, brake: 1, steer: 1, handbrake: true}],
+            ["reverse into full lock", {brake: 1, steer: -1}],
+            ["handbrake and power", {throttle: 1, handbrake: true}],
+        ];
+
+        for (const [, input] of scenarios) {
+            const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+            createGround(world);
+            const car = createCar(world);
+            settle(world, car);
+            drive(world, car, input, 400);
+
+            const t = car.chassis.translation();
+            const v = car.chassis.linvel();
+            expect(Number.isFinite(t.x + t.y + t.z)).toBe(true);
+            expect(Number.isFinite(v.x + v.y + v.z)).toBe(true);
+            expect(Number.isFinite(car.rpm)).toBe(true);
+            for (const wheel of car.wheels) {
+                expect(Number.isFinite(wheel.omega + wheel.load + wheel.fx + wheel.fy)).toBe(true);
+                expect(wheel.load).toBeGreaterThanOrEqual(0);
+                expect(Math.abs(wheel.omega)).toBeLessThan(400);
+            }
+            world.free();
+        }
+    });
+
     test("the left-hand wheels really are on the left", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         createGround(world);

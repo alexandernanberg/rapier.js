@@ -10,6 +10,8 @@ import {
     engineBrakingTorque,
     engineDriveTorque,
     gearRatioOf,
+    rawRpmFromWheels,
+    revLimiterFactor,
     rpmFromWheels,
     splitDifferential,
     updateGearbox,
@@ -344,8 +346,31 @@ export class SimVehicleController {
     private _wheelLat: Vec3 = {x: 0, y: 0, z: 0};
     private _impulse: Vec3 = {x: 0, y: 0, z: 0};
     private _ray = {origin: {x: 0, y: 0, z: 0}, dir: {x: 0, y: 0, z: 0}};
+    // Reused ray-cast result. `castRayAndGetNormal` only writes fields into the
+    // target, so a plain object of the right shape avoids allocating one
+    // intersection plus a normal vector per wheel per step.
+    private _hit = {
+        collider: null,
+        timeOfImpact: 0,
+        normal: {x: 0, y: 1, z: 0},
+        featureType: 0,
+        featureId: undefined,
+    } as unknown as RAPIER.RayColliderIntersection;
     /** Per-wheel tyre options, rewritten each wheel so grip can track surface. */
     private _tyreScratch!: Required<TyreModelOptions>;
+    // Reused each substep: the tyre model runs 4 wheels x wheelSubsteps times a
+    // step, so returning fresh objects there is most of the garbage this
+    // controller makes.
+    private _slipTarget = {slipRatio: 0, slipAngle: 0};
+    private _slipState = {slipRatio: 0, slipAngle: 0};
+    // Per-step scratch. Rebuilding these each step is small but it is the bulk
+    // of what this controller puts on the heap at 60 Hz.
+    private _loads = [0, 0, 0, 0];
+    private _torques = [0, 0, 0, 0];
+    private _driven: WheelState[] = [];
+    private _drivenFor: SimDrivetrain | null = null;
+    private _axleSplit = {left: 0, right: 0};
+    private _forceTarget = {fx: 0, fy: 0, slip: 0, friction: 0};
 
     constructor(world: RAPIER.World, chassis: RAPIER.RigidBody, options: SimVehicleOptions = {}) {
         this.world = world;
@@ -440,27 +465,13 @@ export class SimVehicleController {
         const chassis = this.chassis;
 
         // --- Read the chassis state once (minimise WASM boundary crossings) --
-        const rot = chassis.rotation();
-        this._q.x = rot.x;
-        this._q.y = rot.y;
-        this._q.z = rot.z;
-        this._q.w = rot.w;
-        const pos = chassis.translation();
-        this._pos.x = pos.x;
-        this._pos.y = pos.y;
-        this._pos.z = pos.z;
-        const com = chassis.worldCom();
-        this._com.x = com.x;
-        this._com.y = com.y;
-        this._com.z = com.z;
-        const lv = chassis.linvel();
-        this._linvel.x = lv.x;
-        this._linvel.y = lv.y;
-        this._linvel.z = lv.z;
-        const av = chassis.angvel();
-        this._angvel.x = av.x;
-        this._angvel.y = av.y;
-        this._angvel.z = av.z;
+        // These getters all take a target, so read straight into the scratch
+        // objects rather than allocating five vectors every step.
+        chassis.rotation(this._q);
+        chassis.translation(this._pos);
+        chassis.worldCom(this._com);
+        chassis.linvel(this._linvel);
+        chassis.angvel(this._angvel);
 
         rotate(this._q, {x: 0, y: 1, z: 0}, this._up);
         this._down.x = -this._up.x;
@@ -484,7 +495,7 @@ export class SimVehicleController {
         // Loads are gathered first so the anti-roll bars can redistribute them
         // before the tyres see them.
         this.chassisMass = chassis.mass();
-        const loads = [0, 0, 0, 0];
+        const loads = this._loads;
         this.contactCount = 0;
         for (const wheel of this.wheels) {
             this.castWheel(wheel);
@@ -557,6 +568,8 @@ export class SimVehicleController {
             undefined,
             undefined,
             this.chassis,
+            undefined,
+            this._hit,
         );
 
         if (!hit) {
@@ -636,8 +649,20 @@ export class SimVehicleController {
 
     /** Engine → gearbox → differential, returning per-wheel drive torque. */
     private computeDriveTorques(dt: number, speed: number): number[] {
-        const torques = [0, 0, 0, 0];
-        const driven = this.wheels.filter((w) => this.isDriven(w));
+        const torques = this._torques;
+        torques[0] = 0;
+        torques[1] = 0;
+        torques[2] = 0;
+        torques[3] = 0;
+
+        // The driven set only changes if the drivetrain does, so cache it
+        // rather than filtering a fresh array every step.
+        if (this._drivenFor !== this.options.drivetrain) {
+            this._driven.length = 0;
+            for (const wheel of this.wheels) if (this.isDriven(wheel)) this._driven.push(wheel);
+            this._drivenFor = this.options.drivetrain;
+        }
+        const driven = this._driven;
         if (driven.length === 0) return torques;
 
         const throttle = Math.max(0, Math.min(1, this.input.throttle));
@@ -647,9 +672,14 @@ export class SimVehicleController {
         if (reverseRequested) this.gearState.gear = -1;
         else if (this.gearState.gear < 0 && (throttle > 0 || speed > 0.5)) this.gearState.gear = 1;
 
-        const avgOmega = driven.reduce((sum, w) => sum + w.omega, 0) / driven.length;
+        let omegaSum = 0;
+        for (const wheel of driven) omegaSum += wheel.omega;
+        const avgOmega = omegaSum / driven.length;
         let ratio = gearRatioOf(this.gearState, this.gearbox);
         this.rpm = rpmFromWheels(avgOmega, ratio || 1, this.gearbox, this.engine);
+        // Unclamped, so the limiter can see that the wheels have outrun the
+        // engine even though `rpm` reads pegged at the redline.
+        const rawRpm = rawRpmFromWheels(avgOmega, ratio || 1, this.gearbox);
 
         if (this.gearState.gear > 0) {
             updateGearbox(this.gearState, this.rpm, dt, this.gearbox);
@@ -675,7 +705,10 @@ export class SimVehicleController {
             clutch = 0.5 + 0.5 * Math.cos(2 * Math.PI * progress);
         }
 
-        const crankTorque = engineDriveTorque(this.rpm, effectiveThrottle, this.engine) * clutch;
+        const crankTorque =
+            engineDriveTorque(this.rpm, effectiveThrottle, this.engine) *
+            clutch *
+            revLimiterFactor(rawRpm, this.engine);
         const wheelTorque = crankTorque * ratio * this.gearbox.finalDrive * this.gearbox.efficiency;
 
         // Engine braking is a *retarding* torque, so it is handed to the wheels
@@ -703,6 +736,7 @@ export class SimVehicleController {
                 this.wheels[0].omega,
                 this.wheels[1].omega,
                 this.differential,
+                this._axleSplit,
             );
             torques[0] = split.left;
             torques[1] = split.right;
@@ -713,6 +747,7 @@ export class SimVehicleController {
                 this.wheels[2].omega,
                 this.wheels[3].omega,
                 this.differential,
+                this._axleSplit,
             );
             torques[2] = split.left;
             torques[3] = split.right;
@@ -797,8 +832,8 @@ export class SimVehicleController {
         const dts = dt / sub;
         let sumFx = 0;
         let sumFy = 0;
-        let last = {fx: 0, fy: 0, slip: 0, friction: 0};
-        let slipState = {slipRatio: 0, slipAngle: 0};
+        let last = this._forceTarget;
+        const slipState = this._slipState;
 
         // Scale the tyre's grip by whatever surface it is standing on.
         this._tyreScratch.peakFriction = this.tyre.peakFriction * wheel.surfaceFriction;
@@ -834,12 +869,13 @@ export class SimVehicleController {
                 wheel.omega,
                 axle.wheelRadius,
                 this._tyreScratch,
+                this._slipTarget,
             );
             wheel.slipRatio = target.slipRatio;
             wheel.slipAngle += (target.slipAngle - wheel.slipAngle) * relax;
             slipState.slipRatio = wheel.slipRatio;
             slipState.slipAngle = wheel.slipAngle;
-            last = tyreForces(slipState, wheel.load, this._tyreScratch);
+            last = tyreForces(slipState, wheel.load, this._tyreScratch, this._forceTarget);
 
             // Cap the force at the impulse that would just cancel the slide.
             // Without this the tyre hands over far more impulse than the slip

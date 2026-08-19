@@ -135,12 +135,17 @@ export function computeSlip(
     wheelOmega: number,
     radius: number,
     o: Required<TyreModelOptions> = DEFAULT_TYRE,
+    out?: SlipState,
 ): SlipState {
     const ref = Math.max(Math.abs(vLong), o.minSpeed);
-    return {
-        slipRatio: (wheelOmega * radius - vLong) / ref,
-        slipAngle: Math.atan2(vLat, ref),
-    };
+    const slipRatio = (wheelOmega * radius - vLong) / ref;
+    const slipAngle = Math.atan2(vLat, ref);
+    if (out) {
+        out.slipRatio = slipRatio;
+        out.slipAngle = slipAngle;
+        return out;
+    }
+    return {slipRatio, slipAngle};
 }
 
 export interface TyreForces {
@@ -167,8 +172,17 @@ export function tyreForces(
     slipState: SlipState,
     load: number,
     options: Required<TyreModelOptions> = DEFAULT_TYRE,
+    out?: TyreForces,
 ): TyreForces {
-    if (load <= 0) return {fx: 0, fy: 0, slip: 0, friction: 0};
+    // Written field by field rather than through a helper: this runs once per
+    // wheel per substep, so even a closure per call would be a lot of garbage.
+    const result: TyreForces = out ?? {fx: 0, fy: 0, slip: 0, friction: 0};
+    result.fx = 0;
+    result.fy = 0;
+    result.slip = 0;
+    result.friction = 0;
+
+    if (load <= 0) return result;
 
     const {slipRatio, slipAngle} = slipState;
     const denom = 1 + Math.abs(slipRatio);
@@ -176,19 +190,16 @@ export function tyreForces(
     const sy = Math.tan(slipAngle) / denom;
     const slip = Math.hypot(sx, sy);
 
-    const friction = frictionAtLoad(load, options);
-    if (slip < 1e-6) return {fx: 0, fy: 0, slip: 0, friction};
+    result.friction = frictionAtLoad(load, options);
+    if (slip < 1e-6) return result;
 
-    const magnitude = friction * load * magicFormula(slip, options.curve);
-
-    return {
-        // Positive slip ratio (wheel outrunning the road) drives the car on.
-        fx: magnitude * (sx / slip),
-        // Lateral force always opposes the direction of sideways slip.
-        fy: -magnitude * (sy / slip),
-        slip,
-        friction,
-    };
+    const magnitude = result.friction * load * magicFormula(slip, options.curve);
+    // Positive slip ratio (wheel outrunning the road) drives the car on;
+    // lateral force always opposes the direction of sideways slip.
+    result.fx = magnitude * (sx / slip);
+    result.fy = -magnitude * (sy / slip);
+    result.slip = slip;
+    return result;
 }
 
 /**
