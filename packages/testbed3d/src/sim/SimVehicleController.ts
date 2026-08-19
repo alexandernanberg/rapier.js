@@ -151,6 +151,15 @@ export interface SimVehicleOptions {
     gearbox?: GearboxOptions;
     differential?: DifferentialOptions;
     aero?: AeroOptions;
+    /**
+     * Traction control: the slip ratio the driven wheels are allowed to reach
+     * before drive torque is cut back. `0` disables it.
+     *
+     * A keyboard throttle is all-or-nothing, and a powerful rear-driven car
+     * asks for far more torque than the tyres can carry, so without this it
+     * simply lights up the rears and spins. Real cars solve it the same way.
+     */
+    tractionControl?: number;
     /** Fraction of brake torque sent to the front axle. */
     brakeBias?: number;
     /** Handbrake torque (Nm) applied to the rear axle. */
@@ -215,6 +224,9 @@ export type SimVehicleScalars = Required<
 export const DEFAULT_SIM_VEHICLE: SimVehicleScalars = {
     drivetrain: "rwd",
     connectionHeight: 0.1,
+    // Off by default: this is a simulation, and traction control is a driver
+    // aid. The demo turns it on because a keyboard throttle cannot modulate.
+    tractionControl: 0,
     brakeBias: 0.62,
     handbrakeTorque: 3000,
     maxSteerAngle: 0.55,
@@ -632,24 +644,34 @@ export class SimVehicleController {
         }
 
         // No drive while the clutch is "open" during a shift.
-        const shifting = this.gearState.shiftCooldown > 0;
         const effectiveThrottle = reverseRequested
             ? Math.max(throttle, this.input.brake)
             : throttle;
-        // The clutch is open mid-shift: no drive, and no engine braking either.
-        const crankTorque = shifting
-            ? 0
-            : engineDriveTorque(this.rpm, effectiveThrottle, this.engine);
+
+        // The clutch is eased out and back in across the shift, as a raised
+        // cosine that starts at full drive, dips to nothing half way, and
+        // returns to full. Switching it off and on outright puts a step change
+        // in the acceleration at each end of every gear change, which is felt
+        // as a lurch.
+        let clutch = 1;
+        if (this.gearbox.shiftTime > 0 && this.gearState.shiftCooldown > 0) {
+            const progress = Math.max(
+                0,
+                Math.min(1, 1 - this.gearState.shiftCooldown / this.gearbox.shiftTime),
+            );
+            clutch = 0.5 + 0.5 * Math.cos(2 * Math.PI * progress);
+        }
+
+        const crankTorque = engineDriveTorque(this.rpm, effectiveThrottle, this.engine) * clutch;
         const wheelTorque = crankTorque * ratio * this.gearbox.finalDrive * this.gearbox.efficiency;
 
         // Engine braking is a *retarding* torque, so it is handed to the wheels
         // as brake torque. Applied as negative drive it would spin the wheels
         // backwards and quietly reverse a parked car down the road.
         const gearing = Math.abs(ratio) * this.gearbox.finalDrive * this.gearbox.efficiency;
-        this.engineBrakePerWheel = shifting
-            ? 0
-            : (engineBrakingTorque(this.rpm, effectiveThrottle, this.engine) * gearing) /
-              driven.length;
+        this.engineBrakePerWheel =
+            (engineBrakingTorque(this.rpm, effectiveThrottle, this.engine) * gearing * clutch) /
+            driven.length;
 
         // Split front/rear, then across each axle through its differential.
         const d = this.options.drivetrain;
@@ -675,6 +697,18 @@ export class SimVehicleController {
             torques[2] = split.left;
             torques[3] = split.right;
         }
+        // Traction control, applied per wheel after the differential so a
+        // spinning wheel is reined in without starving the one still gripping.
+        // Uses last step's slip, which is a frame old but perfectly stable.
+        const tc = this.options.tractionControl;
+        if (tc > 0) {
+            for (const wheel of this.wheels) {
+                if (torques[wheel.index] === 0) continue;
+                const slip = Math.abs(wheel.slipRatio);
+                if (slip > tc) torques[wheel.index] *= tc / slip;
+            }
+        }
+
         return torques;
     }
 
@@ -792,8 +826,15 @@ export class SimVehicleController {
             // settles into a step-by-step limit cycle whose rectified average
             // walks a parked car down the road.
             const slipVelocity = wheel.omega * radius - vLong;
+            // Longitudinal: per substep, because the projection below collapses
+            // the slip within the first one, so the cap self-limits.
             const maxFx = (mEffLong * Math.abs(slipVelocity)) / dts;
-            const maxFy = (shareMass * Math.abs(vLat)) / dts;
+            // Lateral: over the *whole* step. The chassis velocity is frozen
+            // for the substeps, so vLat never shrinks; capping per substep would
+            // license `wheelSubsteps` times the impulse needed to cancel the
+            // slide, overshoot it, and chatter the cornering force between
+            // positive and negative every step.
+            const maxFy = (shareMass * Math.abs(vLat)) / dt;
             const fx = Math.max(-maxFx, Math.min(maxFx, last.fx));
             const fy = Math.max(-maxFy, Math.min(maxFy, last.fy));
 

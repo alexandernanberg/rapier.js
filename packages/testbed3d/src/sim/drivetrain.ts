@@ -63,7 +63,9 @@ export const DEFAULT_GEARBOX: Required<GearboxOptions> = {
     efficiency: 0.9,
     upshiftRpm: 6800,
     downshiftRpm: 2600,
-    shiftTime: 0.35,
+    // Also the time the clutch takes to feed the torque back in, so a long
+    // value is felt as a soft spot rather than a clean, quick change.
+    shiftTime: 0.25,
 };
 
 export const DEFAULT_DIFFERENTIAL: Required<DifferentialOptions> = {

@@ -116,7 +116,14 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         chassis,
     );
 
-    const setup: SimVehicleOptions = {drivetrain: "rwd", differential: {type: "lsd"}};
+    const setup: SimVehicleOptions = {
+        drivetrain: "rwd",
+        differential: {type: "lsd"},
+        // A keyboard throttle is all-or-nothing, and this car asks for more
+        // torque than the rear tyres can carry, so without help it just spins.
+        // Press T to switch it off and feel the difference.
+        tractionControl: 0.25,
+    };
     const car = new SimVehicleController(world, chassis, setup);
 
     // --- Wheel visuals ----------------------------------------------------
@@ -205,6 +212,11 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             case "f":
                 // Toggle downforce.
                 car.aero.downforceCoefficient = car.aero.downforceCoefficient > 0 ? 0 : 1.6;
+                break;
+            case "t":
+                // Traction control off lets a keyboard throttle light up the
+                // rears; on, it keeps wheelspin near the tyre's peak.
+                car.options.tractionControl = car.options.tractionControl > 0 ? 0 : 0.25;
                 break;
         }
     };
@@ -301,9 +313,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             `${wheelRows}\n` +
             `diff ${car.differential.type.toUpperCase()}   ` +
             `ARB ${car.front.antiRollStiffness > 0 ? "on" : "off"}   ` +
-            `downforce ${car.aero.downforceCoefficient > 0 ? "on" : "off"}\n` +
+            `downforce ${car.aero.downforceCoefficient > 0 ? "on" : "off"}   ` +
+            `TC ${car.options.tractionControl > 0 ? "on" : "off"}\n` +
             `W/S throttle-brake · A/D steer · Space handbrake · R reset\n` +
-            `E cycle diff · Q toggle ARB · F toggle downforce ` +
+            `E cycle diff · Q toggle ARB · F toggle downforce · T traction control ` +
             `· ice strip on the left`;
     };
 

@@ -329,6 +329,101 @@ describe("wheel dynamics", () => {
         expect(Math.sign(right.dx)).toBe(Math.sign(right.renderedX));
     });
 
+    test("cornering force stays smooth under power", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world);
+        settle(world, car);
+
+        // Hard acceleration out of a standstill while turning: the case where
+        // the contact forces used to chatter, because the lateral impulse cap
+        // was applied per substep against a chassis velocity that never
+        // changed, licensing several times the impulse needed to stop the
+        // slide and overshooting it every step.
+        const lateral: number[] = [];
+        drive(world, car, {throttle: 1, steer: 1}, 90, () => {
+            lateral.push(car.wheels[0].fy);
+        });
+
+        // Ignore the first few frames while the force builds from zero.
+        const settled = lateral.slice(20);
+        const positive = settled.filter((f) => f > 0).length;
+        const negative = settled.filter((f) => f < 0).length;
+
+        // A steady turn in one direction should load the tyre in one direction.
+        expect(Math.min(positive, negative)).toBe(0);
+
+        // And it should not jump around wildly frame to frame.
+        let worstJump = 0;
+        for (let i = 1; i < settled.length; i++) {
+            worstJump = Math.max(worstJump, Math.abs(settled[i] - settled[i - 1]));
+        }
+        const peak = Math.max(...settled.map(Math.abs));
+        expect(worstJump).toBeLessThan(peak * 0.5);
+
+        world.free();
+    });
+
+    test("gear changes do not punch a hole in the acceleration", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world);
+        settle(world, car);
+
+        let previousSpeed = car.forwardSpeed();
+        let previousAccel: number | null = null;
+        let sawShift = false;
+        let worstJump = 0;
+        drive(world, car, {throttle: 1}, 700, () => {
+            const speed = car.forwardSpeed();
+            const accel = (speed - previousSpeed) * 60;
+            previousSpeed = speed;
+            if (car.gearState.shiftCooldown > 0) sawShift = true;
+            // Frame-to-frame change in acceleration, i.e. jerk.
+            if (previousAccel !== null) {
+                worstJump = Math.max(worstJump, Math.abs(accel - previousAccel));
+            }
+            previousAccel = accel;
+        });
+
+        expect(sawShift).toBe(true);
+        expect(car.gearState.gear).toBeGreaterThan(1);
+        // Switching the clutch off and on outright used to step acceleration by
+        // ~6.6 m/s^2 in a single frame at every change. What is left is the
+        // gear ratio itself stepping down, which is real and should be felt.
+        expect(worstJump).toBeLessThan(3.5);
+
+        world.free();
+    });
+
+    test("traction control keeps a keyboard throttle from spinning the car up", () => {
+        const fullLockTurn = (tractionControl: number) => {
+            const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+            createGround(world);
+            const car = createCar(world, {tractionControl});
+            settle(world, car);
+            let peakSlip = 0;
+            drive(world, car, {throttle: 1, steer: 1}, 330, () => {
+                peakSlip = Math.max(peakSlip, car.wheels[2].slipRatio);
+            });
+            const result = {peakSlip, speed: car.forwardSpeed()};
+            world.free();
+            return result;
+        };
+
+        const off = fullLockTurn(0);
+        const on = fullLockTurn(0.25);
+
+        // Without it, full throttle asks for far more torque than the rear
+        // tyres can carry and they simply light up.
+        expect(off.peakSlip).toBeGreaterThan(5);
+
+        // With it, wheelspin is held near the tyre's peak and the car keeps
+        // driving round the corner instead of spinning on the spot.
+        expect(on.peakSlip).toBeLessThan(off.peakSlip / 4);
+        expect(on.speed).toBeGreaterThan(off.speed);
+    });
+
     test("the left-hand wheels really are on the left", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         createGround(world);
