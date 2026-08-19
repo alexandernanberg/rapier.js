@@ -104,6 +104,10 @@ export class Testbed {
         document.onkeydown = null; // Reset key events.
         document.onkeyup = null; // Reset key events.
 
+        // Drop any DOM a previous demo added on top of the canvas, so its HUD
+        // does not linger over the next one.
+        document.querySelectorAll(".demo-overlay").forEach((node) => node.remove());
+
         this.preTimestepAction = undefined;
         this.world = world;
         this.world.numSolverIterations = this.parameters.numSolverIters;

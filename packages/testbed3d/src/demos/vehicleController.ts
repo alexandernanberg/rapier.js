@@ -10,7 +10,8 @@ import {
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
 
-// If steering feels inverted on your machine, flip this to -1.
+// Steering sign. +1 means A/left steers the car left, which is verified by
+// the simVehicle steering-direction test; this is not machine dependent.
 const STEER_SIGN = 1;
 
 // Scratch objects reused every frame to avoid per-frame allocations.
@@ -34,6 +35,7 @@ function createHud(): HTMLDivElement {
 
     const hud = document.createElement("div");
     hud.id = "vehicle-hud";
+    hud.className = "demo-overlay";
     hud.style.cssText = [
         "position:absolute",
         "left:12px",
@@ -103,6 +105,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     gfx.scene.getObjectByName("vehicle-wheels")?.removeFromParent();
     const wheelGroup = new THREE.Group();
     wheelGroup.name = "vehicle-wheels";
+    wheelGroup.userData.demoObject = true; // let Graphics.reset() clean it up
     gfx.scene.add(wheelGroup);
 
     const wheelMaterial = new THREE.MeshPhongMaterial({color: 0x111111, flatShading: true});
@@ -140,7 +143,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         buildWheels();
     };
 
-    const hud = createHud();
+    let hud!: HTMLDivElement;
 
     // --- Input ------------------------------------------------------------
     const keys = {forward: false, back: false, left: false, right: false, handbrake: false};
@@ -280,6 +283,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     };
 
     testbed.setWorld(world);
+    hud = createHud(); // after setWorld, which clears the previous demo's overlays
     testbed.setpreTimestepAction(update);
 
     // Only now, since setWorld() clears the previous demo's key bindings.

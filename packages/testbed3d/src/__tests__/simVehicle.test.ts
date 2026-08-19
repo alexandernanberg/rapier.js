@@ -54,15 +54,19 @@ function createGround(world: RAPIER.World, friction = 1.0, halfSize = 5000) {
     );
 }
 
-/** Ground whose left half is ice and right half is tarmac. */
+/**
+ * Ground whose left half is ice and right half is tarmac.
+ *
+ * Forward is +Z and up is +Y, which puts the driver's left at +X.
+ */
 function createSplitGround(world: RAPIER.World) {
     const ground = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
     world.createCollider(
-        RAPIER.ColliderDesc.cuboid(2, 0.5, 500).setTranslation(-2, -0.5, 0).setFriction(0.12),
+        RAPIER.ColliderDesc.cuboid(2, 0.5, 500).setTranslation(2, -0.5, 0).setFriction(0.12),
         ground,
     );
     world.createCollider(
-        RAPIER.ColliderDesc.cuboid(2, 0.5, 500).setTranslation(2, -0.5, 0).setFriction(1.0),
+        RAPIER.ColliderDesc.cuboid(2, 0.5, 500).setTranslation(-2, -0.5, 0).setFriction(1.0),
         ground,
     );
 }
@@ -284,6 +288,59 @@ describe("wheel dynamics", () => {
 
         // Wheels turn backwards while reversing.
         expect(car.wheels[0].omega).toBeLessThan(0);
+
+        world.free();
+    });
+
+    test("the car turns the way the steered wheels point", () => {
+        // Forward is +Z and up is +Y, so the driver's left is +X: a positive
+        // steer input must send the car towards +X, and the front wheels must
+        // point that way too.
+        const turn = (steer: number) => {
+            const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+            createGround(world);
+            const car = createCar(world);
+            settle(world, car);
+            drive(world, car, {throttle: 0.6}, 120);
+            const x0 = car.chassis.translation().x;
+            drive(world, car, {throttle: 0.4, steer}, 120);
+            const result = {
+                dx: car.chassis.translation().x - x0,
+                // Where the rendered wheel points: the demo builds its wheel
+                // orientation as chassis * rotationAboutUp(steer), so the local
+                // x-component of that heading is sin(steer).
+                renderedX: Math.sin(car.wheels[0].steer),
+            };
+            world.free();
+            return result;
+        };
+
+        const left = turn(1);
+        const right = turn(-1);
+
+        // Steering left goes left, steering right goes right...
+        expect(left.dx).toBeGreaterThan(1);
+        expect(right.dx).toBeLessThan(-1);
+
+        // ...and in both cases the car follows the wheels rather than
+        // mirroring them, which is what a sign slip between the physics
+        // heading and the rendered heading looks like.
+        expect(Math.sign(left.dx)).toBe(Math.sign(left.renderedX));
+        expect(Math.sign(right.dx)).toBe(Math.sign(right.renderedX));
+    });
+
+    test("the left-hand wheels really are on the left", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world);
+        settle(world, car);
+
+        // +X is the driver's left in this frame.
+        for (const wheel of car.wheels) {
+            const side = wheel.contactPoint.x;
+            if (wheel.isLeft) expect(side).toBeGreaterThan(0);
+            else expect(side).toBeLessThan(0);
+        }
 
         world.free();
     });

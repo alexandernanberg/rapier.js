@@ -6,7 +6,8 @@ import {SimVehicleController, type SimVehicleOptions} from "../sim/SimVehicleCon
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
 
-// If steering feels inverted on your machine, flip this to -1.
+// Steering sign. +1 means A/left steers the car left, which is verified by
+// the simVehicle steering-direction test; this is not machine dependent.
 const STEER_SIGN = 1;
 
 const MASS = 1400;
@@ -31,6 +32,7 @@ function createHud(): HTMLDivElement {
     document.getElementById("sim-vehicle-hud")?.remove();
     const hud = document.createElement("div");
     hud.id = "sim-vehicle-hud";
+    hud.className = "demo-overlay";
     hud.style.cssText = [
         "position:absolute",
         "left:12px",
@@ -64,10 +66,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         RAPIER.ColliderDesc.cuboid(400, 0.5, 400).setTranslation(0, -0.5, 0).setFriction(1.0),
         ground,
     );
-    // An icy strip running down the left of the straight: put two wheels on it
-    // and an open diff will simply spin them.
+    // An icy strip running down the left of the straight (+X is the driver's
+    // left here): put two wheels on it and an open diff will simply spin them.
     world.createCollider(
-        RAPIER.ColliderDesc.cuboid(2.2, 0.5, 60).setTranslation(-3.0, -0.49, 40).setFriction(0.1),
+        RAPIER.ColliderDesc.cuboid(2.2, 0.5, 60).setTranslation(3.0, -0.49, 40).setFriction(0.1),
         ground,
     );
 
@@ -121,6 +123,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     gfx.scene.getObjectByName("sim-vehicle-wheels")?.removeFromParent();
     const wheelGroup = new THREE.Group();
     wheelGroup.name = "sim-vehicle-wheels";
+    wheelGroup.userData.demoObject = true; // let Graphics.reset() clean it up
     gfx.scene.add(wheelGroup);
 
     const markerMaterial = new THREE.MeshPhongMaterial({color: 0xd8d8d8});
@@ -145,7 +148,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         return mesh;
     });
 
-    const hud = createHud();
+    let hud!: HTMLDivElement;
 
     // --- Input ------------------------------------------------------------
     const keys = {up: false, down: false, left: false, right: false, space: false};
@@ -305,6 +308,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     };
 
     testbed.setWorld(world);
+    hud = createHud(); // after setWorld, which clears the previous demo's overlays
     testbed.setpreTimestepAction(update);
 
     // Only now, since setWorld() clears the previous demo's key bindings.

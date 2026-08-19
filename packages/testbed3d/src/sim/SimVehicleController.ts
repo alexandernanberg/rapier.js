@@ -311,7 +311,6 @@ export class SimVehicleController {
     private _up: Vec3 = {x: 0, y: 0, z: 0};
     private _down: Vec3 = {x: 0, y: 0, z: 0};
     private _fwd: Vec3 = {x: 0, y: 0, z: 0};
-    private _right: Vec3 = {x: 0, y: 0, z: 0};
     private _tmp: Vec3 = {x: 0, y: 0, z: 0};
     private _tmp2: Vec3 = {x: 0, y: 0, z: 0};
     private _hard: Vec3 = {x: 0, y: 0, z: 0};
@@ -443,7 +442,6 @@ export class SimVehicleController {
         this._down.y = -this._up.y;
         this._down.z = -this._up.z;
         rotate(this._q, {x: 0, y: 0, z: 1}, this._fwd);
-        rotate(this._q, {x: 1, y: 0, z: 0}, this._right);
 
         const speed = dot(this._fwd, this._linvel);
 
@@ -503,7 +501,9 @@ export class SimVehicleController {
         const o = this.options;
 
         // Suspension mounting point in world space.
-        const lx = (wheel.isLeft ? -1 : 1) * axle.halfTrack;
+        // Forward is +Z and up is +Y in a right-handed frame, which puts the
+        // driver's left at +X.
+        const lx = (wheel.isLeft ? 1 : -1) * axle.halfTrack;
         const ly = -o.connectionHeight;
         const lz = axle.offset;
         this._tmp2.x = lx;
@@ -717,11 +717,14 @@ export class SimVehicleController {
         }
 
         // Wheel heading and lateral axis, projected onto the contact plane.
-        const cosS = Math.cos(steer);
-        const sinS = Math.sin(steer);
-        this._tmp.x = this._fwd.x * cosS - this._right.x * sinS;
-        this._tmp.y = this._fwd.y * cosS - this._right.y * sinS;
-        this._tmp.z = this._fwd.z * cosS - this._right.z * sinS;
+        // Derive the heading exactly the way the renderer does — rotate the
+        // chassis-local forward about local up by the steering angle, then take
+        // it to world space. Building it from the chassis basis by hand is how
+        // the physics ended up steering the mirror image of the visible wheels.
+        this._tmp2.x = Math.sin(steer);
+        this._tmp2.y = 0;
+        this._tmp2.z = Math.cos(steer);
+        rotate(this._q, this._tmp2, this._tmp);
         projectOnPlane(this._tmp, wheel.normalWs, this._wheelFwd);
         normalize(this._wheelFwd);
         cross(wheel.normalWs, this._wheelFwd, this._wheelLat);

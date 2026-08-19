@@ -534,6 +534,13 @@ export class Graphics {
             this.scene.remove(mesh);
         });
 
+        // Objects a demo added to the scene itself (wheels, gizmos, ...) are
+        // not tracked as colliders, so they would otherwise survive into the
+        // next demo and hang in mid-air.
+        this.scene.children
+            .filter((child) => child.userData.demoObject)
+            .forEach((child) => child.removeFromParent());
+
         this.coll2instance = new Map();
         this.rb2colls = new Map();
         this.colorIndex = 0;
