@@ -262,6 +262,60 @@ describe("wheel dynamics", () => {
         world.free();
     });
 
+    test("the brake pedal stops the car and then reverses it", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world);
+        settle(world, car);
+
+        drive(world, car, {throttle: 0.5}, 120);
+        expect(car.forwardSpeed()).toBeGreaterThan(3);
+
+        // Holding the pedal brakes to a stop...
+        drive(world, car, {brake: 1}, 200);
+        expect(car.gearState.gear).toBeLessThan(0); // reverse engaged
+
+        // ...and then actually drives backwards. Once reverse is engaged the
+        // friction brakes have to let go, or they just hold the car still.
+        const before = car.chassis.translation().z;
+        drive(world, car, {brake: 1}, 180);
+        expect(car.chassis.translation().z).toBeLessThan(before - 1);
+        expect(car.forwardSpeed()).toBeLessThan(-1);
+
+        // Wheels turn backwards while reversing.
+        expect(car.wheels[0].omega).toBeLessThan(0);
+
+        world.free();
+    });
+
+    test("wheels roll forwards when the car drives forwards", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world);
+        settle(world, car);
+
+        const startZ = car.chassis.translation().z;
+        const startSpin = car.wheels.map((w) => w.rotation);
+        drive(world, car, {throttle: 0.5}, 120);
+
+        const travelled = car.chassis.translation().z - startZ;
+        expect(travelled).toBeGreaterThan(1);
+
+        for (const wheel of car.wheels) {
+            const spun = wheel.rotation - startSpin[wheel.index];
+            // Same sign as travel, and the free-rolling front wheels should
+            // have turned travel/radius radians.
+            expect(spun).toBeGreaterThan(0);
+            if (wheel.isFront) {
+                const expected = travelled / car.axleOf(wheel).wheelRadius;
+                expect(spun).toBeGreaterThan(expected * 0.85);
+                expect(spun).toBeLessThan(expected * 1.15);
+            }
+        }
+
+        world.free();
+    });
+
     test("the handbrake locks only the rear axle", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         createGround(world);

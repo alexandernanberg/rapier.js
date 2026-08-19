@@ -694,7 +694,10 @@ export class SimVehicleController {
 
         // Brake torque for this wheel.
         const bias = wheel.isFront ? o.brakeBias : 1 - o.brakeBias;
-        const braking = this.input.brake > 0 && this.forwardSpeedSign() >= 0;
+        // The brake pedal doubles as reverse. Once reverse is actually engaged
+        // it must stop applying the friction brakes too, or the brakes simply
+        // hold the car against its own reverse drive and it never moves.
+        const braking = this.input.brake > 0 && this.gearState.gear >= 0;
         let brakeTorque = braking ? this.input.brake * axle.brakeTorque * bias * 2 : 0;
         if (this.input.handbrake && !wheel.isFront) {
             brakeTorque = Math.max(brakeTorque, o.handbrakeTorque);
@@ -829,10 +832,6 @@ export class SimVehicleController {
 
         this.applyImpulseAt(this._wheelFwd, wheel.fx * dt, wheel.contactPoint);
         this.applyImpulseAt(this._wheelLat, wheel.fy * dt, wheel.contactPoint);
-    }
-
-    private forwardSpeedSign(): number {
-        return dot(this._fwd, this._linvel) >= -0.5 ? 1 : -1;
     }
 
     /** Aerodynamic drag (sets top speed) and downforce (adds grip with speed). */

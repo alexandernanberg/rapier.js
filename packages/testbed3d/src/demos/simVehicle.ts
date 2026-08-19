@@ -10,7 +10,9 @@ type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
 const STEER_SIGN = 1;
 
 const MASS = 1400;
-const BODY = {w: 1.85, h: 0.6, d: 4.3};
+// Narrower than the track (2 * 0.78 + tyre width) so the wheels sit proud of
+// the bodywork and you can actually watch them steer and spin.
+const BODY = {w: 1.62, h: 0.6, d: 4.3};
 
 // Scratch objects reused every frame.
 const _carPos = new THREE.Vector3();
@@ -121,12 +123,24 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     wheelGroup.name = "sim-vehicle-wheels";
     gfx.scene.add(wheelGroup);
 
+    const markerMaterial = new THREE.MeshPhongMaterial({color: 0xd8d8d8});
     const wheelMeshes = car.wheels.map((wheel) => {
         const r = car.axleOf(wheel).wheelRadius;
         const mesh = new THREE.Mesh(
             new THREE.CylinderGeometry(r, r, 0.28, 22),
             new THREE.MeshPhongMaterial({color: 0x101010, flatShading: true}),
         );
+        // A stripe across each face. A bare cylinder gives no clue which way it
+        // is turning (and strobes badly at speed), so this makes wheelspin,
+        // lock-up and direction of travel immediately readable.
+        for (const side of [-1, 1]) {
+            const stripe = new THREE.Mesh(
+                new THREE.BoxGeometry(r * 1.5, 0.02, r * 0.22),
+                markerMaterial,
+            );
+            stripe.position.set(0, side * 0.145, 0);
+            mesh.add(stripe);
+        }
         wheelGroup.add(mesh);
         return mesh;
     });
