@@ -148,7 +148,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         car.gearState.shiftCooldown = 0;
     };
 
-    document.onkeydown = (event: KeyboardEvent) => {
+    // NOTE: these are attached *after* `testbed.setWorld()` below, because
+    // setWorld clears `document.onkeydown` / `onkeyup` to drop the previous
+    // demo's bindings. Attaching them here would simply be wiped.
+    const onKeyDown = (event: KeyboardEvent) => {
         switch (event.key.toLowerCase()) {
             case "arrowup":
             case "w":
@@ -188,7 +191,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
                 break;
         }
     };
-    document.onkeyup = (event: KeyboardEvent) => {
+    const onKeyUp = (event: KeyboardEvent) => {
         switch (event.key.toLowerCase()) {
             case "arrowup":
             case "w":
@@ -289,5 +292,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
     testbed.setWorld(world);
     testbed.setpreTimestepAction(update);
+
+    // Only now, since setWorld() clears the previous demo's key bindings.
+    document.onkeydown = onKeyDown;
+    document.onkeyup = onKeyUp;
+
     testbed.lookAt({eye: {x: 0, y: 6, z: -36}, target: {x: 0, y: 1, z: -25}});
 }
