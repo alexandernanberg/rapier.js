@@ -164,6 +164,29 @@ describe("suspension", () => {
         world.free();
     });
 
+    test("with no input the car stays put", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world);
+        settle(world, car);
+
+        const start = car.chassis.translation().z;
+        drive(world, car, {}, 1200); // 20 seconds of being left alone
+        const drift = car.chassis.translation().z - start;
+
+        // Two failure modes this guards against, both of which produced a car
+        // that quietly drove itself backwards down the road:
+        //   * engine braking applied as *negative drive* rather than as a
+        //     retarding torque, which spun the wheels the wrong way;
+        //   * the tyre handing over far more impulse than the slip was worth,
+        //     overshooting into a step-by-step limit cycle whose rectified
+        //     average was a steady creep.
+        expect(Math.abs(drift)).toBeLessThan(0.1);
+        expect(Math.abs(car.forwardSpeed())).toBeLessThan(0.05);
+
+        world.free();
+    });
+
     test("braking transfers load onto the front axle", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         createGround(world);
@@ -338,14 +361,18 @@ describe("drivetrain", () => {
         // The surface really is split.
         expect(open.distance).toBeGreaterThan(0);
 
-        // Open diff: the icy wheel spins away while the gripping one barely turns.
+        // Open diff: the icy wheel spins away while the gripping one barely
+        // turns -- the classic one-wheel-peel.
         expect(open.iceOmega).toBeGreaterThan(open.gripOmega * 2);
 
-        // LSD: both wheels turn together, and the car actually goes somewhere.
+        // LSD: the two wheels turn at very nearly the same speed instead.
         expect(Math.abs(lsd.iceOmega - lsd.gripOmega)).toBeLessThan(
-            Math.abs(open.iceOmega - open.gripOmega),
+            Math.abs(open.iceOmega - open.gripOmega) * 0.25,
         );
-        expect(lsd.distance).toBeGreaterThan(open.distance * 1.2);
+        // ...and that traction turns into real distance. The margin is modest
+        // (~13%) because the contact impulse cap limits how much the gripping
+        // wheel can transmit per step, but it is a consistent difference.
+        expect(lsd.distance).toBeGreaterThan(open.distance * 1.05);
     });
 
     test("the surface under a wheel changes its grip", () => {

@@ -3,9 +3,10 @@ import {
     DEFAULT_DIFFERENTIAL,
     DEFAULT_ENGINE,
     DEFAULT_GEARBOX,
+    engineBrakingTorque,
+    engineDriveTorque,
     engineTorqueAt,
     gearRatioOf,
-    netEngineTorque,
     splitDifferential,
     updateGearbox,
 } from "../sim/drivetrain";
@@ -191,10 +192,22 @@ describe("engine and gearbox", () => {
         expect(engineTorqueAt(99999, o)).toBe(o.torqueCurve[o.torqueCurve.length - 1]);
     });
 
-    test("lifting off produces engine braking, not zero torque", () => {
+    test("lifting off produces engine braking, and drive torque never goes negative", () => {
         const o = DEFAULT_ENGINE;
-        expect(netEngineTorque(4000, 1, o)).toBeGreaterThan(0);
-        expect(netEngineTorque(4000, 0, o)).toBeLessThan(0);
+        expect(engineDriveTorque(4000, 1, o)).toBeGreaterThan(0);
+
+        // Crucially, closing the throttle yields *zero* drive rather than
+        // negative drive: engine braking is a separate retarding torque. A
+        // negative drive torque would spin the wheels backwards and reverse a
+        // stationary car down the road.
+        expect(engineDriveTorque(4000, 0, o)).toBe(0);
+        expect(engineDriveTorque(o.idleRpm, 0, o)).toBe(0);
+
+        // Engine braking is a positive magnitude, strongest at high rpm.
+        expect(engineBrakingTorque(4000, 0, o)).toBeGreaterThan(0);
+        expect(engineBrakingTorque(6000, 0, o)).toBeGreaterThan(engineBrakingTorque(2000, 0, o));
+        // ...and it disappears when you are on the power.
+        expect(engineBrakingTorque(4000, 1, o)).toBe(0);
     });
 
     test("the gearbox shifts up near the redline and back down when bogging", () => {

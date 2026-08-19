@@ -90,17 +90,29 @@ export function engineTorqueAt(rpm: number, o: Required<EngineOptions>): number 
     return torques[torques.length - 1];
 }
 
+/** Crankshaft torque driving the wheels at this throttle. Never negative. */
+export function engineDriveTorque(
+    rpm: number,
+    throttle: number,
+    o: Required<EngineOptions>,
+): number {
+    return engineTorqueAt(rpm, o) * Math.max(0, Math.min(1, throttle));
+}
+
 /**
- * Net crankshaft torque for a throttle position.
+ * The torque the engine *absorbs* off the throttle, as a positive magnitude.
  *
- * Off the throttle the engine *absorbs* torque (engine braking), which is what
- * makes lifting mid-corner shift weight onto the nose.
+ * This has to be applied as a retarding torque, the same way a brake is, and
+ * never as negative drive: a standing car at idle would otherwise be handed a
+ * constant backwards torque and quietly drive itself away in reverse.
  */
-export function netEngineTorque(rpm: number, throttle: number, o: Required<EngineOptions>): number {
-    const drive = engineTorqueAt(rpm, o) * Math.max(0, Math.min(1, throttle));
-    const braking =
-        o.engineBrakeTorque * (1 - Math.max(0, Math.min(1, throttle))) * (rpm / o.redlineRpm);
-    return drive - braking;
+export function engineBrakingTorque(
+    rpm: number,
+    throttle: number,
+    o: Required<EngineOptions>,
+): number {
+    const closed = 1 - Math.max(0, Math.min(1, throttle));
+    return o.engineBrakeTorque * closed * (rpm / o.redlineRpm);
 }
 
 /** Engine rpm implied by the driven-wheel speed through the current gearing. */

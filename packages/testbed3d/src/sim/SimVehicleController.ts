@@ -7,8 +7,9 @@ import {
     type EngineOptions,
     type GearboxOptions,
     type GearState,
+    engineBrakingTorque,
+    engineDriveTorque,
     gearRatioOf,
-    netEngineTorque,
     rpmFromWheels,
     splitDifferential,
     updateGearbox,
@@ -256,6 +257,10 @@ export interface WheelState {
     slip: number;
     slipRatio: number;
     slipAngle: number;
+    /** Contact-patch velocity along the wheel's heading (m/s). */
+    vLong: number;
+    /** Contact-patch velocity across the wheel (m/s). */
+    vLat: number;
     /** Longitudinal tyre force (N). */
     fx: number;
     /** Lateral tyre force (N). */
@@ -290,6 +295,12 @@ export class SimVehicleController {
 
     private world: RAPIER.World;
     private steerAngle = 0;
+    /** Engine-braking torque handed to each driven wheel this step (Nm). */
+    private engineBrakePerWheel = 0;
+    /** Chassis mass (kg), refreshed each step. */
+    private chassisMass = 1;
+    /** How many wheels are touching the ground this step. */
+    private contactCount = 4;
 
     // Scratch vectors, reused every step.
     private _q: Quat = {x: 0, y: 0, z: 0, w: 1};
@@ -342,6 +353,8 @@ export class SimVehicleController {
                 slip: 0,
                 slipRatio: 0,
                 slipAngle: 0,
+                vLong: 0,
+                vLat: 0,
                 fx: 0,
                 fy: 0,
                 contactPoint: {x: 0, y: 0, z: 0},
@@ -447,10 +460,13 @@ export class SimVehicleController {
         // --- Suspension: ray-cast each wheel and size the spring -------------
         // Loads are gathered first so the anti-roll bars can redistribute them
         // before the tyres see them.
+        this.chassisMass = chassis.mass();
         const loads = [0, 0, 0, 0];
+        this.contactCount = 0;
         for (const wheel of this.wheels) {
             this.castWheel(wheel);
             loads[wheel.index] = this.suspensionForce(wheel, dt);
+            if (wheel.inContact) this.contactCount++;
         }
 
         // --- Anti-roll bars: transfer load across each axle -------------------
@@ -620,11 +636,20 @@ export class SimVehicleController {
         const effectiveThrottle = reverseRequested
             ? Math.max(throttle, this.input.brake)
             : throttle;
+        // The clutch is open mid-shift: no drive, and no engine braking either.
         const crankTorque = shifting
-            ? -this.engine.engineBrakeTorque * (this.rpm / this.engine.redlineRpm)
-            : netEngineTorque(this.rpm, effectiveThrottle, this.engine);
-
+            ? 0
+            : engineDriveTorque(this.rpm, effectiveThrottle, this.engine);
         const wheelTorque = crankTorque * ratio * this.gearbox.finalDrive * this.gearbox.efficiency;
+
+        // Engine braking is a *retarding* torque, so it is handed to the wheels
+        // as brake torque. Applied as negative drive it would spin the wheels
+        // backwards and quietly reverse a parked car down the road.
+        const gearing = Math.abs(ratio) * this.gearbox.finalDrive * this.gearbox.efficiency;
+        this.engineBrakePerWheel = shifting
+            ? 0
+            : (engineBrakingTorque(this.rpm, effectiveThrottle, this.engine) * gearing) /
+              driven.length;
 
         // Split front/rear, then across each axle through its differential.
         const d = this.options.drivetrain;
@@ -674,6 +699,8 @@ export class SimVehicleController {
         if (this.input.handbrake && !wheel.isFront) {
             brakeTorque = Math.max(brakeTorque, o.handbrakeTorque);
         }
+        // Driven wheels also feel the engine holding them back.
+        if (this.isDriven(wheel)) brakeTorque += this.engineBrakePerWheel;
 
         if (!wheel.inContact) {
             // Free-spinning wheel in the air: only drive and brake act on it.
@@ -701,6 +728,8 @@ export class SimVehicleController {
         this.velocityAt(wheel.contactPoint, this._vAt);
         const vLong = dot(this._vAt, this._wheelFwd);
         const vLat = dot(this._vAt, this._wheelLat);
+        wheel.vLong = vLong;
+        wheel.vLat = vLat;
 
         // Integrate the wheel against the tyre in substeps: the tyre is stiff,
         // and this is what keeps wheelspin and lock-up stable at 60 Hz.
@@ -725,6 +754,18 @@ export class SimVehicleController {
         // spinning wheel backwards.
         const relax = relaxationFactor(vLong, dts, this._tyreScratch);
 
+        // The wheel speed at which the tyre is rolling true (zero slip ratio).
+        const omegaRoll = vLong / axle.wheelRadius;
+        const inertia = axle.wheelInertia;
+        const radius = axle.wheelRadius;
+
+        // Reduced mass of this contact: the wheel's rotational inertia and the
+        // chassis mass it carries, seen from the contact patch. The impulse
+        // needed to *exactly* cancel a sliding velocity is `mEff * vSlip`, and
+        // anything beyond that reverses the slide instead of stopping it.
+        const shareMass = this.chassisMass / Math.max(1, this.contactCount);
+        const mEffLong = 1 / (1 / shareMass + (radius * radius) / inertia);
+
         for (let s = 0; s < sub; s++) {
             const target = computeSlip(
                 vLong,
@@ -735,18 +776,47 @@ export class SimVehicleController {
             );
             wheel.slipRatio = target.slipRatio;
             wheel.slipAngle += (target.slipAngle - wheel.slipAngle) * relax;
-            slipState = {slipRatio: wheel.slipRatio, slipAngle: wheel.slipAngle};
+            slipState.slipRatio = wheel.slipRatio;
+            slipState.slipAngle = wheel.slipAngle;
             last = tyreForces(slipState, wheel.load, this._tyreScratch);
-            sumFx += last.fx;
-            sumFy += last.fy;
 
-            // Wheel spin: drive torque in, tyre reaction out.
-            const reaction = last.fx * axle.wheelRadius;
-            wheel.omega += ((driveTorque - reaction) / axle.wheelInertia) * dts;
+            // Cap the force at the impulse that would just cancel the slide.
+            // Without this the tyre hands over far more impulse than the slip
+            // is worth (~40x at a crawl), overshoots, reverses the slip, and
+            // settles into a step-by-step limit cycle whose rectified average
+            // walks a parked car down the road.
+            const slipVelocity = wheel.omega * radius - vLong;
+            const maxFx = (mEffLong * Math.abs(slipVelocity)) / dts;
+            const maxFy = (shareMass * Math.abs(vLat)) / dts;
+            const fx = Math.max(-maxFx, Math.min(maxFx, last.fx));
+            const fy = Math.max(-maxFy, Math.min(maxFy, last.fy));
+
+            sumFx += fx;
+            sumFy += fy;
+
+            // Drive torque spins the wheel up.
+            wheel.omega += (driveTorque / inertia) * dts;
+
+            // The tyre reaction always pulls the wheel back towards rolling
+            // true. It is applied as a *projection* rather than a raw impulse:
+            // the curve is so stiff at low speed that an explicit step would
+            // shoot straight past the rolling point and flip the slip's sign
+            // every substep, leaving a violent oscillation whose average force
+            // is zero -- tyres that quietly do nothing. Clamping at the rolling
+            // point keeps it stable while still allowing genuine wheelspin,
+            // because drive torque can hold omega beyond it.
+            const reactionDelta = (-fx * radius * dts) / inertia;
+            const toRoll = omegaRoll - wheel.omega;
+            if (reactionDelta * toRoll > 0) {
+                wheel.omega +=
+                    Math.sign(toRoll) * Math.min(Math.abs(reactionDelta), Math.abs(toRoll));
+            } else {
+                wheel.omega += reactionDelta;
+            }
 
             // Brakes cannot drive the wheel backwards — clamp to a stop.
             if (brakeTorque > 0) {
-                const dOmega = (brakeTorque / axle.wheelInertia) * dts;
+                const dOmega = (brakeTorque / inertia) * dts;
                 if (Math.abs(wheel.omega) <= dOmega) wheel.omega = 0;
                 else wheel.omega -= Math.sign(wheel.omega) * dOmega;
             }
