@@ -221,22 +221,39 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         "   ",
     );
 
-    const update = (graphics: Graphics) => {
-        // Map keyboard to driver input.
-        vehicle.input.accelerate = keys.forward ? 1 : 0;
-        vehicle.input.brake = keys.back ? 1 : 0;
-        vehicle.input.steer = STEER_SIGN * ((keys.left ? 1 : 0) - (keys.right ? 1 : 0));
-        vehicle.input.handbrake = keys.handbrake;
+    // Wheel and chassis pose at the last two physics steps, so the renderer can
+    // interpolate them the way it already interpolates the colliders. Driving
+    // meshes straight from the fixed-step callback makes them stutter against
+    // the smoothly interpolated body.
+    const wheelPose = [0, 1, 2, 3].map(() => ({
+        prevPos: new THREE.Vector3(),
+        pos: new THREE.Vector3(),
+        prevQuat: new THREE.Quaternion(),
+        quat: new THREE.Quaternion(),
+    }));
+    const carPose = {
+        prevPos: new THREE.Vector3(),
+        pos: new THREE.Vector3(),
+        prevQuat: new THREE.Quaternion(),
+        quat: new THREE.Quaternion(),
+    };
 
-        vehicle.update(dt);
-
-        // Sync wheel meshes from the raycast vehicle's wheel state.
+    const capturePose = () => {
         const chassis = vehicle.chassis;
         const rot = chassis.rotation();
         _chassisQuat.set(rot.x, rot.y, rot.z, rot.w);
-        _dirWs.set(0, -1, 0).applyQuaternion(_chassisQuat);
+        const t = chassis.translation();
+        carPose.prevPos.copy(carPose.pos);
+        carPose.prevQuat.copy(carPose.quat);
+        carPose.pos.set(t.x, t.y, t.z);
+        carPose.quat.copy(_chassisQuat);
 
-        for (let i = 0; i < wheelMeshes.length; i++) {
+        _dirWs.set(0, -1, 0).applyQuaternion(_chassisQuat);
+        for (let i = 0; i < wheelPose.length; i++) {
+            const pose = wheelPose[i];
+            pose.prevPos.copy(pose.pos);
+            pose.prevQuat.copy(pose.quat);
+
             const hardPoint = vehicle.controller.wheelHardPoint(i);
             if (!hardPoint) continue;
             const suspension =
@@ -244,21 +261,38 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             const steer = vehicle.controller.wheelSteering(i) ?? 0;
             const spin = vehicle.controller.wheelRotation(i) ?? 0;
 
-            _wheelPos
-                .set(hardPoint.x, hardPoint.y, hardPoint.z)
-                .addScaledVector(_dirWs, suspension);
-
+            pose.pos.set(hardPoint.x, hardPoint.y, hardPoint.z).addScaledVector(_dirWs, suspension);
             _qSteer.setFromAxisAngle(_axisUp, steer);
             _qSpin.setFromAxisAngle(_axisAxle, spin);
-            _wheelQuat.copy(_chassisQuat).multiply(_qSteer).multiply(_qSpin).multiply(_qAlign);
+            pose.quat.copy(_chassisQuat).multiply(_qSteer).multiply(_qSpin).multiply(_qAlign);
+        }
+    };
+    capturePose();
+    capturePose();
 
-            wheelMeshes[i].position.copy(_wheelPos);
-            wheelMeshes[i].quaternion.copy(_wheelQuat);
+    // Fixed-step callback: input and physics only.
+    const update = () => {
+        // Map keyboard to driver input.
+        vehicle.input.accelerate = keys.forward ? 1 : 0;
+        vehicle.input.brake = keys.back ? 1 : 0;
+        vehicle.input.steer = STEER_SIGN * ((keys.left ? 1 : 0) - (keys.right ? 1 : 0));
+        vehicle.input.handbrake = keys.handbrake;
+
+        vehicle.update(dt);
+        capturePose();
+    };
+
+    // Once per rendered frame, interpolated by `alpha`.
+    const render = (graphics: Graphics, alpha: number) => {
+        for (let i = 0; i < wheelMeshes.length; i++) {
+            const pose = wheelPose[i];
+            wheelMeshes[i].position.lerpVectors(pose.prevPos, pose.pos, alpha);
+            wheelMeshes[i].quaternion.copy(pose.prevQuat).slerp(pose.quat, alpha);
         }
 
-        // Chase camera: sit behind and above the car, looking slightly ahead.
-        const t = chassis.translation();
-        _carPos.set(t.x, t.y, t.z);
+        // Chase camera, from the interpolated chassis pose.
+        _carPos.lerpVectors(carPose.prevPos, carPose.pos, alpha);
+        _chassisQuat.copy(carPose.prevQuat).slerp(carPose.quat, alpha);
         _forward.set(0, 0, 1).applyQuaternion(_chassisQuat);
         _forward.y = 0;
         if (_forward.lengthSq() > 1e-4) _forward.normalize();
@@ -267,9 +301,9 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             .copy(_carPos)
             .addScaledVector(_forward, -9)
             .setY(_carPos.y + 4.5);
-        graphics.camera.position.lerp(_desiredEye, 0.08);
+        graphics.camera.position.lerp(_desiredEye, 0.12);
         _camTarget.copy(_carPos).setY(_carPos.y + 1.0);
-        graphics.controls.target.lerp(_camTarget, 0.15);
+        graphics.controls.target.lerp(_camTarget, 0.2);
 
         // HUD.
         const speed = vehicle.currentSpeed();
@@ -285,6 +319,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     testbed.setWorld(world);
     hud = createHud(); // after setWorld, which clears the previous demo's overlays
     testbed.setpreTimestepAction(update);
+    testbed.setRenderAction(render);
 
     // Only now, since setWorld() clears the previous demo's key bindings.
     document.onkeydown = onKeyDown;

@@ -18,6 +18,20 @@ export interface EngineOptions {
     redlineRpm?: number;
     /** Engine braking torque (Nm) at zero throttle, scaled by rpm. */
     engineBrakeTorque?: number;
+    /**
+     * Rotational inertia (kg·m²) of the engine, flywheel and gearbox, reflected
+     * onto the driven wheels through the square of the gearing.
+     *
+     * Defaults to `0`. Textbook models add it so the wheels do not spin up
+     * instantly, but this controller already limits that through the contact
+     * impulse cap and the rolling projection, and measuring it here showed a
+     * realistic 0.22 made things worse on every count: the wheel resists the
+     * tyre's own correction, so the frame-to-frame swing in cornering force
+     * grew from 8% of peak to 77%, wheelspin fell from 0.52 to 0.06 slip, and
+     * the driven wheels would no longer lock under braking. Raise it only if
+     * you want a heavier drivetrain and accept that trade.
+     */
+    inertia?: number;
 }
 
 export interface GearboxOptions {
@@ -54,6 +68,7 @@ export const DEFAULT_ENGINE: Required<EngineOptions> = {
     idleRpm: 800,
     redlineRpm: 7500,
     engineBrakeTorque: 45,
+    inertia: 0,
 };
 
 export const DEFAULT_GEARBOX: Required<GearboxOptions> = {

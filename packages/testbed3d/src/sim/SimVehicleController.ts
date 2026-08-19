@@ -138,6 +138,14 @@ export interface AeroOptions {
     downforceCoefficient?: number;
     /** Centre of pressure along local Z (positive = forward). */
     centreOfPressure?: number;
+    /**
+     * Rolling resistance, as force per m/s: `F = -rollingResistance * v`.
+     *
+     * Linear in speed rather than quadratic, so unlike drag it still bites at
+     * walking pace. It is what makes a car coast down to a stop naturally
+     * instead of gliding on forever.
+     */
+    rollingResistance?: number;
 }
 
 export interface SimVehicleOptions {
@@ -242,6 +250,9 @@ export const DEFAULT_AERO: Required<AeroOptions> = {
     dragCoefficient: 0.9,
     downforceCoefficient: 1.6,
     centreOfPressure: -0.2,
+    // Roughly 30x the drag coefficient, so the two are comparable around
+    // 30 m/s and rolling resistance dominates below that.
+    rollingResistance: 12,
 };
 
 /** Live state of one wheel — useful for rendering and for tests. */
@@ -309,6 +320,8 @@ export class SimVehicleController {
     private steerAngle = 0;
     /** Engine-braking torque handed to each driven wheel this step (Nm). */
     private engineBrakePerWheel = 0;
+    /** Engine/gearbox inertia reflected onto each driven wheel (kg·m²). */
+    private drivelineInertiaPerWheel = 0;
     /** Chassis mass (kg), refreshed each step. */
     private chassisMass = 1;
     /** How many wheels are touching the ground this step. */
@@ -673,6 +686,13 @@ export class SimVehicleController {
             (engineBrakingTorque(this.rpm, effectiveThrottle, this.engine) * gearing * clutch) /
             driven.length;
 
+        // Inertia of the engine and gearbox as felt at a driven wheel, which
+        // goes as the square of the gearing and so dwarfs the wheel's own in
+        // the lower gears. It is what stops the throttle snapping the wheels
+        // into a spin, and it falls away with the clutch during a shift.
+        this.drivelineInertiaPerWheel =
+            (this.engine.inertia * gearing * gearing * clutch) / driven.length;
+
         // Split front/rear, then across each axle through its differential.
         const d = this.options.drivetrain;
         const frontShare = d === "awd" ? this.differential.frontTorqueSplit : d === "fwd" ? 1 : 0;
@@ -796,7 +816,8 @@ export class SimVehicleController {
 
         // The wheel speed at which the tyre is rolling true (zero slip ratio).
         const omegaRoll = vLong / axle.wheelRadius;
-        const inertia = axle.wheelInertia;
+        const inertia =
+            axle.wheelInertia + (this.isDriven(wheel) ? this.drivelineInertiaPerWheel : 0);
         const radius = axle.wheelRadius;
 
         // Reduced mass of this contact: the wheel's rotational inertia and the
@@ -884,11 +905,21 @@ export class SimVehicleController {
         if (speedSq < 1e-6) return;
         const speed = Math.sqrt(speedSq);
 
-        // Drag opposes the velocity vector.
+        // Drag (quadratic) and rolling resistance (linear) both oppose the
+        // velocity vector. Rolling resistance only applies while the wheels are
+        // actually on something.
         this._tmp.x = -this._linvel.x / speed;
         this._tmp.y = -this._linvel.y / speed;
         this._tmp.z = -this._linvel.z / speed;
-        this.applyImpulseAt(this._tmp, this.aero.dragCoefficient * speedSq * dt, this._com);
+        const rolling =
+            this.contactCount > 0
+                ? (this.aero.rollingResistance * speed * this.contactCount) / this.wheels.length
+                : 0;
+        this.applyImpulseAt(
+            this._tmp,
+            (this.aero.dragCoefficient * speedSq + rolling) * dt,
+            this._com,
+        );
 
         // Downforce presses the car onto the road at the centre of pressure.
         if (this.aero.downforceCoefficient > 0) {
