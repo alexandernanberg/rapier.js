@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type {Graphics} from "../Graphics";
 import type {Testbed} from "../Testbed";
+import {VehicleController} from "../VehicleController";
 import {
     spawnVehicle,
     VEHICLE_PRESET_NAMES,
@@ -215,8 +216,6 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         }
     };
 
-    const dt = world.timestep;
-
     const menu = VEHICLE_PRESET_NAMES.map((n, i) => `${i + 1} ${VEHICLE_PRESETS[n].label}`).join(
         "   ",
     );
@@ -270,15 +269,32 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     capturePose();
     capturePose();
 
+    // `restoreSnapshot` frees the world and swaps in a deserialised copy, which
+    // invalidates the chassis and the raw vehicle controller hanging off it.
+    // Rebuild against the new world when that happens.
+    let activeWorld = world;
+    const rebindAfterSnapshotRestore = () => {
+        if (testbed.world === activeWorld) return;
+        const chassis = testbed.world.getRigidBody(vehicle.chassis.handle);
+        if (!chassis) return;
+        activeWorld = testbed.world;
+        vehicle = new VehicleController(activeWorld, chassis, {
+            ...VEHICLE_PRESETS[currentPreset].controller,
+        });
+        capturePose();
+        capturePose();
+    };
+
     // Fixed-step callback: input and physics only.
     const update = () => {
+        rebindAfterSnapshotRestore();
         // Map keyboard to driver input.
         vehicle.input.accelerate = keys.forward ? 1 : 0;
         vehicle.input.brake = keys.back ? 1 : 0;
         vehicle.input.steer = STEER_SIGN * ((keys.left ? 1 : 0) - (keys.right ? 1 : 0));
         vehicle.input.handbrake = keys.handbrake;
 
-        vehicle.update(dt);
+        vehicle.update(activeWorld.timestep);
         capturePose();
     };
 

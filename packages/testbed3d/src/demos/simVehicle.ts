@@ -92,7 +92,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     // --- The car ----------------------------------------------------------
     const spawn = {x: 0, y: 0.9, z: -25};
     const {w, h, d} = BODY;
-    const chassis = world.createRigidBody(
+    let chassis = world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic()
             .setTranslation(spawn.x, spawn.y, spawn.z)
             .setAdditionalMassProperties(
@@ -130,7 +130,8 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         // Press T to switch it off and feel the difference.
         tractionControl: 0.25,
     };
-    const car = new SimVehicleController(world, chassis, setup);
+    let car = new SimVehicleController(world, chassis, setup);
+    const chassisHandle = chassis.handle;
 
     // --- Wheel visuals ----------------------------------------------------
     gfx.scene.getObjectByName("sim-vehicle-wheels")?.removeFromParent();
@@ -250,8 +251,6 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         }
     };
 
-    const dt = world.timestep;
-
     // Pose of each wheel (and the chassis) at the last two physics steps, so
     // the renderer can interpolate between them exactly as it does for the
     // colliders. Without this the body slides smoothly while the wheels and
@@ -293,14 +292,31 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     capturePose();
     capturePose();
 
+    // `restoreSnapshot` frees the whole world and swaps in a deserialised one,
+    // which invalidates the chassis and everything the controller holds. The
+    // other demos deal with this by looking bodies up by handle each step; a
+    // controller owns state, so instead rebuild it against the new world.
+    let activeWorld = world;
+    const rebindAfterSnapshotRestore = () => {
+        if (testbed.world === activeWorld) return;
+        const restored = testbed.world.getRigidBody(chassisHandle);
+        if (!restored) return;
+        activeWorld = testbed.world;
+        chassis = restored;
+        car = new SimVehicleController(activeWorld, chassis, setup);
+        capturePose();
+        capturePose();
+    };
+
     // Runs inside the fixed-step loop: input and physics only.
     const update = () => {
+        rebindAfterSnapshotRestore();
         car.input.throttle = keys.up ? 1 : 0;
         car.input.brake = keys.down ? 1 : 0;
         car.input.steer = STEER_SIGN * ((keys.left ? 1 : 0) - (keys.right ? 1 : 0));
         car.input.handbrake = keys.space;
 
-        car.update(dt);
+        car.update(activeWorld.timestep);
         capturePose();
     };
 
