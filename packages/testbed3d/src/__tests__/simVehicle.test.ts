@@ -4,6 +4,7 @@ import type {
 } from "@alexandernanberg/rapier3d";
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {beforeAll, describe, expect, test} from "vitest";
+import {ROAD_CAR, ROAD_CAR_CHASSIS} from "../sim/roadCarSetup";
 import {
     SimVehicleController,
     type SimVehicleInput,
@@ -778,5 +779,123 @@ describe("setup", () => {
         // With wings, the tyres carry appreciably more -- which is extra grip.
         expect(some.fast).toBeGreaterThan(some.rest * 1.15);
         expect(lots.fast).toBeGreaterThan(some.fast);
+    });
+});
+
+// ============================================================================
+// The shipped road-car setup: heavy, soft, slidey.
+// ============================================================================
+
+describe("road car setup", () => {
+    function roadCar(world: RAPIER.World) {
+        const {mass, size, comDrop} = ROAD_CAR_CHASSIS;
+        const {x: w, y: h, z: d} = size;
+        const chassis = world.createRigidBody(
+            RAPIER.RigidBodyDesc.dynamic()
+                .setTranslation(0, 1.0, 0)
+                .setAdditionalMassProperties(
+                    mass,
+                    {x: 0, y: -comDrop, z: 0},
+                    {
+                        x: (mass / 12) * (h * h + d * d),
+                        y: (mass / 12) * (w * w + d * d),
+                        z: (mass / 12) * (w * w + h * h),
+                    },
+                    {x: 0, y: 0, z: 0, w: 1},
+                )
+                .setCanSleep(false),
+        );
+        world.createCollider(
+            RAPIER.ColliderDesc.cuboid(w / 2, h / 2, d / 2).setFriction(0.4),
+            chassis,
+        );
+        return new SimVehicleController(
+            world as unknown as DefaultWorld,
+            chassis as unknown as DefaultRigidBody,
+            ROAD_CAR,
+        );
+    }
+
+    const degrees = (radians: number) => (radians * 180) / Math.PI;
+
+    /** Nose-up angle: positive is squat, negative is dive. */
+    function pitch(q: Quat): number {
+        return degrees(Math.asin(Math.max(-1, Math.min(1, rotate(q, {x: 0, y: 0, z: 1}).y))));
+    }
+
+    test("it leans, dives and squats visibly", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = roadCar(world);
+        drive(world, car, {}, 400);
+
+        let squat = 0;
+        drive(world, car, {throttle: 1}, 180, () => {
+            squat = Math.max(squat, pitch(car.chassis.rotation()));
+        });
+        let dive = 0;
+        drive(world, car, {brake: 1}, 90, () => {
+            dive = Math.min(dive, pitch(car.chassis.rotation()));
+        });
+
+        // Soft springs and light anti-roll bars are the point: the body should
+        // move enough to read as weight, not sit flat like a race car.
+        expect(squat).toBeGreaterThan(1);
+        expect(dive).toBeLessThan(-1.5);
+
+        world.free();
+    });
+
+    test("it rolls in a corner without ever tipping", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = roadCar(world);
+        drive(world, car, {}, 300);
+        drive(world, car, {throttle: 0.7}, 200);
+
+        let roll = 0;
+        let lightest = Infinity;
+        drive(world, car, {throttle: 0.5, steer: 1}, 200, () => {
+            roll = Math.max(roll, Math.abs(degrees(bodyRoll(car.chassis.rotation()))));
+            lightest = Math.min(lightest, ...car.wheels.map((wheel) => wheel.load));
+        });
+
+        expect(roll).toBeGreaterThan(3); // it really leans
+        expect(roll).toBeLessThan(15); // but does not fall over
+        expect(lightest).toBeGreaterThan(200); // and keeps all four down
+
+        world.free();
+    });
+
+    test("the mass sits low enough to slide before it tips", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = roadCar(world);
+        drive(world, car, {}, 400);
+
+        // Rollover threshold ~ halfTrack / centre-of-mass height. It has to
+        // stay above the grip the tyres can generate, or the car tips first.
+        const threshold = car.front.halfTrack / car.chassis.worldCom().y;
+        expect(threshold).toBeGreaterThan((ROAD_CAR.tyre?.peakFriction ?? 1) * 1.2);
+
+        world.free();
+    });
+
+    test("it slides progressively rather than gripping like a racer", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = roadCar(world);
+        drive(world, car, {}, 300);
+        drive(world, car, {throttle: 0.8}, 200);
+
+        let peakSlipAngle = 0;
+        drive(world, car, {throttle: 0.6, steer: 1}, 200, () => {
+            peakSlipAngle = Math.max(peakSlipAngle, Math.abs(degrees(car.wheels[2].slipAngle)));
+        });
+
+        // A big rear slip angle is the car moving around under you.
+        expect(peakSlipAngle).toBeGreaterThan(15);
+
+        world.free();
     });
 });

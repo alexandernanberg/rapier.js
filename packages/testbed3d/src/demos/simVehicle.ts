@@ -2,7 +2,8 @@ import * as THREE from "three";
 import type {Graphics} from "../Graphics";
 import type {DifferentialType} from "../sim/drivetrain";
 import type {Testbed} from "../Testbed";
-import {SimVehicleController, type SimVehicleOptions} from "../sim/SimVehicleController";
+import {ROAD_CAR, ROAD_CAR_CHASSIS} from "../sim/roadCarSetup";
+import {SimVehicleController} from "../sim/SimVehicleController";
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
 
@@ -10,10 +11,14 @@ type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
 // the simVehicle steering-direction test; this is not machine dependent.
 const STEER_SIGN = 1;
 
-const MASS = 1400;
+const MASS = ROAD_CAR_CHASSIS.mass;
 // Narrower than the track (2 * 0.78 + tyre width) so the wheels sit proud of
 // the bodywork and you can actually watch them steer and spin.
-const BODY = {w: 1.62, h: 0.6, d: 4.3};
+const BODY = {
+    w: ROAD_CAR_CHASSIS.size.x,
+    h: ROAD_CAR_CHASSIS.size.y,
+    d: ROAD_CAR_CHASSIS.size.z,
+};
 
 // Scratch objects reused every frame.
 const _carPos = new THREE.Vector3();
@@ -97,13 +102,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             .setTranslation(spawn.x, spawn.y, spawn.z)
             .setAdditionalMassProperties(
                 MASS,
-                // Centre of mass well below the body. With a half-track of
-                // 0.78 m this puts the rollover threshold near 1.9 g, above
-                // what the tyres can pull (~1.5 g), so the car slides before
-                // it lifts a wheel. At the old -0.15 the threshold was 1.41 g,
-                // under the grip limit, and a handbrake turn would rock it up
-                // onto two wheels and drop it back, over and over.
-                {x: 0, y: -0.28, z: 0},
+                {x: 0, y: -ROAD_CAR_CHASSIS.comDrop, z: 0},
                 {
                     x: (MASS / 12) * (h * h + d * d),
                     y: (MASS / 12) * (w * w + d * d),
@@ -122,14 +121,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         chassis,
     );
 
-    const setup: SimVehicleOptions = {
-        drivetrain: "rwd",
-        differential: {type: "lsd"},
-        // A keyboard throttle is all-or-nothing, and this car asks for more
-        // torque than the rear tyres can carry, so without help it just spins.
-        // Press T to switch it off and feel the difference.
-        tractionControl: 0.25,
-    };
+    const setup = ROAD_CAR;
     let car = new SimVehicleController(world, chassis, setup);
     const chassisHandle = chassis.handle;
 
@@ -386,6 +378,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     hud = createHud(); // after setWorld, which clears the previous demo's overlays
     testbed.setpreTimestepAction(update);
     testbed.setRenderAction(render);
+    testbed.useChaseCamera();
 
     // Only now, since setWorld() clears the previous demo's key bindings.
     document.onkeydown = onKeyDown;

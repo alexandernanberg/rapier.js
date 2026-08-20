@@ -336,6 +336,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     hud = createHud(); // after setWorld, which clears the previous demo's overlays
     testbed.setpreTimestepAction(update);
     testbed.setRenderAction(render);
+    testbed.useChaseCamera();
 
     // Only now, since setWorld() clears the previous demo's key bindings.
     document.onkeydown = onKeyDown;

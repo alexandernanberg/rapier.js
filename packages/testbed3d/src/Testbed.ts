@@ -114,6 +114,20 @@ export class Testbed {
         this.renderAction = action;
     }
 
+    /**
+     * Hand the camera to the demo.
+     *
+     * `Graphics.render` calls `controls.update()` every frame, which re-derives
+     * the camera position from OrbitControls' own damped state. A demo that
+     * also writes `camera.position` each frame ends up fighting it, and the
+     * result reads as a jittery camera. Turning input and damping off leaves
+     * the demo in sole control.
+     */
+    useChaseCamera() {
+        this.graphics.controls.enabled = false;
+        this.graphics.controls.enableDamping = false;
+    }
+
     setWorld(world: RAPIER.World) {
         document.onkeydown = null; // Reset key events.
         document.onkeyup = null; // Reset key events.
@@ -124,6 +138,10 @@ export class Testbed {
 
         this.preTimestepAction = undefined;
         this.renderAction = undefined;
+        // A demo may take the camera over (see `useChaseCamera`); give the next
+        // one the orbit camera back.
+        this.graphics.controls.enabled = true;
+        this.graphics.controls.enableDamping = true;
         this.world = world;
         this.world.numSolverIterations = this.parameters.numSolverIters;
         this.demoToken += 1;
