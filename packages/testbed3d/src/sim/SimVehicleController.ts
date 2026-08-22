@@ -184,6 +184,13 @@ export interface SimVehicleOptions {
     /** Wheel-dynamics substeps per physics step (higher = more stable). */
     wheelSubsteps?: number;
     /**
+     * Speed (m/s) above which the lateral contact-impulse cap is fully faded
+     * out. The cap keeps the stiff tyre from overshooting near a standstill;
+     * past this speed the tyre is well conditioned and capping it only chops
+     * up the cornering force.
+     */
+    lateralCapSpeed?: number;
+    /**
      * Collider friction that corresponds to the tyre's nominal grip. A surface
      * with exactly this friction gives `tyre.peakFriction`; half of it gives
      * half the grip.
@@ -245,6 +252,7 @@ export const DEFAULT_SIM_VEHICLE: SimVehicleScalars = {
     steerRate: 3.2,
     steerReturnRate: 5.0,
     wheelSubsteps: 8,
+    lateralCapSpeed: 3,
     referenceSurfaceFriction: 1.0,
 };
 
@@ -862,6 +870,10 @@ export class SimVehicleController {
         const shareMass = this.chassisMass / Math.max(1, this.contactCount);
         const mEffLong = 1 / (1 / shareMass + (radius * radius) / inertia);
 
+        // 1 while crawling, 0 once properly moving.
+        const speed = Math.hypot(this._linvel.x, this._linvel.y, this._linvel.z);
+        const lateralCapBlend = Math.max(0, Math.min(1, 1 - speed / o.lateralCapSpeed));
+
         for (let s = 0; s < sub; s++) {
             const target = computeSlip(
                 vLong,
@@ -886,14 +898,23 @@ export class SimVehicleController {
             // Longitudinal: per substep, because the projection below collapses
             // the slip within the first one, so the cap self-limits.
             const maxFx = (mEffLong * Math.abs(slipVelocity)) / dts;
-            // Lateral: over the *whole* step. The chassis velocity is frozen
-            // for the substeps, so vLat never shrinks; capping per substep would
-            // license `wheelSubsteps` times the impulse needed to cancel the
-            // slide, overshoot it, and chatter the cornering force between
-            // positive and negative every step.
-            const maxFy = (shareMass * Math.abs(vLat)) / dt;
             const fx = Math.max(-maxFx, Math.min(maxFx, last.fx));
-            const fy = Math.max(-maxFy, Math.min(maxFy, last.fy));
+
+            // Lateral: the same non-overshoot bound, over the whole step
+            // (the chassis velocity is frozen across substeps, so vLat never
+            // shrinks and a per-substep cap would license `wheelSubsteps` times
+            // the impulse actually needed).
+            //
+            // But it is faded out with speed. The cap is only there to tame the
+            // very stiff tyre near a standstill; at speed it actively hurts,
+            // because a drifting wheel's vLat passes through zero while the
+            // tyre is legitimately carrying a large cornering force, and a cap
+            // proportional to |vLat| collapses that force for one frame and
+            // releases it the next. That single-frame collapse is what the
+            // car feels like when it judders through a powered corner.
+            const maxFy = (shareMass * Math.abs(vLat)) / dt;
+            const capped = Math.max(-maxFy, Math.min(maxFy, last.fy));
+            const fy = capped * lateralCapBlend + last.fy * (1 - lateralCapBlend);
 
             sumFx += fx;
             sumFy += fy;

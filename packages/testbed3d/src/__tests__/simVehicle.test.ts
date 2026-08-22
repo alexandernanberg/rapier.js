@@ -339,10 +339,7 @@ describe("wheel dynamics", () => {
         settle(world, car);
 
         // Hard acceleration out of a standstill while turning: the case where
-        // the contact forces used to chatter, because the lateral impulse cap
-        // was applied per substep against a chassis velocity that never
-        // changed, licensing several times the impulse needed to stop the
-        // slide and overshooting it every step.
+        // the contact forces used to chatter.
         const lateral: number[] = [];
         drive(world, car, {throttle: 1, steer: 1}, 90, () => {
             lateral.push(car.wheels[0].fy);
@@ -350,19 +347,22 @@ describe("wheel dynamics", () => {
 
         // Ignore the first few frames while the force builds from zero.
         const settled = lateral.slice(20);
-        const positive = settled.filter((f) => f > 0).length;
-        const negative = settled.filter((f) => f < 0).length;
-
-        // A steady turn in one direction should load the tyre in one direction.
-        expect(Math.min(positive, negative)).toBe(0);
-
-        // And it should not jump around wildly frame to frame.
-        let worstJump = 0;
-        for (let i = 1; i < settled.length; i++) {
-            worstJump = Math.max(worstJump, Math.abs(settled[i] - settled[i - 1]));
-        }
         const peak = Math.max(...settled.map(Math.abs));
-        expect(worstJump).toBeLessThan(peak * 0.5);
+
+        // Curvature, not slope. The cornering force legitimately sweeps hard,
+        // and even through zero, as the front unwinds through neutral, so a
+        // large frame-to-frame *change* is not by itself wrong. What is wrong
+        // is a value that leaves the trend and comes straight back, which is
+        // what a one-frame force collapse looks like. Two earlier bugs did
+        // exactly that: the lateral impulse cap being applied per substep
+        // against a frozen velocity, and then the same cap collapsing to zero
+        // whenever a drifting wheel's lateral velocity crossed zero.
+        let worstSpike = 0;
+        for (let i = 1; i < settled.length - 1; i++) {
+            const trend = (settled[i - 1] + settled[i + 1]) / 2;
+            worstSpike = Math.max(worstSpike, Math.abs(settled[i] - trend));
+        }
+        expect(worstSpike).toBeLessThan(peak * 0.2);
 
         world.free();
     });
