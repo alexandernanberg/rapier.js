@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type {Graphics} from "../Graphics";
 import type {Testbed} from "../Testbed";
+import {ChaseCamera} from "../ChaseCamera";
 import {VehicleController} from "../VehicleController";
 import {
     spawnVehicle,
@@ -144,6 +145,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         buildWheels();
     };
 
+    const chaseCamera = new ChaseCamera(9, 4.5);
     let hud!: HTMLDivElement;
 
     // --- Input ------------------------------------------------------------
@@ -154,6 +156,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         vehicle.chassis.setRotation(new RAPIER.Quaternion(0, 0, 0, 1), true);
         vehicle.chassis.setLinvel(new RAPIER.Vector3(0, 0, 0), true);
         vehicle.chassis.setAngvel(new RAPIER.Vector3(0, 0, 0), true);
+        chaseCamera.reset();
     };
 
     // NOTE: these are attached *after* `testbed.setWorld()` below, because
@@ -309,17 +312,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         // Chase camera, from the interpolated chassis pose.
         _carPos.lerpVectors(carPose.prevPos, carPose.pos, alpha);
         _chassisQuat.copy(carPose.prevQuat).slerp(carPose.quat, alpha);
-        _forward.set(0, 0, 1).applyQuaternion(_chassisQuat);
-        _forward.y = 0;
-        if (_forward.lengthSq() > 1e-4) _forward.normalize();
-
-        _desiredEye
-            .copy(_carPos)
-            .addScaledVector(_forward, -9)
-            .setY(_carPos.y + 4.5);
-        graphics.camera.position.lerp(_desiredEye, 0.12);
-        _camTarget.copy(_carPos).setY(_carPos.y + 1.0);
-        graphics.controls.target.lerp(_camTarget, 0.2);
+        chaseCamera.update(graphics.camera, graphics.controls, _carPos, _chassisQuat);
 
         // HUD.
         const speed = vehicle.currentSpeed();

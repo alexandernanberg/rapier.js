@@ -522,6 +522,30 @@ describe("wheel dynamics", () => {
         }
     });
 
+    test("the handbrake brings the car to a genuine standstill", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
+        createGround(world);
+        const car = createCar(world);
+        settle(world, car);
+        drive(world, car, {throttle: 0.8}, 220);
+
+        // Hold it until the car has stopped, then keep holding.
+        drive(world, car, {handbrake: true}, 360);
+        const xs: number[] = [];
+        drive(world, car, {handbrake: true}, 240, () => {
+            xs.push(car.chassis.translation().x);
+        });
+
+        // The car must sit still rather than shuffling from side to side. When
+        // this looked wrong on screen it was the chase camera swinging, not the
+        // car -- see ChaseCamera -- so this pins down the physics half of it.
+        const span = Math.max(...xs) - Math.min(...xs);
+        expect(span).toBeLessThan(0.01); // under a centimetre over four seconds
+        expect(Math.abs(car.forwardSpeed())).toBeLessThan(0.05);
+
+        world.free();
+    });
+
     test("the left-hand wheels really are on the left", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         createGround(world);
