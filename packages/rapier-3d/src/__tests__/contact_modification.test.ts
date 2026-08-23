@@ -81,7 +81,9 @@ describe("contact modification", () => {
 
         for (let i = 0; i < 120; i++) world.step(undefined, hooks);
 
-        expect(colliders!.sort()).toEqual([groundCollider.handle, ballCollider.handle].sort());
+        expect(colliders!.sort((a, b) => a - b)).toEqual(
+            [groundCollider.handle, ballCollider.handle].sort((a, b) => a - b),
+        );
         expect(numContacts).toBeGreaterThan(0);
         // The pair is (ground, ball) either way round, so the normal is vertical.
         expect(Math.abs(normalY)).toBeCloseTo(1, 1);

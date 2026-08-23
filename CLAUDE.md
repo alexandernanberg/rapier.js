@@ -155,7 +155,7 @@ Classes with `raw` property need explicit cleanup:
 ```typescript
 class KinematicCharacterController {
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined;
@@ -269,6 +269,25 @@ pnpm fmt                # Format TypeScript/JS with oxfmt
 pnpm lint               # Lint with oxlint
 cargo fmt               # Format Rust code
 ```
+
+`oxlint.config.ts` extends `oxlint-config-alexandernanberg/oxlint/base`, so the
+rule set lives in that package rather than in this repo. Type-aware rules are on
+(via `oxlint-tsgolint`), which means **`pnpm lint` needs `pnpm build:wasm` and
+`pnpm build:ts` to have run** — without the generated `.d.ts` and `dist/`, every
+cross-package value reads as `any` and the type-aware rules report thousands of
+false positives.
+
+The config turns off three of the shared config's rules repo-wide and a few more
+for `packages/benchmarks`; each `off` carries a comment saying why. Two are worth
+knowing about before writing new code:
+
+- `typescript/no-unnecessary-condition` and `no-unnecessary-type-assertion` are
+  off because wasm-bindgen's `.d.ts` declares raw handles non-nullable and its
+  enums as distinct types from their TS twins. Keep writing the `if (this.raw)`
+  guards and the `x as number as SomeEnum` bridges — the type checker cannot see
+  that they are load-bearing.
+- `packages/benchmarks` additionally opts out of the `no-unsafe-*` family, since
+  it drives several engine builds through one untyped facade.
 
 ## Testing
 

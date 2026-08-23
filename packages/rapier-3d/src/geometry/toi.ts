@@ -1,8 +1,9 @@
-import {Vector, VectorOps} from "../math";
-import {RawShapeCastHit, RawColliderShapeCastHit} from "../raw";
+import type {Vector} from "../math";
+import type {RawShapeCastHit, RawColliderShapeCastHit} from "../raw";
+import type {Collider} from "./collider";
+import type {ColliderSet} from "./collider_set";
+import {VectorOps} from "../math";
 import {scratch} from "../scratch";
-import {Collider} from "./collider";
-import {ColliderSet} from "./collider_set";
 
 /**
  * The intersection between a ray and a collider.

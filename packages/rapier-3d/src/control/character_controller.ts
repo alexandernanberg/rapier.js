@@ -1,7 +1,15 @@
-import {IntegrationParameters, RigidBodySet} from "../dynamics";
-import {BroadPhase, Collider, ColliderSet, InteractionGroups, NarrowPhase} from "../geometry";
-import {Vector, VectorOps} from "../math";
-import {QueryFilterFlags} from "../pipeline";
+import type {IntegrationParameters, RigidBodySet} from "../dynamics";
+import type {
+    BroadPhase,
+    Collider,
+    ColliderHandle,
+    ColliderSet,
+    InteractionGroups,
+    NarrowPhase,
+} from "../geometry";
+import type {Vector} from "../math";
+import type {QueryFilterFlags} from "../pipeline";
+import {VectorOps} from "../math";
 import {RawKinematicCharacterController, RawCharacterCollision} from "../raw";
 import {scratch} from "../scratch";
 
@@ -64,7 +72,7 @@ export class KinematicCharacterController {
 
     /** @internal */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
             this.rawCharacterCollision.free();
         }
@@ -84,7 +92,7 @@ export class KinematicCharacterController {
      * Sets the direction that goes "up". Used to determine where the floor is, and the floor’s angle.
      */
     public setUp(vector: Vector) {
-        let rawVect = VectorOps.intoRaw(vector);
+        const rawVect = VectorOps.intoRaw(vector);
         this.raw.setUp(rawVect);
         rawVect.free();
     }
@@ -302,7 +310,7 @@ export class KinematicCharacterController {
         filterGroups?: InteractionGroups,
         filterPredicate?: (collider: Collider) => boolean,
     ) {
-        let rawTranslationDelta = VectorOps.intoRaw(desiredTranslationDelta);
+        const rawTranslationDelta = VectorOps.intoRaw(desiredTranslationDelta);
         this.raw.computeColliderMovement(
             this.params.dt,
             this.broadPhase.raw,
@@ -315,7 +323,9 @@ export class KinematicCharacterController {
             this._characterMass,
             filterFlags ?? 0,
             filterGroups,
-            this.colliders.castClosure(filterPredicate) as unknown as Function,
+            this.colliders.castClosure(filterPredicate) as unknown as (
+                collider: ColliderHandle,
+            ) => boolean,
         );
         rawTranslationDelta.free();
     }
@@ -354,7 +364,7 @@ export class KinematicCharacterController {
         if (!this.raw.computedCollision(i, this.rawCharacterCollision)) {
             return null;
         } else {
-            let c = this.rawCharacterCollision;
+            const c = this.rawCharacterCollision;
             out = out ?? new CharacterCollision();
             c.getComponents();
             const s = scratch();

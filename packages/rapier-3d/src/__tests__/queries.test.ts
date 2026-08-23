@@ -79,7 +79,9 @@ describe("scene queries", () => {
             return true;
         });
 
-        expect(hits.map((h) => h.handle).sort()).toEqual(handles.sort());
+        expect(hits.map((h) => h.handle).sort((a, b) => a - b)).toEqual(
+            handles.sort((a, b) => a - b),
+        );
         for (const hit of hits) {
             expect(hit.timeOfImpact).toBeGreaterThan(0);
             expect(hit.normalY).toBeCloseTo(1, 4);

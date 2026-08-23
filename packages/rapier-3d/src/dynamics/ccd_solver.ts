@@ -13,7 +13,7 @@ export class CCDSolver {
      * Release the WASM memory occupied by this narrow-phase.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;

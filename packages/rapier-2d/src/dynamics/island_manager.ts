@@ -1,5 +1,5 @@
+import type {RigidBodyHandle} from "./rigid_body";
 import {RawIslandManager} from "../raw";
-import {RigidBodyHandle} from "./rigid_body";
 
 /**
  * The CCD solver responsible for resolving Continuous Collision Detection.
@@ -14,7 +14,7 @@ export class IslandManager {
      * Release the WASM memory occupied by this narrow-phase.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;

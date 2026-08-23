@@ -1,6 +1,7 @@
-import {Vector, VectorOps} from "../math";
-import {RawRayIntersection} from "../raw";
-import {Collider} from "./collider";
+import type {Vector} from "../math";
+import type {RawRayIntersection} from "../raw";
+import type {Collider} from "./collider";
+import {VectorOps} from "../math";
 import {FeatureType} from "./feature";
 
 /**

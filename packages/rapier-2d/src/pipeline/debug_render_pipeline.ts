@@ -1,7 +1,7 @@
-import {ImpulseJointSet, MultibodyJointSet, RigidBodySet} from "../dynamics";
-import {Collider, ColliderSet, NarrowPhase} from "../geometry";
+import type {ImpulseJointSet, MultibodyJointSet, RigidBodySet} from "../dynamics";
+import type {Collider, ColliderHandle, ColliderSet, NarrowPhase} from "../geometry";
+import type {QueryFilterFlags} from "./query_pipeline";
 import {RawDebugRenderPipeline} from "../raw";
-import {QueryFilterFlags} from "./query_pipeline";
 
 /**
  * The vertex and color buffers for debug-redering the physics scene.
@@ -42,7 +42,7 @@ export class DebugRenderPipeline {
      * Release the WASM memory occupied by this serialization pipeline.
      */
     free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
@@ -70,7 +70,9 @@ export class DebugRenderPipeline {
             multibody_joints.raw,
             narrow_phase.raw,
             filterFlags ?? 0,
-            colliders.castClosure(filterPredicate) as unknown as Function,
+            colliders.castClosure(filterPredicate) as unknown as (
+                collider: ColliderHandle,
+            ) => boolean,
         );
         this.vertices = this.raw.vertices();
         this.colors = this.raw.colors();

@@ -1,14 +1,15 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier2d";
 import type * as RAPIER from "@alexandernanberg/rapier2d";
 import {Viewport} from "pixi-viewport";
 import * as PIXI from "pixi.js";
 import {Color} from "pixi.js";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
+type RAPIER_API = typeof RAPIER_NS;
 
 const BOX_INSTANCE_INDEX = 0;
 const BALL_INSTANCE_INDEX = 1;
 
-var kk = 0;
+let kk = 0;
 
 // Scratch object for zero-allocation getters
 const _translation = {x: 0, y: 0};
@@ -63,18 +64,16 @@ export class Graphics {
         this.scene.addChild(this.viewport);
         this.viewport.drag().pinch().wheel().decelerate();
 
-        let me = this;
+        const onWindowResize = () => {
+            this.renderer.resize(window.innerWidth, window.innerHeight);
+        };
 
-        function onWindowResize() {
-            me.renderer.resize(window.innerWidth, window.innerHeight);
-        }
-
-        function onContextMenu(event: UIEvent) {
+        const onContextMenu = (event: UIEvent) => {
             event.preventDefault();
-        }
+        };
 
-        document.oncontextmenu = onContextMenu;
-        document.body.oncontextmenu = onContextMenu;
+        document.addEventListener("contextmenu", onContextMenu);
+        document.body.addEventListener("contextmenu", onContextMenu);
 
         window.addEventListener("resize", onWindowResize, false);
 
@@ -85,7 +84,7 @@ export class Graphics {
         this.instanceGroups = [];
         this.instanceGroups.push(
             this.colorPalette.map((color) => {
-                let graphics = new PIXI.Graphics();
+                const graphics = new PIXI.Graphics();
                 graphics.rect(-1.0, -1.0, 2.0, 2.0);
                 graphics.fill(color);
                 return graphics;
@@ -94,7 +93,7 @@ export class Graphics {
 
         this.instanceGroups.push(
             this.colorPalette.map((color) => {
-                let graphics = new PIXI.Graphics();
+                const graphics = new PIXI.Graphics();
                 graphics.circle(0.0, 0.0, 1.0);
                 graphics.fill(color);
                 return graphics;
@@ -113,9 +112,9 @@ export class Graphics {
         }
 
         if (debugRender) {
-            let buffers = world.debugRender();
-            let vtx = buffers.vertices;
-            let cls = buffers.colors;
+            const buffers = world.debugRender();
+            const vtx = buffers.vertices;
+            const cls = buffers.colors;
 
             // Group lines by color for efficient batching in pixi.js 8
             // (stroke() re-strokes all accumulated paths, so we batch by color)
@@ -164,11 +163,11 @@ export class Graphics {
 
     updatePositions(world: RAPIER.World) {
         world.forEachCollider((elt) => {
-            let gfx = this.coll2gfx.get(elt.handle);
+            const gfx = this.coll2gfx.get(elt.handle);
             elt.translation(_translation);
-            let rotation = elt.rotation(); // returns number, no allocation
+            const rotation = elt.rotation(); // returns number, no allocation
 
-            if (!!gfx) {
+            if (gfx) {
                 gfx.position.x = _translation.x;
                 gfx.position.y = -_translation.y;
                 gfx.rotation = -rotation;
@@ -187,28 +186,30 @@ export class Graphics {
 
     addCollider(RAPIER: RAPIER_API, world: RAPIER.World, collider: RAPIER.Collider) {
         let i;
-        let parent = collider.parent();
+        const parent = collider.parent();
         let instance;
         let graphics: PIXI.Graphics;
         let vertices;
         // A collider without a parent body is static, so colour it like a fixed one.
-        let instanceId = parent === null || parent.isFixed() ? 0 : this.colorIndex + 1;
+        const instanceId = parent === null || parent.isFixed() ? 0 : this.colorIndex + 1;
 
         switch (collider.shapeType()) {
-            case RAPIER.ShapeType.Cuboid:
-                let hext = collider.halfExtents();
+            case RAPIER.ShapeType.Cuboid: {
+                const hext = collider.halfExtents();
                 instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceId];
                 graphics = instance.clone(true);
                 graphics.scale.set(hext.x, hext.y);
                 this.viewport.addChild(graphics);
                 break;
-            case RAPIER.ShapeType.Ball:
-                let rad = collider.radius();
+            }
+            case RAPIER.ShapeType.Ball: {
+                const rad = collider.radius();
                 instance = this.instanceGroups[BALL_INSTANCE_INDEX][instanceId];
                 graphics = instance.clone(true);
                 graphics.scale.set(rad, rad);
                 this.viewport.addChild(graphics);
                 break;
+            }
             case RAPIER.ShapeType.Polyline:
                 vertices = Array.from(collider.vertices());
                 graphics = new PIXI.Graphics();
@@ -224,10 +225,10 @@ export class Graphics {
                 });
                 this.viewport.addChild(graphics);
                 break;
-            case RAPIER.ShapeType.HeightField:
-                let heights = Array.from(collider.heightfieldHeights());
-                let scale = collider.heightfieldScale();
-                let step = scale.x / (heights.length - 1);
+            case RAPIER.ShapeType.HeightField: {
+                const heights = Array.from(collider.heightfieldHeights());
+                const scale = collider.heightfieldScale();
+                const step = scale.x / (heights.length - 1);
 
                 graphics = new PIXI.Graphics();
                 graphics.moveTo(-scale.x / 2.0, -heights[0] * scale.y);
@@ -242,6 +243,7 @@ export class Graphics {
                 });
                 this.viewport.addChild(graphics);
                 break;
+            }
             case RAPIER.ShapeType.ConvexPolygon:
                 vertices = Array.from(collider.vertices());
                 graphics = new PIXI.Graphics();
@@ -251,24 +253,25 @@ export class Graphics {
                     graphics.lineTo(vertices[i], -vertices[i + 1]);
                 }
 
+                // eslint-disable-next-line unicorn/no-array-fill-with-reference-type -- pixi.js `Graphics.fill()`, not `Array.prototype.fill()`
                 graphics.fill({
                     color: this.colorPalette[instanceId],
                     alpha: 1.0,
                 });
                 this.viewport.addChild(graphics);
                 break;
-            case RAPIER.ShapeType.Voxels:
+            case RAPIER.ShapeType.Voxels: {
                 graphics = new PIXI.Graphics();
                 collider.clearShapeCache();
-                let shape = collider.shape as RAPIER.Voxels;
-                let gridCoords = shape.data;
-                let sz = shape.voxelSize;
+                const shape = collider.shape as RAPIER.Voxels;
+                const gridCoords = shape.data;
+                const sz = shape.voxelSize;
 
                 for (i = 0; i < gridCoords.length; i += 2) {
-                    let minx = gridCoords[i] * sz.x;
-                    let miny = gridCoords[i + 1] * sz.y;
-                    let maxx = minx + sz.x;
-                    let maxy = miny + sz.y;
+                    const minx = gridCoords[i] * sz.x;
+                    const miny = gridCoords[i + 1] * sz.y;
+                    const maxx = minx + sz.x;
+                    const maxy = miny + sz.y;
 
                     graphics.moveTo(minx, -miny);
                     graphics.lineTo(maxx, -miny);
@@ -277,19 +280,21 @@ export class Graphics {
                     graphics.closePath();
                 }
 
+                // eslint-disable-next-line unicorn/no-array-fill-with-reference-type -- pixi.js `Graphics.fill()`, not `Array.prototype.fill()`
                 graphics.fill({
                     color: this.colorPalette[instanceId],
                     alpha: 1.0,
                 });
                 this.viewport.addChild(graphics);
                 break;
+            }
             default:
                 console.log("Unknown shape to render: ", collider.shapeType());
                 return;
         }
 
         collider.translation(_translation);
-        let r = collider.rotation();
+        const r = collider.rotation();
         graphics.position.x = _translation.x;
         graphics.position.y = -_translation.y;
         graphics.rotation = r;

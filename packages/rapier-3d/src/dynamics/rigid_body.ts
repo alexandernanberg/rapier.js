@@ -1,10 +1,13 @@
+import type {Collider, ColliderSet} from "../geometry";
+import type {Rotation, Vector} from "../math";
+import type {SdpMatrix3} from "../math";
+import type {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import type {TransformBufferRef} from "../transform_buffer";
 import {handleToIndex} from "../coarena";
-import {Collider, ColliderSet} from "../geometry";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {SdpMatrix3, SdpMatrix3Ops} from "../math";
-import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {RotationOps, VectorOps} from "../math";
+import {SdpMatrix3Ops} from "../math";
 import {scratch} from "../scratch";
-import {liveTransformBuffer, type TransformBufferRef} from "../transform_buffer";
+import {liveTransformBuffer} from "../transform_buffer";
 
 export type {TransformBufferRef};
 
@@ -546,7 +549,7 @@ export class RigidBody {
      */
     public velocityAtPoint(point: Vector, target?: Vector): Vector {
         const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(
+        const result = VectorOps.fromRaw(
             this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
             target,
         );
@@ -856,9 +859,9 @@ export class RigidBody {
         angularInertiaLocalFrame: Rotation,
         wakeUp: boolean,
     ) {
-        let rawCom = VectorOps.intoRaw(centerOfMass);
-        let rawPrincipalInertia = VectorOps.intoRaw(principalAngularInertia);
-        let rawInertiaFrame = RotationOps.intoRaw(angularInertiaLocalFrame);
+        const rawCom = VectorOps.intoRaw(centerOfMass);
+        const rawPrincipalInertia = VectorOps.intoRaw(principalAngularInertia);
+        const rawInertiaFrame = RotationOps.intoRaw(angularInertiaLocalFrame);
 
         this.rawSet.rbSetAdditionalMassProperties(
             this.handle,
@@ -1169,7 +1172,7 @@ export class RigidBodyDesc {
         if (typeof x != "number" || typeof y != "number" || typeof z != "number")
             throw TypeError("The translation components must be numbers.");
 
-        this.translation = {x: x, y: y, z: z};
+        this.translation = {x, y, z};
         return this;
     }
 
@@ -1217,7 +1220,7 @@ export class RigidBodyDesc {
         if (typeof x != "number" || typeof y != "number" || typeof z != "number")
             throw TypeError("The linvel components must be numbers.");
 
-        this.linvel = {x: x, y: y, z: z};
+        this.linvel = {x, y, z};
         return this;
     }
 

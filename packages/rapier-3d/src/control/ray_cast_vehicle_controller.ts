@@ -1,7 +1,15 @@
-import {RigidBody, RigidBodySet} from "../dynamics";
-import {BroadPhase, Collider, ColliderSet, InteractionGroups, NarrowPhase} from "../geometry";
-import {Vector, VectorOps} from "../math";
-import {QueryFilterFlags} from "../pipeline";
+import type {RigidBody, RigidBodySet} from "../dynamics";
+import type {
+    BroadPhase,
+    Collider,
+    ColliderHandle,
+    ColliderSet,
+    InteractionGroups,
+    NarrowPhase,
+} from "../geometry";
+import type {Vector} from "../math";
+import type {QueryFilterFlags} from "../pipeline";
+import {VectorOps} from "../math";
 import {RawDynamicRayCastVehicleController} from "../raw";
 
 /**
@@ -32,7 +40,7 @@ export class DynamicRayCastVehicleController {
 
     /** @internal */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
 
@@ -63,7 +71,9 @@ export class DynamicRayCastVehicleController {
             this.colliders.raw,
             filterFlags ?? 0,
             filterGroups,
-            this.colliders.castClosure(filterPredicate) as unknown as Function,
+            this.colliders.castClosure(filterPredicate) as unknown as (
+                collider: ColliderHandle,
+            ) => boolean,
         );
     }
 
@@ -125,9 +135,9 @@ export class DynamicRayCastVehicleController {
         suspensionRestLength: number,
         radius: number,
     ) {
-        let rawChassisConnectionCs = VectorOps.intoRaw(chassisConnectionCs);
-        let rawDirectionCs = VectorOps.intoRaw(directionCs);
-        let rawAxleCs = VectorOps.intoRaw(axleCs);
+        const rawChassisConnectionCs = VectorOps.intoRaw(chassisConnectionCs);
+        const rawDirectionCs = VectorOps.intoRaw(directionCs);
+        const rawAxleCs = VectorOps.intoRaw(axleCs);
 
         this.raw.add_wheel(
             rawChassisConnectionCs,
@@ -170,7 +180,7 @@ export class DynamicRayCastVehicleController {
      * Sets the position of the i-th wheel, relative to the chassis.
      */
     public setWheelChassisConnectionPointCs(i: number, value: Vector) {
-        let rawValue = VectorOps.intoRaw(value);
+        const rawValue = VectorOps.intoRaw(value);
         this.raw.set_wheel_chassis_connection_point_cs(i, rawValue);
         rawValue.free();
     }
@@ -340,7 +350,7 @@ export class DynamicRayCastVehicleController {
      * The ray-casting will happen following this direction to detect the ground.
      */
     public setWheelDirectionCs(i: number, value: Vector) {
-        let rawValue = VectorOps.intoRaw(value);
+        const rawValue = VectorOps.intoRaw(value);
         this.raw.set_wheel_direction_cs(i, rawValue);
         rawValue.free();
     }
@@ -362,7 +372,7 @@ export class DynamicRayCastVehicleController {
      * The axis index defined as 0 = X, 1 = Y, 2 = Z.
      */
     public setWheelAxleCs(i: number, value: Vector) {
-        let rawValue = VectorOps.intoRaw(value);
+        const rawValue = VectorOps.intoRaw(value);
         this.raw.set_wheel_axle_cs(i, rawValue);
         rawValue.free();
     }

@@ -1,10 +1,11 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier2d";
 import type * as RAPIER from "@alexandernanberg/rapier2d";
 import {xxhash128} from "hash-wasm";
 import type {DebugInfos} from "./Gui";
 import {Graphics} from "./Graphics";
 import {Gui} from "./Gui";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
+type RAPIER_API = typeof RAPIER_NS;
 
 type Builders = Map<string, (RAPIER: RAPIER_API, testbed: Testbed) => void>;
 
@@ -60,6 +61,9 @@ export class Testbed {
     lastMessageTime: number;
     snap?: Uint8Array;
     snapStepId: number;
+    // Aborted by `setWorld()` so listeners a demo registered with `demoSignal`
+    // are dropped when the next demo takes over.
+    private demoLifetime = new AbortController();
 
     static async create(RAPIER: RAPIER_API, builders: Builders): Promise<Testbed> {
         const testbed = new Testbed(RAPIER, builders);
@@ -79,9 +83,9 @@ export class Testbed {
     }
 
     private constructor(RAPIER: RAPIER_API, builders: Builders) {
-        let backends = ["rapier"];
+        const backends = ["rapier"];
         this.RAPIER = RAPIER;
-        let parameters = new SimulationParameters(backends, builders);
+        const parameters = new SimulationParameters(backends, builders);
         this.gui = new Gui(this, parameters);
         this.inhibitLookAt = false;
         this.parameters = parameters;
@@ -102,9 +106,14 @@ export class Testbed {
         this.preTimestepAction = action;
     }
 
+    /** Signal that aborts when the current demo is torn down. */
+    get demoSignal(): AbortSignal {
+        return this.demoLifetime.signal;
+    }
+
     setWorld(world: RAPIER.World) {
-        document.onkeyup = null;
-        document.onkeydown = null;
+        this.demoLifetime.abort();
+        this.demoLifetime = new AbortController();
         this.preTimestepAction = undefined;
         this.world = world;
         this.world.numSolverIterations = this.parameters.numSolverIters;
@@ -155,7 +164,7 @@ export class Testbed {
     }
 
     restoreSnapshot() {
-        if (!!this.snap) {
+        if (this.snap) {
             const restored = this.RAPIER.World.restoreSnapshot(this.snap);
 
             if (restored !== null) {
@@ -170,33 +179,31 @@ export class Testbed {
         if (this.parameters.running || this.parameters.stepping) {
             this.world.numSolverIterations = this.parameters.numSolverIters;
 
-            if (!!this.preTimestepAction) {
+            if (this.preTimestepAction) {
                 this.preTimestepAction(this.graphics);
             }
 
-            let t0 = new Date().getTime();
+            const t0 = new Date().getTime();
             this.world.step(this.events);
             this.gui.setTiming(new Date().getTime() - t0);
             this.stepId += 1;
 
-            if (!!this.parameters.debugInfos) {
-                let t0 = performance.now();
-                let snapshot = this.world.takeSnapshot();
-                let t1 = performance.now();
-                let snapshotTime = t1 - t0;
+            if (this.parameters.debugInfos) {
+                let mark = performance.now();
+                const snapshot = this.world.takeSnapshot();
+                const snapshotTime = performance.now() - mark;
 
-                let debugInfos: DebugInfos = {
+                const debugInfos: DebugInfos = {
                     token: this.demoToken,
                     stepId: this.stepId,
                     worldHash: "",
                     worldHashTime: 0,
                     snapshotTime: 0,
                 };
-                t0 = performance.now();
-                xxhash128(snapshot).then((hash) => {
+                mark = performance.now();
+                void xxhash128(snapshot).then((hash) => {
                     debugInfos.worldHash = hash;
-                    t1 = performance.now();
-                    let worldHashTime = t1 - t0;
+                    const worldHashTime = performance.now() - mark;
                     debugInfos.worldHashTime = worldHashTime;
                     debugInfos.snapshotTime = snapshotTime;
                     this.gui.setDebugInfos(debugInfos);

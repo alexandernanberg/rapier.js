@@ -1,13 +1,14 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier2d";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
+type RAPIER_API = typeof RAPIER_NS;
 
 function generateVoxels(n: number) {
-    let points = [];
+    const points = [];
 
     let i;
     for (i = 0; i <= n; ++i) {
-        let y = Math.max(-0.8, Math.min(Math.sin((i / n) * 10.0), 0.8)) * 8.0;
+        const y = Math.max(-0.8, Math.min(Math.sin((i / n) * 10.0), 0.8)) * 8.0;
         points.push(i - n / 2.0, y);
     }
     return {
@@ -17,35 +18,35 @@ function generateVoxels(n: number) {
 }
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector2(0.0, -9.81);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector2(0.0, -9.81);
+    const world = new RAPIER.World(gravity);
 
     // Create Ground.
-    let bodyDesc = RAPIER.RigidBodyDesc.fixed();
-    let body = world.createRigidBody(bodyDesc);
-    let voxels = generateVoxels(100);
-    let colliderDesc = RAPIER.ColliderDesc.voxels(voxels.points, voxels.voxelSize);
-    world.createCollider(colliderDesc, body);
+    const groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
+    const groundBody = world.createRigidBody(groundBodyDesc);
+    const voxels = generateVoxels(100);
+    const groundColliderDesc = RAPIER.ColliderDesc.voxels(voxels.points, voxels.voxelSize);
+    world.createCollider(groundColliderDesc, groundBody);
 
     // Dynamic cubes.
-    let num = 10;
-    let numy = 4;
-    let rad = 1.0;
+    const num = 10;
+    const numy = 4;
+    const rad = 1.0;
 
-    let shift = rad * 2.0 + rad;
-    let centery = shift / 2.0;
+    const shift = rad * 2.0 + rad;
+    const centery = shift / 2.0;
 
     let offset = -num * (rad * 2.0 + rad) * 0.5;
     let i, j;
 
     for (j = 0; j < numy; ++j) {
         for (i = 0; i < num; ++i) {
-            let x = i * shift + offset;
-            let y = j * shift + centery + 10.0;
+            const x = i * shift + offset;
+            const y = j * shift + centery + 10.0;
 
             // Create dynamic cube.
-            let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
-            let body = world.createRigidBody(bodyDesc);
+            const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
+            const body = world.createRigidBody(bodyDesc);
             let colliderDesc;
 
             switch (j % 3) {

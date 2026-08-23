@@ -1,29 +1,19 @@
-import {KinematicCharacterController, PidAxesMask, PidController} from "../control";
-import {DynamicRayCastVehicleController} from "../control";
-import {
-    CCDSolver,
-    IntegrationParameters,
-    IslandManager,
+import type {PidAxesMask} from "../control";
+import type {
     ImpulseJoint,
     ImpulseJointHandle,
     MultibodyJoint,
     MultibodyJointHandle,
     JointData,
-    ImpulseJointSet,
-    MultibodyJointSet,
     RigidBody,
     RigidBodyDesc,
     RigidBodyHandle,
-    RigidBodySet,
 } from "../dynamics";
-import {
-    BroadPhase,
+import type {
     Collider,
     ColliderDesc,
     ColliderHandle,
-    ColliderSet,
     InteractionGroups,
-    NarrowPhase,
     PointColliderProjection,
     Ray,
     RayColliderIntersection,
@@ -32,8 +22,8 @@ import {
     ColliderShapeCastHit,
     TempContactManifold,
 } from "../geometry";
-import {Rotation, Vector, VectorOps} from "../math";
-import {
+import type {Rotation, Vector} from "../math";
+import type {
     RawBroadPhase,
     RawCCDSolver,
     RawColliderSet,
@@ -48,12 +38,27 @@ import {
     RawSerializationPipeline,
     RawDebugRenderPipeline,
 } from "../raw";
+import type {EventQueue} from "./event_queue";
+import type {PhysicsHooks} from "./physics_hooks";
+import type {QueryFilterFlags} from "./query_pipeline";
+import {KinematicCharacterController, PidController} from "../control";
+import {DynamicRayCastVehicleController} from "../control";
+import {
+    CCDSolver,
+    IntegrationParameters,
+    IslandManager,
+    ImpulseJointSet,
+    MultibodyJointSet,
+    RigidBodySet,
+} from "../dynamics";
+import {BroadPhase, ColliderSet, NarrowPhase} from "../geometry";
+import {VectorOps} from "../math";
 import {invalidateTransformBuffer} from "../transform_buffer";
 import {DebugRenderBuffers, DebugRenderPipeline} from "./debug_render_pipeline";
-import {EventQueue} from "./event_queue";
-import {PhysicsHooks} from "./physics_hooks";
 import {PhysicsPipeline} from "./physics_pipeline";
-import {QueryFilterFlags} from "./query_pipeline";
+// See the note in `serialization_pipeline.ts`: the cycle between the two is
+// resolved at call time, not at module evaluation.
+// eslint-disable-next-line import/no-cycle
 import {SerializationPipeline} from "./serialization_pipeline";
 
 /**
@@ -207,7 +212,7 @@ export class World {
      * taken by a different version of the engine.
      */
     public static restoreSnapshot(data: Uint8Array): World | null {
-        let deser = new SerializationPipeline();
+        const deser = new SerializationPipeline();
         return deser.deserializeAll(data);
     }
 
@@ -414,7 +419,7 @@ export class World {
      * @param offset - The artificial gap added between the character’s chape and its environment.
      */
     public createCharacterController(offset: number): KinematicCharacterController {
-        let controller = new KinematicCharacterController(
+        const controller = new KinematicCharacterController(
             offset,
             this.integrationParameters,
             this.broadPhase,
@@ -457,7 +462,7 @@ export class World {
         kd: number,
         axes: PidAxesMask,
     ): PidController {
-        let controller = new PidController(
+        const controller = new PidController(
             this.integrationParameters,
             this.bodies,
             kp,
@@ -487,7 +492,7 @@ export class World {
      *                  rigid-body must be a dynamic or kinematic-velocity-based rigid-body.
      */
     public createVehicleController(chassis: RigidBody): DynamicRayCastVehicleController {
-        let controller = new DynamicRayCastVehicleController(
+        const controller = new DynamicRayCastVehicleController(
             chassis,
             this.broadPhase,
             this.narrowPhase,
@@ -515,7 +520,7 @@ export class World {
      * @param parent - The rigid-body this collider is attached to.
      */
     public createCollider(desc: ColliderDesc, parent?: RigidBody): Collider {
-        let parentHandle = parent ? parent.handle : undefined;
+        const parentHandle = parent ? parent.handle : undefined;
         return this.colliders.createCollider(this.bodies, desc, parentHandle);
     }
 
@@ -824,7 +829,7 @@ export class World {
         filterExcludeRigidBody?: RigidBody,
         filterPredicate?: (collider: Collider) => boolean,
     ): Collider | null {
-        let handle = this.broadPhase.intersectionWithShape(
+        const handle = this.broadPhase.intersectionWithShape(
             this.narrowPhase,
             this.bodies,
             this.colliders,

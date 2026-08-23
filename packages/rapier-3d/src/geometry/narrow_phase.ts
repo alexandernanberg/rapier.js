@@ -1,8 +1,10 @@
-import {RigidBodySet} from "../dynamics";
-import {Vector, VectorOps} from "../math";
-import {RawNarrowPhase, RawContactManifold} from "../raw";
+import type {RigidBodySet} from "../dynamics";
+import type {Vector} from "../math";
+import type {RawContactManifold} from "../raw";
+import type {ColliderHandle} from "./collider";
+import {VectorOps} from "../math";
+import {RawNarrowPhase} from "../raw";
 import {scratch} from "../scratch";
-import {ColliderHandle} from "./collider";
 
 /**
  * The narrow-phase used for precise collision-detection.
@@ -18,7 +20,7 @@ export class NarrowPhase {
      * Release the WASM memory occupied by this narrow-phase.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
@@ -69,14 +71,14 @@ export class NarrowPhase {
     ) {
         const rawPair = this.raw.contact_pair(collider1, collider2);
 
-        if (!!rawPair) {
+        if (rawPair) {
             const flipped = rawPair.collider1() != collider1;
             this.tempManifold.bodies = bodies;
 
             let i;
             for (i = 0; i < rawPair.numContactManifolds(); ++i) {
                 this.tempManifold.raw = rawPair.contactManifold(i)!;
-                if (!!this.tempManifold.raw) {
+                if (this.tempManifold.raw) {
                     f(this.tempManifold, flipped);
                 }
 
@@ -105,7 +107,7 @@ export class TempContactManifold {
     bodies: RigidBodySet;
 
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;

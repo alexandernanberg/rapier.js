@@ -1,58 +1,59 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier2d";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
+type RAPIER_API = typeof RAPIER_NS;
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector2(0.0, -9.81);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector2(0.0, -9.81);
+    const world = new RAPIER.World(gravity);
 
     // Create Ground.
-    let bodyDesc = RAPIER.RigidBodyDesc.fixed();
-    let body = world.createRigidBody(bodyDesc);
-    let colliderDesc = RAPIER.ColliderDesc.cuboid(15.0, 0.1);
-    world.createCollider(colliderDesc, body);
+    const groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
+    const groundBody = world.createRigidBody(groundBodyDesc);
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(15.0, 0.1);
+    world.createCollider(groundColliderDesc, groundBody);
 
     // Dynamic cubes.
-    let rad = 0.5;
-    let num = 5;
+    const rad = 0.5;
+    const num = 5;
     let i, _j, k;
-    let shift = rad * 2.5;
-    let center = num * rad;
-    let height = 5.0;
+    const shift = rad * 2.5;
+    const center = num * rad;
+    const height = 5.0;
 
     for (i = 0; i < num; ++i) {
         for (k = i; k < num; ++k) {
-            let x = (i * shift) / 2.0 + (k - i) * shift - center;
-            let y = (i * shift) / 2.0 + height;
+            const x = (i * shift) / 2.0 + (k - i) * shift - center;
+            const y = (i * shift) / 2.0 + height;
 
             // Create dynamic cube.
-            let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
-            let body = world.createRigidBody(bodyDesc);
-            let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad / 2.0);
+            const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
+            const body = world.createRigidBody(bodyDesc);
+            const colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad / 2.0);
             world.createCollider(colliderDesc, body);
         }
     }
 
     // Character.
-    let characterDesc = RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(-10.0, 4.0);
-    let character = world.createRigidBody(characterDesc);
-    let characterColliderDesc = RAPIER.ColliderDesc.cuboid(0.6, 1.2);
-    let characterCollider = world.createCollider(characterColliderDesc, character);
+    const characterDesc = RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(-10.0, 4.0);
+    const character = world.createRigidBody(characterDesc);
+    const characterColliderDesc = RAPIER.ColliderDesc.cuboid(0.6, 1.2);
+    const characterCollider = world.createCollider(characterColliderDesc, character);
 
-    let characterController = world.createCharacterController(0.1);
+    const characterController = world.createCharacterController(0.1);
     characterController.enableAutostep(0.7, 0.3, true);
     characterController.enableSnapToGround(0.7);
 
     // Capture handles instead of body references so callbacks survive snapshot restore.
-    let characterHandle = character.handle;
-    let characterColliderHandle = characterCollider.handle;
+    const characterHandle = character.handle;
+    const characterColliderHandle = characterCollider.handle;
 
-    let speed = 0.2;
-    let movementDirection = {x: 0.0, y: -speed};
+    const speed = 0.2;
+    const movementDirection = {x: 0.0, y: -speed};
 
-    let updateCharacter = () => {
-        let charBody = testbed.world.getRigidBody(characterHandle);
-        let charCollider = testbed.world.getCollider(characterColliderHandle);
+    const updateCharacter = () => {
+        const charBody = testbed.world.getRigidBody(characterHandle);
+        const charCollider = testbed.world.getCollider(characterColliderHandle);
 
         // The handles go stale if the world is swapped out from under us.
         if (charBody === null || charCollider === null) {
@@ -61,8 +62,8 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
         characterController.computeColliderMovement(charCollider, movementDirection);
 
-        let movement = characterController.computedMovement();
-        let newPos = charBody.translation();
+        const movement = characterController.computedMovement();
+        const newPos = charBody.translation();
         newPos.x += movement.x;
         newPos.y += movement.y;
         charBody.setNextKinematicTranslation(newPos);
@@ -71,17 +72,25 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     testbed.setWorld(world);
     testbed.setpreTimestepAction(updateCharacter);
 
-    document.onkeydown = function (event: KeyboardEvent) {
-        if (event.key == "ArrowLeft") movementDirection.x = -speed;
-        if (event.key == "ArrowRight") movementDirection.x = speed;
-        if (event.key == " ") movementDirection.y = speed;
-    };
+    document.addEventListener(
+        "keydown",
+        (event) => {
+            if (event.key == "ArrowLeft") movementDirection.x = -speed;
+            if (event.key == "ArrowRight") movementDirection.x = speed;
+            if (event.key == " ") movementDirection.y = speed;
+        },
+        {signal: testbed.demoSignal},
+    );
 
-    document.onkeyup = function (event: KeyboardEvent) {
-        if (event.key == "ArrowLeft") movementDirection.x = 0.0;
-        if (event.key == "ArrowRight") movementDirection.x = 0.0;
-        if (event.key == " ") movementDirection.y = -speed; // Gravity
-    };
+    document.addEventListener(
+        "keyup",
+        (event) => {
+            if (event.key == "ArrowLeft") movementDirection.x = 0.0;
+            if (event.key == "ArrowRight") movementDirection.x = 0.0;
+            if (event.key == " ") movementDirection.y = -speed; // Gravity
+        },
+        {signal: testbed.demoSignal},
+    );
 
     testbed.lookAt({
         target: {x: 0.0, y: -1.0},

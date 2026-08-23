@@ -157,7 +157,7 @@ describe("Kinematic Bodies", () => {
         world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
 
         // 90 degrees around Y axis
-        const q = {x: 0, y: 0.7071068, z: 0, w: 0.7071068};
+        const q = {x: 0, y: Math.SQRT1_2, z: 0, w: Math.SQRT1_2};
         body.setNextKinematicRotation(q);
         world.step();
 

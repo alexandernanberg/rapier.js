@@ -87,7 +87,7 @@ export class RotationOps {
     public static fromRaw(raw: RawRotation): Rotation | null {
         if (!raw) return null;
 
-        let res = raw.angle;
+        const res = raw.angle;
         raw.free();
         return res;
     }

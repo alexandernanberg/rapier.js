@@ -1,8 +1,10 @@
-import {Vector, VectorOps} from "../math";
-import {RawJointAxis, RawJointType, RawMotorModel, RawMultibodyJointSet} from "../raw";
-import {JointType, MotorModel} from "./impulse_joint";
-import {RigidBody} from "./rigid_body";
-import {RigidBodySet} from "./rigid_body_set";
+import type {Vector} from "../math";
+import type {RawMotorModel, RawMultibodyJointSet} from "../raw";
+import type {JointType, MotorModel} from "./impulse_joint";
+import type {RigidBody} from "./rigid_body";
+import type {RigidBodySet} from "./rigid_body_set";
+import {VectorOps} from "../math";
+import {RawJointAxis, RawJointType} from "../raw";
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.

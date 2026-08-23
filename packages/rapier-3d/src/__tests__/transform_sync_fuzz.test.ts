@@ -67,7 +67,7 @@ describe("transform buffer fuzz", () => {
                     const t = b.translation();
                     if (!near(t.x, wt[0]) || !near(t.y, wt[1]) || !near(t.z, wt[2]))
                         mismatches.push(
-                            `step ${step}: body translation ${JSON.stringify(t)} vs wasm [${wt}]`,
+                            `step ${step}: body translation ${JSON.stringify(t)} vs wasm [${wt.join(", ")}]`,
                         );
 
                     const wv = wasmRead(() => world.bodies.raw.rbLinvel(b.handle), 3);

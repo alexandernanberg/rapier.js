@@ -1,6 +1,7 @@
-import {RigidBodyHandle} from "../dynamics";
-import {ColliderHandle} from "../geometry";
-import {Vector, VectorOps} from "../math";
+import type {RigidBodyHandle} from "../dynamics";
+import type {ColliderHandle} from "../geometry";
+import type {Vector} from "../math";
+import {VectorOps} from "../math";
 import {RawContactModificationContext} from "../raw";
 import {scratch} from "../scratch";
 
@@ -35,7 +36,7 @@ export class ContactModificationContext {
      * Release the WASM memory occupied by this context.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
@@ -258,12 +259,12 @@ export interface PhysicsHooks {
      * @param body1 − Handle of the first body involved in the potential contact.
      * @param body2 − Handle of the second body involved in the potential contact.
      */
-    filterContactPair?(
+    filterContactPair?: (
         collider1: ColliderHandle,
         collider2: ColliderHandle,
         body1: RigidBodyHandle,
         body2: RigidBodyHandle,
-    ): SolverFlags | null;
+    ) => SolverFlags | null;
 
     /**
      * Function that determines if intersection computation should happen between two colliders (where at least
@@ -277,12 +278,12 @@ export interface PhysicsHooks {
      * @param body1 − Handle of the first body involved in the potential contact.
      * @param body2 − Handle of the second body involved in the potential contact.
      */
-    filterIntersectionPair?(
+    filterIntersectionPair?: (
         collider1: ColliderHandle,
         collider2: ColliderHandle,
         body1: RigidBodyHandle,
         body2: RigidBodyHandle,
-    ): boolean;
+    ) => boolean;
 
     /**
      * Function that can adjust the contacts the solver is about to use, for one contact
@@ -295,5 +296,5 @@ export interface PhysicsHooks {
      * @param context − The contacts of the manifold being modified. It is only valid for
      *                  the duration of this call.
      */
-    modifySolverContacts?(context: ContactModificationContext): void;
+    modifySolverContacts?: (context: ContactModificationContext) => void;
 }

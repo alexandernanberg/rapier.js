@@ -1,12 +1,13 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier3d";
 import seedrandom from "seedrandom";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+type RAPIER_API = typeof RAPIER_NS;
 
 function generateHeightfield(nsubdivs: number) {
-    let heights = [];
+    const heights = [];
 
-    let rng = seedrandom("heightfield");
+    const rng = seedrandom("heightfield");
 
     let i, j;
     for (i = 0; i <= nsubdivs; ++i) {
@@ -19,25 +20,25 @@ function generateHeightfield(nsubdivs: number) {
 }
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
+    const world = new RAPIER.World(gravity);
 
     // Create Ground.
-    let nsubdivs = 20;
-    let scale = new RAPIER.Vector3(70.0, 4.0, 70.0);
-    let bodyDesc = RAPIER.RigidBodyDesc.fixed();
-    let body = world.createRigidBody(bodyDesc);
-    let heights = generateHeightfield(nsubdivs);
-    let colliderDesc = RAPIER.ColliderDesc.heightfield(nsubdivs, nsubdivs, heights, scale);
-    world.createCollider(colliderDesc, body);
+    const nsubdivs = 20;
+    const scale = new RAPIER.Vector3(70.0, 4.0, 70.0);
+    const groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
+    const groundBody = world.createRigidBody(groundBodyDesc);
+    const heights = generateHeightfield(nsubdivs);
+    const groundColliderDesc = RAPIER.ColliderDesc.heightfield(nsubdivs, nsubdivs, heights, scale);
+    world.createCollider(groundColliderDesc, groundBody);
 
     // Dynamic cubes.
-    let num = 4;
-    let numy = 10;
-    let rad = 1.0;
+    const num = 4;
+    const numy = 10;
+    const rad = 1.0;
 
-    let shift = rad * 2.0 + rad;
-    let centery = shift / 2.0;
+    const shift = rad * 2.0 + rad;
+    const centery = shift / 2.0;
 
     let offset = -num * (rad * 2.0 + rad) * 0.5;
     let i, j, k;
@@ -45,13 +46,13 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     for (j = 0; j < numy; ++j) {
         for (i = 0; i < num; ++i) {
             for (k = 0; k < num; ++k) {
-                let x = i * shift + offset;
-                let y = j * shift + centery + 3.0;
-                let z = k * shift + offset;
+                const x = i * shift + offset;
+                const y = j * shift + centery + 3.0;
+                const z = k * shift + offset;
 
                 // Create dynamic cube.
-                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
-                let body = world.createRigidBody(bodyDesc);
+                const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
+                const body = world.createRigidBody(bodyDesc);
                 let colliderDesc;
 
                 switch (j % 5) {
@@ -95,7 +96,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
     testbed.setWorld(world);
 
-    let cameraPosition = {
+    const cameraPosition = {
         eye: {
             x: -88.48024008669711,
             y: 46.911325612198354,

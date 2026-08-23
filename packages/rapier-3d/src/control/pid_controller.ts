@@ -1,5 +1,6 @@
-import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
+import type {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
+import type {Rotation, Vector} from "../math";
+import {RotationOps, VectorOps} from "../math";
 import {RawPidController} from "../raw";
 import {scratch} from "../scratch";
 
@@ -57,7 +58,7 @@ export class PidController {
 
     /** @internal */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
 
@@ -85,8 +86,8 @@ export class PidController {
     }
 
     public applyLinearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector) {
-        let rawPos = VectorOps.intoRaw(targetPosition);
-        let rawVel = VectorOps.intoRaw(targetLinvel);
+        const rawPos = VectorOps.intoRaw(targetPosition);
+        const rawVel = VectorOps.intoRaw(targetLinvel);
         this.raw.apply_linear_correction(
             this.params.dt,
             this.bodies.raw,
@@ -99,8 +100,8 @@ export class PidController {
     }
 
     public applyAngularCorrection(body: RigidBody, targetRotation: Rotation, targetAngVel: Vector) {
-        let rawPos = RotationOps.intoRaw(targetRotation);
-        let rawVel = VectorOps.intoRaw(targetAngVel);
+        const rawPos = RotationOps.intoRaw(targetRotation);
+        const rawVel = VectorOps.intoRaw(targetAngVel);
         this.raw.apply_angular_correction(
             this.params.dt,
             this.bodies.raw,
@@ -118,8 +119,8 @@ export class PidController {
         targetLinvel: Vector,
         target?: Vector,
     ): Vector {
-        let rawPos = VectorOps.intoRaw(targetPosition);
-        let rawVel = VectorOps.intoRaw(targetLinvel);
+        const rawPos = VectorOps.intoRaw(targetPosition);
+        const rawVel = VectorOps.intoRaw(targetLinvel);
         this.raw.linear_correction(this.params.dt, this.bodies.raw, body.handle, rawPos, rawVel);
         rawPos.free();
         rawVel.free();
@@ -133,8 +134,8 @@ export class PidController {
         targetAngVel: Vector,
         target?: Vector,
     ): Vector {
-        let rawPos = RotationOps.intoRaw(targetRotation);
-        let rawVel = VectorOps.intoRaw(targetAngVel);
+        const rawPos = RotationOps.intoRaw(targetRotation);
+        const rawVel = VectorOps.intoRaw(targetAngVel);
         this.raw.angular_correction(this.params.dt, this.bodies.raw, body.handle, rawPos, rawVel);
         rawPos.free();
         rawVel.free();

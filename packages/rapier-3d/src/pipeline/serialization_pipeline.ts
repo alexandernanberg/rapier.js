@@ -1,13 +1,18 @@
-import {
+import type {
     IntegrationParameters,
     IslandManager,
     ImpulseJointSet,
     MultibodyJointSet,
     RigidBodySet,
 } from "../dynamics";
-import {BroadPhase, ColliderSet, NarrowPhase} from "../geometry";
-import {Vector, VectorOps} from "../math";
+import type {BroadPhase, ColliderSet, NarrowPhase} from "../geometry";
+import type {Vector} from "../math";
+import {VectorOps} from "../math";
 import {RawSerializationPipeline} from "../raw";
+// `World` builds a `SerializationPipeline` and this deserializes back into a
+// `World`. Both references are resolved at call time, never while the modules
+// evaluate, so the cycle is inert.
+// eslint-disable-next-line import/no-cycle
 import {World} from "./world";
 
 /**
@@ -23,7 +28,7 @@ export class SerializationPipeline {
      * Release the WASM memory occupied by this serialization pipeline.
      */
     free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
@@ -55,7 +60,7 @@ export class SerializationPipeline {
         impulseJoints: ImpulseJointSet,
         multibodyJoints: MultibodyJointSet,
     ): Uint8Array {
-        let rawGra = VectorOps.intoRaw(gravity);
+        const rawGra = VectorOps.intoRaw(gravity);
 
         const res = this.raw.serializeAll(
             rawGra,

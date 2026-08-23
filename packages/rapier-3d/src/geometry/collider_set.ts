@@ -1,14 +1,15 @@
+import type {IslandManager, RigidBodyHandle} from "../dynamics";
+import type {RigidBodySet} from "../dynamics";
+import type {TransformBufferRef} from "../transform_buffer";
+import type {ColliderDesc, ColliderHandle} from "./collider";
 import {Coarena} from "../coarena";
-import {IslandManager, RigidBodyHandle} from "../dynamics";
-import {RigidBodySet} from "../dynamics";
 import {RawColliderSet, wasmMemory} from "../raw";
 import {
     createTransformBufferRef,
     invalidateTransformBuffer,
     refreshTransformBuffer,
-    type TransformBufferRef,
 } from "../transform_buffer";
-import {Collider, ColliderDesc, ColliderHandle} from "./collider";
+import {Collider} from "./collider";
 
 /**
  * @internal Container for the collider transform buffer, shared with Collider instances.
@@ -32,7 +33,7 @@ export class ColliderSet {
      * Release the WASM memory occupied by this collider set.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
@@ -41,7 +42,7 @@ export class ColliderSet {
         invalidateTransformBuffer(this._bufferRef);
         this._bufferRef = createTransformBufferRef();
 
-        if (!!this.map) {
+        if (this.map) {
             this.map.clear();
         }
         this.map = undefined!;
@@ -101,14 +102,14 @@ export class ColliderSet {
         desc: ColliderDesc,
         parentHandle?: RigidBodyHandle,
     ): Collider {
-        let hasParent = parentHandle != undefined && parentHandle != null;
+        const hasParent = parentHandle != undefined && parentHandle != null;
 
         if (hasParent && isNaN(parentHandle!))
             throw Error(
                 "Cannot create a collider with a parent rigid-body handle that is not a number.",
             );
 
-        let rawShape = desc.shape.intoRaw();
+        const rawShape = desc.shape.intoRaw();
 
         const tra = desc.translation;
         const rot = desc.rotation;
@@ -116,7 +117,7 @@ export class ColliderSet {
         const pai = desc.principalAngularInertia;
         const aif = desc.angularInertiaLocalFrame;
 
-        let handle = this.raw.createCollider(
+        const handle = this.raw.createCollider(
             desc.enabled,
             rawShape,
             tra.x,
@@ -162,8 +163,8 @@ export class ColliderSet {
         // WASM memory may have grown.
         invalidateTransformBuffer(this._bufferRef);
 
-        let parent = hasParent ? bodies.get(parentHandle!) : null;
-        let collider = new Collider(this, handle!, parent, desc.shape);
+        const parent = hasParent ? bodies.get(parentHandle!) : null;
+        const collider = new Collider(this, handle!, parent, desc.shape);
         this.map.set(handle!, collider);
         return collider;
     }

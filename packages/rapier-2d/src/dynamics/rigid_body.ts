@@ -1,9 +1,11 @@
+import type {Collider, ColliderSet} from "../geometry";
+import type {Rotation, Vector} from "../math";
+import type {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import type {TransformBufferRef} from "../transform_buffer";
 import {handleToIndex} from "../coarena";
-import {Collider, ColliderSet} from "../geometry";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {RotationOps, VectorOps} from "../math";
 import {scratch} from "../scratch";
-import {liveTransformBuffer, type TransformBufferRef} from "../transform_buffer";
+import {liveTransformBuffer} from "../transform_buffer";
 
 export type {TransformBufferRef};
 
@@ -452,7 +454,7 @@ export class RigidBody {
      */
     public velocityAtPoint(point: Vector, target?: Vector): Vector {
         const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(
+        const result = VectorOps.fromRaw(
             this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
             target,
         )!;
@@ -736,7 +738,7 @@ export class RigidBody {
         principalAngularInertia: number,
         wakeUp: boolean,
     ) {
-        let rawCom = VectorOps.intoRaw(centerOfMass);
+        const rawCom = VectorOps.intoRaw(centerOfMass);
         this.rawSet.rbSetAdditionalMassProperties(
             this.handle,
             mass,
@@ -1013,7 +1015,7 @@ export class RigidBodyDesc {
         if (typeof x != "number" || typeof y != "number")
             throw TypeError("The translation components must be numbers.");
 
-        this.translation = {x: x, y: y};
+        this.translation = {x, y};
         return this;
     }
 
@@ -1060,7 +1062,7 @@ export class RigidBodyDesc {
         if (typeof x != "number" || typeof y != "number")
             throw TypeError("The linvel components must be numbers.");
 
-        this.linvel = {x: x, y: y};
+        this.linvel = {x, y};
         return this;
     }
 

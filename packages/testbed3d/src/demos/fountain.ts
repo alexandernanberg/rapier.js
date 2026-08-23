@@ -1,30 +1,32 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier3d";
+import type {RigidBodyHandle} from "@alexandernanberg/rapier3d";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+type RAPIER_API = typeof RAPIER_NS;
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
-    let world = new RAPIER.World(gravity);
-    let removableBodies = new Array();
+    const gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
+    const world = new RAPIER.World(gravity);
+    const removableBodies: RigidBodyHandle[] = [];
 
     // Create Ground.
-    let groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
-    let groundBody = world.createRigidBody(groundBodyDesc);
-    let groundColliderDesc = RAPIER.ColliderDesc.cuboid(40.0, 0.1, 40.0);
+    const groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
+    const groundBody = world.createRigidBody(groundBodyDesc);
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(40.0, 0.1, 40.0);
     world.createCollider(groundColliderDesc, groundBody);
 
     // Dynamic cubes.
-    let rad = 1.0;
+    const rad = 1.0;
     let j = 0;
-    let spawn_interval = 5;
+    const spawn_interval = 5;
 
-    let spawnBodies = (graphics: Testbed["graphics"]) => {
+    const spawnBodies = (graphics: Testbed["graphics"]) => {
         j += 1;
         if (j % spawn_interval != 0) {
             return;
         }
 
-        let bodyDesc = RAPIER.RigidBodyDesc.dynamic()
+        const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
             .setLinvel(0.0, 15.0, 0.0)
             .setTranslation(0.0, 10.0, 0.0);
         let colliderDesc;
@@ -47,16 +49,16 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
         }
 
         // Use testbed.world instead of captured world so it works after snapshot restore.
-        let body = testbed.world.createRigidBody(bodyDesc);
-        let collider = testbed.world.createCollider(colliderDesc, body);
+        const body = testbed.world.createRigidBody(bodyDesc);
+        const collider = testbed.world.createCollider(colliderDesc, body);
         graphics.addCollider(RAPIER, testbed.world, collider);
 
         removableBodies.push(body.handle);
 
         // We reached the max number, delete the oldest rigid-body.
         if (removableBodies.length > 400) {
-            let rbHandle = removableBodies[0];
-            let rb = testbed.world.getRigidBody(rbHandle);
+            const rbHandle = removableBodies[0];
+            const rb = testbed.world.getRigidBody(rbHandle);
 
             if (rb !== null) {
                 testbed.world.removeRigidBody(rb);
@@ -70,7 +72,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     testbed.setWorld(world);
     testbed.setpreTimestepAction(spawnBodies);
 
-    let cameraPosition = {
+    const cameraPosition = {
         eye: {
             x: -88.48024008669711,
             y: 46.911325612198354,

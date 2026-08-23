@@ -1,3 +1,4 @@
+import type {Collider} from "@alexandernanberg/rapier3d/compat";
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
 
@@ -142,7 +143,7 @@ describe("collider transform buffer sync", () => {
 
     test("buffer reads match the WASM path right after creating colliders", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
-        const colliders: any[] = [];
+        const colliders: Collider[] = [];
         for (let i = 0; i < 50; i++) {
             const body = world.createRigidBody(
                 RAPIER.RigidBodyDesc.dynamic().setTranslation(i, 5, 0),

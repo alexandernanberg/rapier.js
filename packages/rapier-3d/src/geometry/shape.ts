@@ -1,9 +1,12 @@
-import {Vector, VectorOps, Rotation, RotationOps} from "../math";
-import {RawColliderSet, RawShape, RawShapeType} from "../raw";
-import {ColliderHandle} from "./collider";
+import type {Vector, Rotation} from "../math";
+import type {RawColliderSet} from "../raw";
+import type {ColliderHandle} from "./collider";
+import type {Ray} from "./ray";
+import {VectorOps, RotationOps} from "../math";
+import {RawShape, RawShapeType} from "../raw";
 import {ShapeContact} from "./contact";
 import {PointProjection} from "./point";
-import {Ray, RayIntersection} from "./ray";
+import {RayIntersection} from "./ray";
 import {ShapeCastHit} from "./toi";
 
 /**
@@ -177,7 +180,7 @@ export abstract class Shape {
                     return Compound.fromRawShape(rawShape);
 
                 default:
-                    throw new Error("unknown shape type: " + rawType);
+                    throw new Error(`unknown shape type: ${RawShapeType[rawType]}`);
             }
         } finally {
             if (rawType !== RawShapeType.Compound) {
@@ -218,17 +221,17 @@ export abstract class Shape {
         stopAtPenetration: boolean,
         target?: ShapeCastHit,
     ): ShapeCastHit | null {
-        let rawPos1 = VectorOps.intoRaw(shapePos1);
-        let rawRot1 = RotationOps.intoRaw(shapeRot1);
-        let rawVel1 = VectorOps.intoRaw(shapeVel1);
-        let rawPos2 = VectorOps.intoRaw(shapePos2);
-        let rawRot2 = RotationOps.intoRaw(shapeRot2);
-        let rawVel2 = VectorOps.intoRaw(shapeVel2);
+        const rawPos1 = VectorOps.intoRaw(shapePos1);
+        const rawRot1 = RotationOps.intoRaw(shapeRot1);
+        const rawVel1 = VectorOps.intoRaw(shapeVel1);
+        const rawPos2 = VectorOps.intoRaw(shapePos2);
+        const rawRot2 = RotationOps.intoRaw(shapeRot2);
+        const rawVel2 = VectorOps.intoRaw(shapeVel2);
 
-        let rawShape1 = this.intoRaw();
-        let rawShape2 = shape2.intoRaw();
+        const rawShape1 = this.intoRaw();
+        const rawShape2 = shape2.intoRaw();
 
-        let result = ShapeCastHit.fromRaw(
+        const result = ShapeCastHit.fromRaw(
             null,
             rawShape1.castShape(
                 rawPos1,
@@ -275,15 +278,15 @@ export abstract class Shape {
         shapePos2: Vector,
         shapeRot2: Rotation,
     ): boolean {
-        let rawPos1 = VectorOps.intoRaw(shapePos1);
-        let rawRot1 = RotationOps.intoRaw(shapeRot1);
-        let rawPos2 = VectorOps.intoRaw(shapePos2);
-        let rawRot2 = RotationOps.intoRaw(shapeRot2);
+        const rawPos1 = VectorOps.intoRaw(shapePos1);
+        const rawRot1 = RotationOps.intoRaw(shapeRot1);
+        const rawPos2 = VectorOps.intoRaw(shapePos2);
+        const rawRot2 = RotationOps.intoRaw(shapeRot2);
 
-        let rawShape1 = this.intoRaw();
-        let rawShape2 = shape2.intoRaw();
+        const rawShape1 = this.intoRaw();
+        const rawShape2 = shape2.intoRaw();
 
-        let result = rawShape1.intersectsShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2);
+        const result = rawShape1.intersectsShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2);
 
         rawPos1.free();
         rawRot1.free();
@@ -317,15 +320,15 @@ export abstract class Shape {
         prediction: number,
         target?: ShapeContact,
     ): ShapeContact | null {
-        let rawPos1 = VectorOps.intoRaw(shapePos1);
-        let rawRot1 = RotationOps.intoRaw(shapeRot1);
-        let rawPos2 = VectorOps.intoRaw(shapePos2);
-        let rawRot2 = RotationOps.intoRaw(shapeRot2);
+        const rawPos1 = VectorOps.intoRaw(shapePos1);
+        const rawRot1 = RotationOps.intoRaw(shapeRot1);
+        const rawPos2 = VectorOps.intoRaw(shapePos2);
+        const rawRot2 = RotationOps.intoRaw(shapeRot2);
 
-        let rawShape1 = this.intoRaw();
-        let rawShape2 = shape2.intoRaw();
+        const rawShape1 = this.intoRaw();
+        const rawShape2 = shape2.intoRaw();
 
-        let result = ShapeContact.fromRaw(
+        const result = ShapeContact.fromRaw(
             rawShape1.contactShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2, prediction)!,
             target,
         );
@@ -342,12 +345,12 @@ export abstract class Shape {
     }
 
     containsPoint(shapePos: Vector, shapeRot: Rotation, point: Vector): boolean {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawPoint = VectorOps.intoRaw(point);
-        let rawShape = this.intoRaw();
+        const rawPos = VectorOps.intoRaw(shapePos);
+        const rawRot = RotationOps.intoRaw(shapeRot);
+        const rawPoint = VectorOps.intoRaw(point);
+        const rawShape = this.intoRaw();
 
-        let result = rawShape.containsPoint(rawPos, rawRot, rawPoint);
+        const result = rawShape.containsPoint(rawPos, rawRot, rawPoint);
 
         rawPos.free();
         rawRot.free();
@@ -364,12 +367,12 @@ export abstract class Shape {
         solid: boolean,
         target?: PointProjection,
     ): PointProjection {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawPoint = VectorOps.intoRaw(point);
-        let rawShape = this.intoRaw();
+        const rawPos = VectorOps.intoRaw(shapePos);
+        const rawRot = RotationOps.intoRaw(shapeRot);
+        const rawPoint = VectorOps.intoRaw(point);
+        const rawShape = this.intoRaw();
 
-        let result = PointProjection.fromRaw(
+        const result = PointProjection.fromRaw(
             rawShape.projectPoint(rawPos, rawRot, rawPoint, solid),
             target,
         );
@@ -383,13 +386,13 @@ export abstract class Shape {
     }
 
     intersectsRay(ray: Ray, shapePos: Vector, shapeRot: Rotation, maxToi: number): boolean {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawRayOrig = VectorOps.intoRaw(ray.origin);
-        let rawRayDir = VectorOps.intoRaw(ray.dir);
-        let rawShape = this.intoRaw();
+        const rawPos = VectorOps.intoRaw(shapePos);
+        const rawRot = RotationOps.intoRaw(shapeRot);
+        const rawRayOrig = VectorOps.intoRaw(ray.origin);
+        const rawRayDir = VectorOps.intoRaw(ray.dir);
+        const rawShape = this.intoRaw();
 
-        let result = rawShape.intersectsRay(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi);
+        const result = rawShape.intersectsRay(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi);
 
         rawPos.free();
         rawRot.free();
@@ -407,13 +410,13 @@ export abstract class Shape {
         maxToi: number,
         solid: boolean,
     ): number {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawRayOrig = VectorOps.intoRaw(ray.origin);
-        let rawRayDir = VectorOps.intoRaw(ray.dir);
-        let rawShape = this.intoRaw();
+        const rawPos = VectorOps.intoRaw(shapePos);
+        const rawRot = RotationOps.intoRaw(shapeRot);
+        const rawRayOrig = VectorOps.intoRaw(ray.origin);
+        const rawRayDir = VectorOps.intoRaw(ray.dir);
+        const rawShape = this.intoRaw();
 
-        let result = rawShape.castRay(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid);
+        const result = rawShape.castRay(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid);
 
         rawPos.free();
         rawRot.free();
@@ -432,13 +435,13 @@ export abstract class Shape {
         solid: boolean,
         target?: RayIntersection,
     ): RayIntersection {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawRayOrig = VectorOps.intoRaw(ray.origin);
-        let rawRayDir = VectorOps.intoRaw(ray.dir);
-        let rawShape = this.intoRaw();
+        const rawPos = VectorOps.intoRaw(shapePos);
+        const rawRot = RotationOps.intoRaw(shapeRot);
+        const rawRayOrig = VectorOps.intoRaw(ray.origin);
+        const rawRayDir = VectorOps.intoRaw(ray.dir);
+        const rawShape = this.intoRaw();
 
-        let result = RayIntersection.fromRaw(
+        const result = RayIntersection.fromRaw(
             rawShape.castRayAndGetNormal(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid)!,
             target,
         );
@@ -614,8 +617,8 @@ export class HalfSpace extends Shape {
     }
 
     public intoRaw(): RawShape {
-        let n = VectorOps.intoRaw(this.normal);
-        let result = RawShape.halfspace(n);
+        const n = VectorOps.intoRaw(this.normal);
+        const result = RawShape.halfspace(n);
         n.free();
         return result;
     }
@@ -748,9 +751,9 @@ export class Segment extends Shape {
     }
 
     public intoRaw(): RawShape {
-        let ra = VectorOps.intoRaw(this.a);
-        let rb = VectorOps.intoRaw(this.b);
-        let result = RawShape.segment(ra, rb);
+        const ra = VectorOps.intoRaw(this.a);
+        const rb = VectorOps.intoRaw(this.b);
+        const result = RawShape.segment(ra, rb);
         ra.free();
         rb.free();
         return result;
@@ -793,10 +796,10 @@ export class Triangle extends Shape {
     }
 
     public intoRaw(): RawShape {
-        let ra = VectorOps.intoRaw(this.a);
-        let rb = VectorOps.intoRaw(this.b);
-        let rc = VectorOps.intoRaw(this.c);
-        let result = RawShape.triangle(ra, rb, rc);
+        const ra = VectorOps.intoRaw(this.a);
+        const rb = VectorOps.intoRaw(this.b);
+        const rc = VectorOps.intoRaw(this.c);
+        const result = RawShape.triangle(ra, rb, rc);
         ra.free();
         rb.free();
         rc.free();
@@ -849,10 +852,10 @@ export class RoundTriangle extends Shape {
     }
 
     public intoRaw(): RawShape {
-        let ra = VectorOps.intoRaw(this.a);
-        let rb = VectorOps.intoRaw(this.b);
-        let rc = VectorOps.intoRaw(this.c);
-        let result = RawShape.roundTriangle(ra, rb, rc, this.borderRadius);
+        const ra = VectorOps.intoRaw(this.a);
+        const rb = VectorOps.intoRaw(this.b);
+        const rc = VectorOps.intoRaw(this.c);
+        const result = RawShape.roundTriangle(ra, rb, rc, this.borderRadius);
         ra.free();
         rb.free();
         rc.free();
@@ -933,7 +936,7 @@ export class Voxels extends Shape {
     }
 
     public intoRaw(): RawShape {
-        let voxelSize = VectorOps.intoRaw(this.voxelSize);
+        const voxelSize = VectorOps.intoRaw(this.voxelSize);
 
         let result;
         if (this.data instanceof Int32Array) {
@@ -1014,14 +1017,14 @@ export class Compound extends Shape {
                 throw new Error("expected a raw compound shape");
             }
 
-            const shapes = new Array<Shape>(numShapes);
-            const positions = new Array<Vector>(numShapes);
-            const rotations = new Array<Rotation>(numShapes);
+            const shapes: Shape[] = [];
+            const positions: Vector[] = [];
+            const rotations: Rotation[] = [];
 
             for (let i = 0; i < numShapes; i++) {
-                shapes[i] = Shape.fromRawShape(rawShape.compoundShape(i)!);
-                positions[i] = VectorOps.fromRaw(rawShape.compoundTranslation(i)!)!;
-                rotations[i] = RotationOps.fromRaw(rawShape.compoundRotation(i)!)!;
+                shapes.push(Shape.fromRawShape(rawShape.compoundShape(i)!));
+                positions.push(VectorOps.fromRaw(rawShape.compoundTranslation(i)!)!);
+                rotations.push(RotationOps.fromRaw(rawShape.compoundRotation(i)!)!);
             }
 
             return new Compound(shapes, positions, rotations);
@@ -1263,8 +1266,8 @@ export class Heightfield extends Shape {
     }
 
     public intoRaw(): RawShape {
-        let rawScale = VectorOps.intoRaw(this.scale);
-        let rawShape = RawShape.heightfield(
+        const rawScale = VectorOps.intoRaw(this.scale);
+        const rawShape = RawShape.heightfield(
             this.nrows,
             this.ncols,
             this.heights,

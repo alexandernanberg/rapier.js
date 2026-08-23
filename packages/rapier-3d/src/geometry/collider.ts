@@ -1,22 +1,26 @@
+import type {RigidBody, RigidBodySet} from "../dynamics";
+import type {Rotation, Vector} from "../math";
+import type {ColliderSet} from "./collider_set";
+import type {InteractionGroups} from "./interaction_groups";
+import type {Ray} from "./ray";
+import type {ShapeType, TriMeshFlags, HeightFieldFlags} from "./shape";
 import {handleToIndex} from "../coarena";
-import {CoefficientCombineRule, RigidBody, RigidBodySet} from "../dynamics";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
-import {ActiveHooks, ActiveEvents} from "../pipeline";
+import {CoefficientCombineRule} from "../dynamics";
+import {RotationOps, VectorOps} from "../math";
+import {ActiveEvents} from "../pipeline/event_queue";
+import {ActiveHooks} from "../pipeline/physics_hooks";
 import {RawShape, RawVHACDParameters} from "../raw";
 import {scratch} from "../scratch";
 import {invalidateTransformBuffer, liveTransformBuffer} from "../transform_buffer";
-import {ColliderSet} from "./collider_set";
 import {ShapeContact} from "./contact";
-import {InteractionGroups} from "./interaction_groups";
 import {PointProjection} from "./point";
-import {Ray, RayIntersection} from "./ray";
+import {RayIntersection} from "./ray";
 import {
     Shape,
     Compound,
     Cuboid,
     Ball,
     HalfSpace,
-    ShapeType,
     Capsule,
     Voxels,
     TriMesh,
@@ -26,14 +30,12 @@ import {
     Triangle,
     RoundTriangle,
     RoundCuboid,
-    TriMeshFlags,
     Cylinder,
     RoundCylinder,
     Cone,
     RoundCone,
     ConvexPolyhedron,
     RoundConvexPolyhedron,
-    HeightFieldFlags,
 } from "./shape";
 import {ColliderShapeCastHit, ShapeCastHit} from "./toi";
 
@@ -264,7 +266,7 @@ export class Collider {
      * @param shape - The collider’s new shape.
      */
     public setShape(shape: Shape) {
-        let rawShape = shape.intoRaw();
+        const rawShape = shape.intoRaw();
         this.colliderSet.raw.coSetShape(this.handle, rawShape);
         rawShape.free();
         this._shape = shape;
@@ -498,9 +500,9 @@ export class Collider {
         principalAngularInertia: Vector,
         angularInertiaLocalFrame: Rotation,
     ) {
-        let rawCom = VectorOps.intoRaw(centerOfMass);
-        let rawPrincipalInertia = VectorOps.intoRaw(principalAngularInertia);
-        let rawInertiaFrame = RotationOps.intoRaw(angularInertiaLocalFrame);
+        const rawCom = VectorOps.intoRaw(centerOfMass);
+        const rawPrincipalInertia = VectorOps.intoRaw(principalAngularInertia);
+        const rawInertiaFrame = RotationOps.intoRaw(angularInertiaLocalFrame);
 
         this.colliderSet.raw.coSetMassProperties(
             this.handle,
@@ -767,7 +769,7 @@ export class Collider {
      * applied to it.
      */
     public heightfieldScale(target?: Vector): Vector {
-        let scale = this.colliderSet.raw.coHeightfieldScale(this.handle)!;
+        const scale = this.colliderSet.raw.coHeightfieldScale(this.handle)!;
         return VectorOps.fromRaw(scale, target)!;
     }
 
@@ -849,8 +851,8 @@ export class Collider {
      * @param point - The point to test.
      */
     public containsPoint(point: Vector): boolean {
-        let rawPoint = VectorOps.intoRaw(point);
-        let result = this.colliderSet.raw.coContainsPoint(this.handle, rawPoint);
+        const rawPoint = VectorOps.intoRaw(point);
+        const result = this.colliderSet.raw.coContainsPoint(this.handle, rawPoint);
 
         rawPoint.free();
 
@@ -873,8 +875,8 @@ export class Collider {
         solid: boolean,
         target?: PointProjection,
     ): PointProjection | null {
-        let rawPoint = VectorOps.intoRaw(point);
-        let result = PointProjection.fromRaw(
+        const rawPoint = VectorOps.intoRaw(point);
+        const result = PointProjection.fromRaw(
             this.colliderSet.raw.coProjectPoint(this.handle, rawPoint, solid),
             target,
         );
@@ -892,9 +894,9 @@ export class Collider {
      *   limits the length of the ray to `ray.dir.norm() * maxToi`.
      */
     public intersectsRay(ray: Ray, maxToi: number): boolean {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = this.colliderSet.raw.coIntersectsRay(this.handle, rawOrig, rawDir, maxToi);
+        const rawOrig = VectorOps.intoRaw(ray.origin);
+        const rawDir = VectorOps.intoRaw(ray.dir);
+        const result = this.colliderSet.raw.coIntersectsRay(this.handle, rawOrig, rawDir, maxToi);
 
         rawOrig.free();
         rawDir.free();
@@ -930,13 +932,13 @@ export class Collider {
         stopAtPenetration: boolean,
         target?: ShapeCastHit,
     ): ShapeCastHit | null {
-        let rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
-        let rawShape2Pos = VectorOps.intoRaw(shape2Pos);
-        let rawShape2Rot = RotationOps.intoRaw(shape2Rot);
-        let rawShape2Vel = VectorOps.intoRaw(shape2Vel);
-        let rawShape2 = shape2.intoRaw();
+        const rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
+        const rawShape2Pos = VectorOps.intoRaw(shape2Pos);
+        const rawShape2Rot = RotationOps.intoRaw(shape2Rot);
+        const rawShape2Vel = VectorOps.intoRaw(shape2Vel);
+        const rawShape2 = shape2.intoRaw();
 
-        let result = ShapeCastHit.fromRaw(
+        const result = ShapeCastHit.fromRaw(
             this.colliderSet,
             this.colliderSet.raw.coCastShape(
                 this.handle,
@@ -985,10 +987,10 @@ export class Collider {
         stopAtPenetration: boolean,
         target?: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
-        let rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
-        let rawCollider2Vel = VectorOps.intoRaw(collider2Vel);
+        const rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
+        const rawCollider2Vel = VectorOps.intoRaw(collider2Vel);
 
-        let result = ColliderShapeCastHit.fromRaw(
+        const result = ColliderShapeCastHit.fromRaw(
             this.colliderSet,
             this.colliderSet.raw.coCastCollider(
                 this.handle,
@@ -1009,11 +1011,11 @@ export class Collider {
     }
 
     public intersectsShape(shape2: Shape, shapePos2: Vector, shapeRot2: Rotation): boolean {
-        let rawPos2 = VectorOps.intoRaw(shapePos2);
-        let rawRot2 = RotationOps.intoRaw(shapeRot2);
-        let rawShape2 = shape2.intoRaw();
+        const rawPos2 = VectorOps.intoRaw(shapePos2);
+        const rawRot2 = RotationOps.intoRaw(shapeRot2);
+        const rawShape2 = shape2.intoRaw();
 
-        let result = this.colliderSet.raw.coIntersectsShape(
+        const result = this.colliderSet.raw.coIntersectsShape(
             this.handle,
             rawShape2,
             rawPos2,
@@ -1044,11 +1046,11 @@ export class Collider {
         prediction: number,
         target?: ShapeContact,
     ): ShapeContact | null {
-        let rawPos2 = VectorOps.intoRaw(shape2Pos);
-        let rawRot2 = RotationOps.intoRaw(shape2Rot);
-        let rawShape2 = shape2.intoRaw();
+        const rawPos2 = VectorOps.intoRaw(shape2Pos);
+        const rawRot2 = RotationOps.intoRaw(shape2Rot);
+        const rawShape2 = shape2.intoRaw();
 
-        let result = ShapeContact.fromRaw(
+        const result = ShapeContact.fromRaw(
             this.colliderSet.raw.coContactShape(
                 this.handle,
                 rawShape2,
@@ -1097,9 +1099,9 @@ export class Collider {
      * @returns The time-of-impact between this collider and the ray, or `-1` if there is no intersection.
      */
     public castRay(ray: Ray, maxToi: number, solid: boolean): number {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = this.colliderSet.raw.coCastRay(this.handle, rawOrig, rawDir, maxToi, solid);
+        const rawOrig = VectorOps.intoRaw(ray.origin);
+        const rawDir = VectorOps.intoRaw(ray.dir);
+        const result = this.colliderSet.raw.coCastRay(this.handle, rawOrig, rawDir, maxToi, solid);
 
         rawOrig.free();
         rawDir.free();
@@ -1124,9 +1126,9 @@ export class Collider {
         solid: boolean,
         target?: RayIntersection,
     ): RayIntersection | null {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = RayIntersection.fromRaw(
+        const rawOrig = VectorOps.intoRaw(ray.origin);
+        const rawDir = VectorOps.intoRaw(ray.dir);
+        const result = RayIntersection.fromRaw(
             this.colliderSet.raw.coCastRayAndGetNormal(
                 this.handle,
                 rawOrig,
@@ -1539,7 +1541,7 @@ export class ColliderDesc {
         if (typeof x != "number" || typeof y != "number" || typeof z != "number")
             throw TypeError("The translation components must be numbers.");
 
-        this.translation = {x: x, y: y, z: z};
+        this.translation = {x, y, z};
         return this;
     }
 

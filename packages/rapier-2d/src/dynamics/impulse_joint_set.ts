@@ -1,8 +1,9 @@
+import type {ImpulseJointHandle, JointData} from "./impulse_joint";
+import type {RigidBodyHandle} from "./rigid_body";
+import type {RigidBodySet} from "./rigid_body_set";
 import {Coarena} from "../coarena";
 import {RawImpulseJointSet} from "../raw";
-import {ImpulseJoint, ImpulseJointHandle, JointData} from "./impulse_joint";
-import {RigidBodyHandle} from "./rigid_body";
-import {RigidBodySet} from "./rigid_body_set";
+import {ImpulseJoint} from "./impulse_joint";
 
 /**
  * A set of joints.
@@ -18,12 +19,12 @@ export class ImpulseJointSet {
      * Release the WASM memory occupied by this joint set.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
 
-        if (!!this.map) {
+        if (this.map) {
             this.map.clear();
         }
         this.map = undefined!;
@@ -64,7 +65,7 @@ export class ImpulseJointSet {
         const rawParams = desc.intoRaw();
         const handle = this.raw.createJoint(rawParams, parent1, parent2, wakeUp);
         rawParams.free();
-        let joint = ImpulseJoint.newTyped(this.raw, bodies, handle);
+        const joint = ImpulseJoint.newTyped(this.raw, bodies, handle);
         this.map.set(handle, joint);
         return joint;
     }

@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {formatBytes, type MemoryResult} from "./memory.js";
+import type {MemoryResult} from "./memory.js";
+import {formatBytes} from "./memory.js";
 
 export interface BenchResult {
     name: string;
@@ -74,7 +75,7 @@ export function loadBaseline(): BaselineData | null {
         const content = fs.readFileSync(baselinePath, "utf-8");
         return JSON.parse(content) as BaselineData;
     } catch (err) {
-        console.warn(`Warning: Could not load baseline file: ${err}`);
+        console.warn(`Warning: Could not load baseline file: ${String(err)}`);
         return null;
     }
 }

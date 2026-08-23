@@ -1,5 +1,6 @@
-import {Vector, VectorOps} from "../math";
-import {RawShapeContact} from "../raw";
+import type {Vector} from "../math";
+import type {RawShapeContact} from "../raw";
+import {VectorOps} from "../math";
 import {scratch} from "../scratch";
 
 /**

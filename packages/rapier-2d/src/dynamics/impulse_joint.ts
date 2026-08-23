@@ -1,13 +1,9 @@
-import {Rotation, Vector, VectorOps, RotationOps} from "../math";
-import {
-    RawGenericJoint,
-    RawImpulseJointSet,
-    RawJointAxis,
-    RawJointType,
-    RawMotorModel,
-} from "../raw";
-import {RigidBody} from "./rigid_body";
-import {RigidBodySet} from "./rigid_body_set";
+import type {Rotation, Vector} from "../math";
+import type {RawImpulseJointSet, RawMotorModel} from "../raw";
+import type {RigidBody} from "./rigid_body";
+import type {RigidBodySet} from "./rigid_body_set";
+import {VectorOps, RotationOps} from "../math";
+import {RawGenericJoint, RawJointAxis, RawJointType} from "../raw";
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -388,7 +384,7 @@ export class JointData {
         anchor2: Vector,
         frame2: Rotation,
     ): JointData {
-        let res = new JointData();
+        const res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
         res.frame1 = frame1;
@@ -404,7 +400,7 @@ export class JointData {
         anchor1: Vector,
         anchor2: Vector,
     ): JointData {
-        let res = new JointData();
+        const res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
         res.length = rest_length;
@@ -415,7 +411,7 @@ export class JointData {
     }
 
     public static rope(length: number, anchor1: Vector, anchor2: Vector): JointData {
-        let res = new JointData();
+        const res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
         res.length = length;
@@ -436,7 +432,7 @@ export class JointData {
      *                  local-space of the rigid-body.
      */
     public static revolute(anchor1: Vector, anchor2: Vector): JointData {
-        let res = new JointData();
+        const res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
         res.jointType = JointType.Revolute;
@@ -456,7 +452,7 @@ export class JointData {
      * @param axis - Axis of the joint, expressed in the local-space of the rigid-bodies it is attached to.
      */
     public static prismatic(anchor1: Vector, anchor2: Vector, axis: Vector): JointData {
-        let res = new JointData();
+        const res = new JointData();
         res.anchor1 = anchor1;
         res.anchor2 = anchor2;
         res.axis = axis;
@@ -465,8 +461,8 @@ export class JointData {
     }
 
     public intoRaw(): RawGenericJoint {
-        let rawA1 = VectorOps.intoRaw(this.anchor1);
-        let rawA2 = VectorOps.intoRaw(this.anchor2);
+        const rawA1 = VectorOps.intoRaw(this.anchor1);
+        const rawA2 = VectorOps.intoRaw(this.anchor2);
         let rawAx;
         let result;
         let limitsEnabled = false;
@@ -474,13 +470,14 @@ export class JointData {
         let limitsMax = 0.0;
 
         switch (this.jointType) {
-            case JointType.Fixed:
-                let rawFra1 = RotationOps.intoRaw(this.frame1);
-                let rawFra2 = RotationOps.intoRaw(this.frame2);
+            case JointType.Fixed: {
+                const rawFra1 = RotationOps.intoRaw(this.frame1);
+                const rawFra2 = RotationOps.intoRaw(this.frame2);
                 result = RawGenericJoint.fixed(rawA1, rawFra1, rawA2, rawFra2);
                 rawFra1.free();
                 rawFra2.free();
                 break;
+            }
             case JointType.Spring:
                 result = RawGenericJoint.spring(
                     this.length,
@@ -496,7 +493,7 @@ export class JointData {
             case JointType.Prismatic:
                 rawAx = VectorOps.intoRaw(this.axis);
 
-                if (!!this.limitsEnabled) {
+                if (this.limitsEnabled) {
                     limitsEnabled = true;
                     limitsMin = this.limits[0];
                     limitsMax = this.limits[1];

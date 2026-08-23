@@ -1,62 +1,63 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier3d";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+type RAPIER_API = typeof RAPIER_NS;
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
+    const world = new RAPIER.World(gravity);
 
     // Create Ground.
-    let bodyDesc = RAPIER.RigidBodyDesc.fixed();
-    let body = world.createRigidBody(bodyDesc);
-    let colliderDesc = RAPIER.ColliderDesc.cuboid(15.0, 0.1, 15.0);
-    world.createCollider(colliderDesc, body);
+    const groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
+    const groundBody = world.createRigidBody(groundBodyDesc);
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(15.0, 0.1, 15.0);
+    world.createCollider(groundColliderDesc, groundBody);
 
     // Dynamic cubes.
-    let rad = 0.5;
-    let num = 5;
+    const rad = 0.5;
+    const num = 5;
     let i, j, k;
-    let shift = rad * 2.5;
-    let center = num * rad;
-    let height = 5.0;
+    const shift = rad * 2.5;
+    const center = num * rad;
+    const height = 5.0;
 
     for (i = 0; i < num; ++i) {
         for (j = i; j < num; ++j) {
             for (k = i; k < num; ++k) {
-                let x = (i * shift) / 2.0 + (k - i) * shift - center;
-                let y = (i * shift) / 2.0 + height;
-                let z = (i * shift) / 2.0 + (j - i) * shift - center;
+                const x = (i * shift) / 2.0 + (k - i) * shift - center;
+                const y = (i * shift) / 2.0 + height;
+                const z = (i * shift) / 2.0 + (j - i) * shift - center;
 
                 // Create dynamic cube.
-                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
-                let body = world.createRigidBody(bodyDesc);
-                let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad / 2.0, rad);
+                const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
+                const body = world.createRigidBody(bodyDesc);
+                const colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad / 2.0, rad);
                 world.createCollider(colliderDesc, body);
             }
         }
     }
 
     // Character.
-    let characterDesc = RAPIER.RigidBodyDesc.dynamic()
+    const characterDesc = RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(-10.0, 4.0, -10.0)
         .setGravityScale(10.0)
         .setSoftCcdPrediction(10.0);
-    let character = world.createRigidBody(characterDesc);
-    let characterColliderDesc = RAPIER.ColliderDesc.cylinder(1.2, 0.6);
+    const character = world.createRigidBody(characterDesc);
+    const characterColliderDesc = RAPIER.ColliderDesc.cylinder(1.2, 0.6);
     world.createCollider(characterColliderDesc, character);
 
-    let pidController = world.createPidController(60.0, 0.0, 1.0, RAPIER.PidAxesMask.AllAng);
+    const pidController = world.createPidController(60.0, 0.0, 1.0, RAPIER.PidAxesMask.AllAng);
 
     // Capture handle instead of body reference so callback survives snapshot restore.
-    let characterHandle = character.handle;
+    const characterHandle = character.handle;
 
-    let speed = 0.2;
-    let movementDirection = {x: 0.0, y: 0.0, z: 0.0};
-    let targetVelocity = {x: 0.0, y: 0.0, z: 0.0};
-    let targetRotation = new RAPIER.Quaternion(0.0, 0.0, 0.0, 1.0);
+    const speed = 0.2;
+    const movementDirection = {x: 0.0, y: 0.0, z: 0.0};
+    const targetVelocity = {x: 0.0, y: 0.0, z: 0.0};
+    const targetRotation = new RAPIER.Quaternion(0.0, 0.0, 0.0, 1.0);
 
-    let updateCharacter = () => {
-        let charBody = testbed.world.getRigidBody(characterHandle);
+    const updateCharacter = () => {
+        const charBody = testbed.world.getRigidBody(characterHandle);
 
         // The handle goes stale if the world is swapped out from under us.
         if (charBody === null) {
@@ -79,7 +80,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             pidController.setAxes(RAPIER.PidAxesMask.All);
         }
 
-        let targetPoint = charBody.translation();
+        const targetPoint = charBody.translation();
         targetPoint.x += movementDirection.x;
         targetPoint.y += movementDirection.y;
         targetPoint.z += movementDirection.z;
@@ -91,23 +92,31 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     testbed.setWorld(world);
     testbed.setpreTimestepAction(updateCharacter);
 
-    document.onkeydown = function (event: KeyboardEvent) {
-        if (event.key == "ArrowUp") movementDirection.x = speed;
-        if (event.key == "ArrowDown") movementDirection.x = -speed;
-        if (event.key == "ArrowLeft") movementDirection.z = -speed;
-        if (event.key == "ArrowRight") movementDirection.z = speed;
-        if (event.key == " ") movementDirection.y = speed;
-    };
+    document.addEventListener(
+        "keydown",
+        (event) => {
+            if (event.key == "ArrowUp") movementDirection.x = speed;
+            if (event.key == "ArrowDown") movementDirection.x = -speed;
+            if (event.key == "ArrowLeft") movementDirection.z = -speed;
+            if (event.key == "ArrowRight") movementDirection.z = speed;
+            if (event.key == " ") movementDirection.y = speed;
+        },
+        {signal: testbed.demoSignal},
+    );
 
-    document.onkeyup = function (event: KeyboardEvent) {
-        if (event.key == "ArrowUp") movementDirection.x = 0.0;
-        if (event.key == "ArrowDown") movementDirection.x = 0.0;
-        if (event.key == "ArrowLeft") movementDirection.z = 0.0;
-        if (event.key == "ArrowRight") movementDirection.z = 0.0;
-        if (event.key == " ") movementDirection.y = 0.0;
-    };
+    document.addEventListener(
+        "keyup",
+        (event) => {
+            if (event.key == "ArrowUp") movementDirection.x = 0.0;
+            if (event.key == "ArrowDown") movementDirection.x = 0.0;
+            if (event.key == "ArrowLeft") movementDirection.z = 0.0;
+            if (event.key == "ArrowRight") movementDirection.z = 0.0;
+            if (event.key == " ") movementDirection.y = 0.0;
+        },
+        {signal: testbed.demoSignal},
+    );
 
-    let cameraPosition = {
+    const cameraPosition = {
         eye: {x: -40.0, y: 19.730000000000008, z: 0.0},
         target: {x: 0.0, y: -0.4126, z: 0.0},
     };

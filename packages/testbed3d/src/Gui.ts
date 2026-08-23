@@ -1,4 +1,4 @@
-import GUI from "lil-gui";
+import {GUI} from "lil-gui";
 import Stats from "stats.js";
 import type {Testbed} from "./Testbed";
 
@@ -44,25 +44,22 @@ export class Gui {
         this.stats.showPanel(this.stats.dom.children.length - 1);
         document.body.appendChild(this.stats.dom);
 
-        var _backends = simulationParameters.backends;
-        var demos = Array.from(simulationParameters.builders.keys());
-        var me = this;
+        const _backends = simulationParameters.backends;
+        const demos = Array.from(simulationParameters.builders.keys());
 
         // For configuring simulation parameters.
         this.gui = new GUI({
             title: "Rapier JS demos",
         });
-        var currDemo = this.gui
-            .add(simulationParameters, "demo", demos)
-            .onChange((demo: string) => {
-                testbed.switchToDemo(demo);
-            });
+        this.gui.add(simulationParameters, "demo", demos).onChange((demo: string) => {
+            testbed.switchToDemo(demo);
+        });
         this.gui.add(simulationParameters, "numSolverIters", 0, 20).step(1).listen();
         this.gui
             .add(simulationParameters, "debugInfos")
             .listen()
             .onChange((value: boolean) => {
-                me.debugText.style.visibility = value ? "visible" : "hidden";
+                this.debugText.style.visibility = value ? "visible" : "hidden";
             });
         this.gui.add(simulationParameters, "debugRender").listen();
         this.gui.add(simulationParameters, "running").listen();
@@ -80,7 +77,7 @@ export class Gui {
         };
         this.gui.add(simulationParameters, "restart");
         simulationParameters.restart = () => {
-            testbed.switchToDemo(currDemo.getValue());
+            testbed.switchToDemo(simulationParameters.demo);
         };
 
         /*
@@ -100,7 +97,7 @@ export class Gui {
         text += "<br/>[Step " + infos.stepId + "]";
 
         if (infos.worldHash) {
-            text += "<br/>World hash (xxHash128): " + infos.worldHash.toString();
+            text += "<br/>World hash (xxHash128): " + infos.worldHash;
             text += "<br/>World hash time (xxHash128): " + infos.worldHashTime + "ms";
             text += "<br/>Snapshot time: " + infos.snapshotTime + "ms";
         }
@@ -125,7 +122,7 @@ export class Gui {
     }
 
     setTiming(timing: number) {
-        if (!!timing) {
+        if (timing) {
             this.maxTimePanelValue = Math.max(this.maxTimePanelValue, timing);
             this.stepTimePanel.update(timing, this.maxTimePanelValue);
         }

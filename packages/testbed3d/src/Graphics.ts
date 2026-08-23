@@ -1,3 +1,4 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier3d";
 import RAPIER from "@alexandernanberg/rapier3d";
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
@@ -7,8 +8,8 @@ const BALL_INSTANCE_INDEX = 1;
 const CYLINDER_INSTANCE_INDEX = 2;
 const CONE_INSTANCE_INDEX = 3;
 
-var dummy = new THREE.Object3D();
-var kk = 0;
+const dummy = new THREE.Object3D();
+let kk = 0;
 
 // Scratch objects for zero-allocation getters
 const _translation = {x: 0, y: 0, z: 0};
@@ -38,7 +39,22 @@ interface Interpolation {
     snapshotQuaternion: THREE.Quaternion;
 }
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+// three.js types `Object3D.userData` as `Record<string, any>`; these say what we
+// actually keep in it.
+interface InstanceUserData {
+    elementId2coll: Map<number, RAPIER.Collider>;
+}
+
+interface MeshUserData {
+    // Interpolation state, populated on the first frame the mesh is drawn.
+    interpolation?: Interpolation;
+}
+
+function instanceData(instance: THREE.InstancedMesh): InstanceUserData {
+    return instance.userData as InstanceUserData;
+}
+
+type RAPIER_API = typeof RAPIER_NS;
 
 // NOTE: this is a very naive voxels -> mesh conversion. Proper
 //       conversions should use something like greedy meshing instead.
@@ -47,22 +63,22 @@ function genVoxelsGeometry(collider: RAPIER.Collider) {
     // and so we’ll be sure that the data contain grid coordinates even if the
     // voxels were initialized with floating points.
     collider.clearShapeCache();
-    let shape = collider.shape as RAPIER.Voxels;
-    let gridCoords = shape.data;
-    let sz = shape.voxelSize;
-    let vertices = [];
-    let indices = [];
+    const shape = collider.shape as RAPIER.Voxels;
+    const gridCoords = shape.data;
+    const sz = shape.voxelSize;
+    const vertices = [];
+    const indices = [];
 
     let i: number;
     for (i = 0; i < gridCoords.length; i += 3) {
-        let minx = gridCoords[i] * sz.x;
-        let miny = gridCoords[i + 1] * sz.y;
-        let minz = gridCoords[i + 2] * sz.z;
-        let maxx = minx + sz.x;
-        let maxy = miny + sz.y;
-        let maxz = minz + sz.z;
+        const minx = gridCoords[i] * sz.x;
+        const miny = gridCoords[i + 1] * sz.y;
+        const minz = gridCoords[i + 2] * sz.z;
+        const maxx = minx + sz.x;
+        const maxy = miny + sz.y;
+        const maxz = minz + sz.z;
 
-        let k: number = vertices.length / 3;
+        const k: number = vertices.length / 3;
         vertices.push(minx, miny, maxz);
         vertices.push(minx, miny, minz);
         vertices.push(maxx, miny, minz);
@@ -96,33 +112,33 @@ function genVoxelsGeometry(collider: RAPIER.Collider) {
 function genSubShapeGeometry(shape: RAPIER.Shape): THREE.BufferGeometry | null {
     switch (shape.type) {
         case RAPIER.ShapeType.Ball: {
-            let ball = shape as RAPIER.Ball;
+            const ball = shape as RAPIER.Ball;
             return new THREE.SphereGeometry(ball.radius);
         }
         case RAPIER.ShapeType.Cuboid:
         case RAPIER.ShapeType.RoundCuboid: {
-            let ext = (shape as RAPIER.Cuboid).halfExtents;
+            const ext = (shape as RAPIER.Cuboid).halfExtents;
             return new THREE.BoxGeometry(ext.x * 2.0, ext.y * 2.0, ext.z * 2.0);
         }
         case RAPIER.ShapeType.Capsule: {
-            let capsule = shape as RAPIER.Capsule;
+            const capsule = shape as RAPIER.Capsule;
             return new THREE.CapsuleGeometry(capsule.radius, capsule.halfHeight * 2.0);
         }
         case RAPIER.ShapeType.Cylinder:
         case RAPIER.ShapeType.RoundCylinder: {
-            let cyl = shape as RAPIER.Cylinder;
+            const cyl = shape as RAPIER.Cylinder;
             return new THREE.CylinderGeometry(cyl.radius, cyl.radius, cyl.halfHeight * 2.0);
         }
         case RAPIER.ShapeType.Cone:
         case RAPIER.ShapeType.RoundCone: {
-            let cone = shape as RAPIER.Cone;
+            const cone = shape as RAPIER.Cone;
             return new THREE.ConeGeometry(cone.radius, cone.halfHeight * 2.0);
         }
         case RAPIER.ShapeType.TriMesh:
         case RAPIER.ShapeType.ConvexPolyhedron:
         case RAPIER.ShapeType.RoundConvexPolyhedron: {
-            let mesh = shape as RAPIER.TriMesh;
-            let geometry = new THREE.BufferGeometry();
+            const mesh = shape as RAPIER.TriMesh;
+            const geometry = new THREE.BufferGeometry();
             geometry.setIndex(Array.from(mesh.indices));
             geometry.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
             return geometry;
@@ -140,20 +156,20 @@ function genSubShapeGeometry(shape: RAPIER.Shape): THREE.BufferGeometry | null {
  * the trimesh and heightfield meshes do.
  */
 function genCompoundGeometry(collider: RAPIER.Collider) {
-    let compound = collider.shape as RAPIER.Compound;
-    let vertices: number[] = [];
-    let indices: number[] = [];
+    const compound = collider.shape as RAPIER.Compound;
+    const vertices: number[] = [];
+    const indices: number[] = [];
 
     compound.shapes.forEach((subShape, i) => {
-        let geometry = genSubShapeGeometry(subShape);
+        const geometry = genSubShapeGeometry(subShape);
 
         if (!geometry) {
             console.log("Unknown compound sub-shape to render.");
             return;
         }
 
-        let pos = compound.positions[i];
-        let rot = compound.rotations[i];
+        const pos = compound.positions[i];
+        const rot = compound.rotations[i];
         _matrix.compose(
             new THREE.Vector3(pos.x, pos.y, pos.z),
             new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w),
@@ -163,14 +179,14 @@ function genCompoundGeometry(collider: RAPIER.Collider) {
 
         // Indices are local to each sub-shape, so they shift by however many
         // vertices are already in the merged buffer.
-        let base = vertices.length / 3;
-        let position = geometry.getAttribute("position");
+        const base = vertices.length / 3;
+        const position = geometry.getAttribute("position");
         for (let k = 0; k < position.count; ++k) {
             vertices.push(position.getX(k), position.getY(k), position.getZ(k));
         }
 
-        let index = geometry.getIndex();
-        if (!!index) {
+        const index = geometry.getIndex();
+        if (index) {
             for (let k = 0; k < index.count; ++k) {
                 indices.push(base + index.getX(k));
             }
@@ -191,23 +207,23 @@ function genCompoundGeometry(collider: RAPIER.Collider) {
 }
 
 function genHeightfieldGeometry(collider: RAPIER.Collider) {
-    let heights = collider.heightfieldHeights();
-    let nrows = collider.heightfieldNRows();
-    let ncols = collider.heightfieldNCols();
-    let scale = collider.heightfieldScale();
+    const heights = collider.heightfieldHeights();
+    const nrows = collider.heightfieldNRows();
+    const ncols = collider.heightfieldNCols();
+    const scale = collider.heightfieldScale();
 
-    let vertices = [];
-    let indices = [];
-    let eltWX = 1.0 / nrows;
-    let eltWY = 1.0 / ncols;
+    const vertices = [];
+    const indices = [];
+    const eltWX = 1.0 / nrows;
+    const eltWY = 1.0 / ncols;
 
     let i: number;
     let j: number;
     for (j = 0; j <= ncols; ++j) {
         for (i = 0; i <= nrows; ++i) {
-            let x = (j * eltWX - 0.5) * scale.x;
-            let y = heights[j * (nrows + 1) + i] * scale.y;
-            let z = (i * eltWY - 0.5) * scale.z;
+            const x = (j * eltWX - 0.5) * scale.x;
+            const y = heights[j * (nrows + 1) + i] * scale.y;
+            const z = (i * eltWY - 0.5) * scale.z;
 
             vertices.push(x, y, z);
         }
@@ -215,10 +231,10 @@ function genHeightfieldGeometry(collider: RAPIER.Collider) {
 
     for (j = 0; j < ncols; ++j) {
         for (i = 0; i < nrows; ++i) {
-            let i1 = (i + 0) * (ncols + 1) + (j + 0);
-            let i2 = (i + 0) * (ncols + 1) + (j + 1);
-            let i3 = (i + 1) * (ncols + 1) + (j + 0);
-            let i4 = (i + 1) * (ncols + 1) + (j + 1);
+            const i1 = (i + 0) * (ncols + 1) + (j + 0);
+            const i2 = (i + 0) * (ncols + 1) + (j + 1);
+            const i3 = (i + 1) * (ncols + 1) + (j + 0);
+            const i4 = (i + 1) * (ncols + 1) + (j + 1);
 
             indices.push(i1, i3, i2);
             indices.push(i3, i4, i2);
@@ -271,7 +287,7 @@ export class Graphics {
         this.renderer.setPixelRatio(pixelRatio);
         document.body.appendChild(this.renderer.domElement);
 
-        let ambientLight = new THREE.AmbientLight(0x606060);
+        const ambientLight = new THREE.AmbientLight(0x606060);
         this.scene.add(ambientLight);
         // In Three.js r155+, decay defaults to 2 for physically correct lighting.
         // Set decay to 0 to restore the old non-physically-correct behavior.
@@ -280,23 +296,21 @@ export class Graphics {
 
         // For the debug-renderer.
         {
-            let material = new THREE.LineBasicMaterial({
+            const material = new THREE.LineBasicMaterial({
                 color: 0xffffff,
                 vertexColors: true,
             });
-            let geometry = new THREE.BufferGeometry();
+            const geometry = new THREE.BufferGeometry();
             this.lines = new THREE.LineSegments(geometry, material);
             this.scene.add(this.lines);
         }
-        let me = this;
-
-        function onWindowResize() {
-            if (!!me.camera) {
-                me.camera.aspect = window.innerWidth / window.innerHeight;
-                me.camera.updateProjectionMatrix();
-                me.renderer.setSize(window.innerWidth, window.innerHeight);
+        const onWindowResize = () => {
+            if (this.camera) {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
             }
-        }
+        };
 
         window.addEventListener("resize", onWindowResize, false);
 
@@ -311,9 +325,9 @@ export class Graphics {
         this.instanceGroups = [];
         this.instanceGroups.push(
             this.colorPalette.map((color) => {
-                let box = new THREE.BoxGeometry(2.0, 2.0, 2.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
+                const box = new THREE.BoxGeometry(2.0, 2.0, 2.0);
+                const mat = new THREE.MeshPhongMaterial({
+                    color,
                     flatShading: true,
                 });
                 return new THREE.InstancedMesh(box, mat, 1000);
@@ -322,9 +336,9 @@ export class Graphics {
 
         this.instanceGroups.push(
             this.colorPalette.map((color) => {
-                let ball = new THREE.SphereGeometry(1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
+                const ball = new THREE.SphereGeometry(1.0);
+                const mat = new THREE.MeshPhongMaterial({
+                    color,
                     flatShading: true,
                 });
                 return new THREE.InstancedMesh(ball, mat, 1000);
@@ -333,9 +347,9 @@ export class Graphics {
 
         this.instanceGroups.push(
             this.colorPalette.map((color) => {
-                let cylinder = new THREE.CylinderGeometry(1.0, 1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
+                const cylinder = new THREE.CylinderGeometry(1.0, 1.0);
+                const mat = new THREE.MeshPhongMaterial({
+                    color,
                     flatShading: true,
                 });
                 return new THREE.InstancedMesh(cylinder, mat, 100);
@@ -344,9 +358,9 @@ export class Graphics {
 
         this.instanceGroups.push(
             this.colorPalette.map((color) => {
-                let cone = new THREE.ConeGeometry(1.0, 1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
+                const cone = new THREE.ConeGeometry(1.0, 1.0);
+                const mat = new THREE.MeshPhongMaterial({
+                    color,
                     flatShading: true,
                 });
                 return new THREE.InstancedMesh(cone, mat, 100);
@@ -355,7 +369,7 @@ export class Graphics {
 
         this.instanceGroups.forEach((groups) => {
             groups.forEach((instance) => {
-                instance.userData.elementId2coll = new Map();
+                instanceData(instance).elementId2coll = new Map();
                 instance.count = 0;
                 instance.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
                 this.scene.add(instance);
@@ -378,7 +392,7 @@ export class Graphics {
         );
 
         if (debugRender) {
-            let buffers = world.debugRender();
+            const buffers = world.debugRender();
             this.lines.visible = true;
             this.lines.geometry.setAttribute(
                 "position",
@@ -417,17 +431,17 @@ export class Graphics {
             return;
 
         if (this.highlightedCollider != null) {
-            let desc = this.coll2instance.get(this.highlightedCollider);
+            const desc = this.coll2instance.get(this.highlightedCollider);
 
-            if (!!desc) {
+            if (desc) {
                 desc.highlighted = false;
                 this.instanceGroups[desc.groupId][this.highlightInstanceId()].count = 0;
             }
         }
         if (handle != null) {
-            let desc = this.coll2instance.get(handle);
+            const desc = this.coll2instance.get(handle);
 
-            if (!!desc) {
+            if (desc) {
                 if (desc.instanceId != 0)
                     // Don't highlight static/kinematic bodies.
                     desc.highlighted = true;
@@ -438,15 +452,15 @@ export class Graphics {
 
     updatePositions(world: RAPIER.World, alpha: number = 1) {
         world.forEachCollider((elt) => {
-            let gfx = this.coll2instance.get(elt.handle);
+            const gfx = this.coll2instance.get(elt.handle);
             elt.translation(_translation);
             elt.rotation(_rotation);
 
             _position.set(_translation.x, _translation.y, _translation.z);
             _quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
 
-            if (!!gfx) {
-                let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
+            if (gfx) {
+                const instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
 
                 let interp = gfx.interpolation;
                 if (interp === undefined) {
@@ -473,7 +487,7 @@ export class Graphics {
                 dummy.updateMatrix();
                 instance.setMatrixAt(gfx.elementId, dummy.matrix);
 
-                let highlightInstance =
+                const highlightInstance =
                     this.instanceGroups[gfx.groupId][this.highlightInstanceId()];
                 if (gfx.highlighted) {
                     highlightInstance.count = 1;
@@ -487,21 +501,27 @@ export class Graphics {
                 interp.snapshotQuaternion.copy(_quaternion);
             }
 
-            let mesh = this.coll2mesh.get(elt.handle);
+            const mesh = this.coll2mesh.get(elt.handle);
 
-            if (!!mesh) {
-                if (!mesh.userData.snapshotPosition) {
-                    mesh.userData.prevPosition = _position.clone();
-                    mesh.userData.prevQuaternion = _quaternion.clone();
-                    mesh.userData.snapshotPosition = _position.clone();
-                    mesh.userData.snapshotQuaternion = _quaternion.clone();
+            if (mesh) {
+                const userData = mesh.userData as MeshUserData;
+
+                let interp = userData.interpolation;
+                if (interp === undefined) {
+                    interp = {
+                        prevPosition: _position.clone(),
+                        prevQuaternion: _quaternion.clone(),
+                        snapshotPosition: _position.clone(),
+                        snapshotQuaternion: _quaternion.clone(),
+                    };
+                    userData.interpolation = interp;
                 } else {
-                    mesh.userData.prevPosition.copy(mesh.userData.snapshotPosition);
-                    mesh.userData.prevQuaternion.copy(mesh.userData.snapshotQuaternion);
+                    interp.prevPosition.copy(interp.snapshotPosition);
+                    interp.prevQuaternion.copy(interp.snapshotQuaternion);
                 }
 
-                _prevPosition.copy(mesh.userData.prevPosition);
-                _prevQuaternion.copy(mesh.userData.prevQuaternion);
+                _prevPosition.copy(interp.prevPosition);
+                _prevQuaternion.copy(interp.prevQuaternion);
                 _prevPosition.lerp(_position, alpha);
                 _prevQuaternion.slerp(_quaternion, alpha);
 
@@ -509,8 +529,8 @@ export class Graphics {
                 mesh.quaternion.copy(_prevQuaternion);
                 mesh.updateMatrix();
 
-                mesh.userData.snapshotPosition.copy(_position);
-                mesh.userData.snapshotQuaternion.copy(_quaternion);
+                interp.snapshotPosition.copy(_position);
+                interp.snapshotQuaternion.copy(_quaternion);
             }
         });
     }
@@ -518,7 +538,7 @@ export class Graphics {
     reset() {
         this.instanceGroups.forEach((groups) => {
             groups.forEach((instance) => {
-                instance.userData.elementId2coll = new Map();
+                instanceData(instance).elementId2coll = new Map();
                 instance.count = 0;
             });
         });
@@ -548,7 +568,7 @@ export class Graphics {
     // }
 
     removeRigidBody(body: RAPIER.RigidBody) {
-        let colls = this.rb2colls.get(body.handle);
+        const colls = this.rb2colls.get(body.handle);
 
         if (colls !== undefined) {
             colls.forEach((coll) => this.removeCollider(coll));
@@ -557,23 +577,27 @@ export class Graphics {
     }
 
     removeCollider(collider: RAPIER.Collider) {
-        let gfx = this.coll2instance.get(collider.handle);
+        const gfx = this.coll2instance.get(collider.handle);
 
         // Shapes drawn as their own mesh (trimesh, heightfield, …) have no instance.
         if (gfx === undefined) {
             return;
         }
 
-        let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
+        const instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
 
         if (instance.count > 1) {
-            let coll2 = instance.userData.elementId2coll.get(instance.count - 1);
-            instance.userData.elementId2coll.delete(instance.count - 1);
-            instance.userData.elementId2coll.set(gfx.elementId, coll2);
+            const elementId2coll = instanceData(instance).elementId2coll;
+            const coll2 = elementId2coll.get(instance.count - 1);
+            elementId2coll.delete(instance.count - 1);
 
-            let gfx2 = this.coll2instance.get(coll2.handle);
-            if (gfx2 !== undefined) {
-                gfx2.elementId = gfx.elementId;
+            if (coll2 !== undefined) {
+                elementId2coll.set(gfx.elementId, coll2);
+
+                const gfx2 = this.coll2instance.get(coll2.handle);
+                if (gfx2 !== undefined) {
+                    gfx2.elementId = gfx.elementId;
+                }
             }
         }
 
@@ -581,12 +605,12 @@ export class Graphics {
         this.coll2instance.delete(collider.handle);
     }
 
-    addCollider(RAPIER: RAPIER_API, world: RAPIER.World, collider: RAPIER.Collider) {
+    addCollider(rapier: RAPIER_API, world: RAPIER.World, collider: RAPIER.Collider) {
         this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 2);
-        let parent = collider.parent();
+        const parent = collider.parent();
 
         if (parent !== null) {
-            let colls = this.rb2colls.get(parent.handle);
+            const colls = this.rb2colls.get(parent.handle);
 
             if (colls === undefined) {
                 this.rb2colls.set(parent.handle, [collider]);
@@ -596,7 +620,7 @@ export class Graphics {
         }
 
         let instance;
-        let instanceDesc: InstanceDesc = {
+        const instanceDesc: InstanceDesc = {
             groupId: 0,
             // A collider without a parent body is static, so colour it like a fixed one.
             instanceId: parent === null || parent.isFixed() ? 0 : this.colorIndex + 1,
@@ -606,55 +630,59 @@ export class Graphics {
         };
 
         switch (collider.shapeType()) {
-            case RAPIER.ShapeType.Cuboid:
-                let hext = collider.halfExtents();
+            case rapier.ShapeType.Cuboid: {
+                const hext = collider.halfExtents();
                 instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = BOX_INSTANCE_INDEX;
                 instanceDesc.scale = new THREE.Vector3(hext.x, hext.y, hext.z);
                 break;
-            case RAPIER.ShapeType.Ball:
-                let rad = collider.radius();
+            }
+            case rapier.ShapeType.Ball: {
+                const rad = collider.radius();
                 instance = this.instanceGroups[BALL_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = BALL_INSTANCE_INDEX;
                 instanceDesc.scale = new THREE.Vector3(rad, rad, rad);
                 break;
-            case RAPIER.ShapeType.Cylinder:
-            case RAPIER.ShapeType.RoundCylinder:
-                let cyl_rad = collider.radius();
-                let cyl_height = collider.halfHeight() * 2.0;
+            }
+            case rapier.ShapeType.Cylinder:
+            case rapier.ShapeType.RoundCylinder: {
+                const cyl_rad = collider.radius();
+                const cyl_height = collider.halfHeight() * 2.0;
                 instance = this.instanceGroups[CYLINDER_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = CYLINDER_INSTANCE_INDEX;
                 instanceDesc.scale = new THREE.Vector3(cyl_rad, cyl_height, cyl_rad);
                 break;
-            case RAPIER.ShapeType.Cone:
-                let cone_rad = collider.radius();
-                let cone_height = collider.halfHeight() * 2.0;
+            }
+            case rapier.ShapeType.Cone: {
+                const cone_rad = collider.radius();
+                const cone_height = collider.halfHeight() * 2.0;
                 instance = this.instanceGroups[CONE_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = CONE_INSTANCE_INDEX;
                 instanceDesc.scale = new THREE.Vector3(cone_rad, cone_height, cone_rad);
                 break;
-            case RAPIER.ShapeType.TriMesh:
-            case RAPIER.ShapeType.HeightField:
-            case RAPIER.ShapeType.ConvexPolyhedron:
-            case RAPIER.ShapeType.RoundConvexPolyhedron:
-            case RAPIER.ShapeType.Voxels:
-            case RAPIER.ShapeType.Compound:
-                let geometry = new THREE.BufferGeometry();
+            }
+            case rapier.ShapeType.TriMesh:
+            case rapier.ShapeType.HeightField:
+            case rapier.ShapeType.ConvexPolyhedron:
+            case rapier.ShapeType.RoundConvexPolyhedron:
+            case rapier.ShapeType.Voxels:
+            case rapier.ShapeType.Compound: {
+                const geometry = new THREE.BufferGeometry();
                 let vertices;
                 let indices;
 
-                if (collider.shapeType() == RAPIER.ShapeType.HeightField) {
-                    let g = genHeightfieldGeometry(collider);
+                if (collider.shapeType() == rapier.ShapeType.HeightField) {
+                    const g = genHeightfieldGeometry(collider);
                     vertices = g.vertices;
                     indices = g.indices;
-                } else if (collider.shapeType() == RAPIER.ShapeType.Voxels) {
-                    let g = genVoxelsGeometry(collider);
+                } else if (collider.shapeType() == rapier.ShapeType.Voxels) {
+                    const g = genVoxelsGeometry(collider);
                     vertices = g.vertices;
                     indices = g.indices;
-                } else if (collider.shapeType() == RAPIER.ShapeType.Compound) {
+                } else if (collider.shapeType() == rapier.ShapeType.Compound) {
                     // Compounds have no vertex buffer of their own; the mesh is
                     // built by flattening their sub-shapes.
-                    let g = genCompoundGeometry(collider);
+                    const g = genCompoundGeometry(collider);
                     vertices = g.vertices;
                     indices = g.indices;
                 } else {
@@ -670,30 +698,31 @@ export class Graphics {
 
                 geometry.setIndex(Array.from(indices));
                 geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-                let color = parent !== null && !parent.isFixed() ? this.colorIndex + 1 : 0;
+                const color = parent !== null && !parent.isFixed() ? this.colorIndex + 1 : 0;
 
-                let material = new THREE.MeshPhongMaterial({
+                const material = new THREE.MeshPhongMaterial({
                     color: this.colorPalette[color],
                     side: THREE.DoubleSide,
                     flatShading: true,
                 });
 
-                let mesh = new THREE.Mesh(geometry, material);
+                const mesh = new THREE.Mesh(geometry, material);
                 this.scene.add(mesh);
                 this.coll2mesh.set(collider.handle, mesh);
                 return;
+            }
             default:
                 console.log("Unknown shape to render.");
                 return;
         }
 
-        if (!!instance) {
+        if (instance) {
             instanceDesc.elementId = instance.count;
-            instance.userData.elementId2coll.set(instance.count, collider);
+            instanceData(instance).elementId2coll.set(instance.count, collider);
             instance.count += 1;
         }
 
-        let highlightInstance =
+        const highlightInstance =
             this.instanceGroups[instanceDesc.groupId][this.highlightInstanceId()];
         highlightInstance.count = 0;
 

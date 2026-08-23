@@ -20,7 +20,7 @@ export class Coarena<T> {
     }
 
     public set(handle: number, data: T) {
-        let i = handleToIndex(handle);
+        const i = handleToIndex(handle);
         while (this.data.length <= i) {
             this.data.push(null);
         }
@@ -34,7 +34,7 @@ export class Coarena<T> {
     }
 
     public delete(handle: number) {
-        let i = handleToIndex(handle);
+        const i = handleToIndex(handle);
         if (i < this.data.length) {
             if (this.data[i] != null) this.size -= 1;
             this.data[i] = null;
@@ -46,7 +46,7 @@ export class Coarena<T> {
     }
 
     public get(handle: number): T | null {
-        let i = handleToIndex(handle);
+        const i = handleToIndex(handle);
         if (i < this.data.length) {
             return this.data[i];
         } else {

@@ -1,10 +1,11 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier3d";
 import type * as RAPIER from "@alexandernanberg/rapier3d";
 import {xxhash128} from "hash-wasm";
 import type {DebugInfos} from "./Gui";
 import {Graphics} from "./Graphics";
 import {Gui} from "./Gui";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+type RAPIER_API = typeof RAPIER_NS;
 
 type Builders = Map<string, (RAPIER: RAPIER_API, testbed: Testbed) => void>;
 
@@ -59,15 +60,18 @@ export class Testbed {
     lastMessageTime: number;
     snap?: Uint8Array;
     snapStepId: number;
+    // Aborted by `setWorld()` so listeners a demo registered with `demoSignal`
+    // are dropped when the next demo takes over.
+    private demoLifetime = new AbortController();
     // Fixed timestep state
     lastFrameTime: number;
     accumulator: number;
     maxSubsteps: number;
 
     constructor(RAPIER: RAPIER_API, builders: Builders) {
-        let backends = ["rapier"];
+        const backends = ["rapier"];
         this.RAPIER = RAPIER;
-        let parameters = new SimulationParameters(backends, builders);
+        const parameters = new SimulationParameters(backends, builders);
         this.gui = new Gui(this, parameters);
         this.graphics = new Graphics();
         this.inhibitLookAt = false;
@@ -100,9 +104,14 @@ export class Testbed {
         this.preTimestepAction = action;
     }
 
+    /** Signal that aborts when the current demo is torn down. */
+    get demoSignal(): AbortSignal {
+        return this.demoLifetime.signal;
+    }
+
     setWorld(world: RAPIER.World) {
-        document.onkeydown = null; // Reset key events.
-        document.onkeyup = null; // Reset key events.
+        this.demoLifetime.abort();
+        this.demoLifetime = new AbortController();
 
         this.preTimestepAction = undefined;
         this.world = world;
@@ -153,7 +162,7 @@ export class Testbed {
     }
 
     restoreSnapshot() {
-        if (!!this.snap) {
+        if (this.snap) {
             const restored = this.RAPIER.World.restoreSnapshot(this.snap);
 
             if (restored !== null) {
@@ -188,11 +197,11 @@ export class Testbed {
 
             // Run physics in fixed timestep increments
             while (this.accumulator >= fixedStep) {
-                if (!!this.preTimestepAction) {
+                if (this.preTimestepAction) {
                     this.preTimestepAction(this.graphics);
                 }
 
-                let t0 = performance.now();
+                const t0 = performance.now();
                 this.world.step(this.events);
                 totalStepTime += performance.now() - t0;
                 stepCount += 1;
@@ -209,13 +218,13 @@ export class Testbed {
             // Calculate interpolation factor for smooth rendering
             alpha = this.accumulator / fixedStep;
 
-            if (!!this.parameters.debugInfos) {
+            if (this.parameters.debugInfos) {
                 let t0 = performance.now();
-                let snapshot = this.world.takeSnapshot();
+                const snapshot = this.world.takeSnapshot();
                 let t1 = performance.now();
-                let snapshotTime = t1 - t0;
+                const snapshotTime = t1 - t0;
 
-                let debugInfos: DebugInfos = {
+                const debugInfos: DebugInfos = {
                     token: this.demoToken,
                     stepId: this.stepId,
                     worldHash: "",
@@ -239,10 +248,10 @@ export class Testbed {
                     timingUserChanges: this.world.timingUserChanges(),
                 };
                 t0 = performance.now();
-                xxhash128(snapshot).then((hash) => {
+                void xxhash128(snapshot).then((hash) => {
                     debugInfos.worldHash = hash;
                     t1 = performance.now();
-                    let worldHashTime = t1 - t0;
+                    const worldHashTime = t1 - t0;
                     debugInfos.worldHashTime = worldHashTime;
                     debugInfos.snapshotTime = snapshotTime;
                     this.gui.setDebugInfos(debugInfos);

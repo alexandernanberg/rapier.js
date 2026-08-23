@@ -1,4 +1,4 @@
-import {
+import type {
     IntegrationParameters,
     ImpulseJointSet,
     MultibodyJointSet,
@@ -6,11 +6,14 @@ import {
     CCDSolver,
     IslandManager,
 } from "../dynamics";
-import {BroadPhase, ColliderSet, NarrowPhase} from "../geometry";
-import {Vector, VectorOps} from "../math";
-import {RawPhysicsPipeline, RawVector} from "../raw";
-import {EventQueue} from "./event_queue";
-import {ContactModificationContext, PhysicsHooks} from "./physics_hooks";
+import type {BroadPhase, ColliderSet, NarrowPhase} from "../geometry";
+import type {Vector} from "../math";
+import type {RawVector} from "../raw";
+import type {EventQueue} from "./event_queue";
+import type {PhysicsHooks} from "./physics_hooks";
+import {VectorOps} from "../math";
+import {RawPhysicsPipeline} from "../raw";
+import {ContactModificationContext} from "./physics_hooks";
 
 export class PhysicsPipeline {
     raw: RawPhysicsPipeline;
@@ -33,7 +36,7 @@ export class PhysicsPipeline {
             this.cachedGravity.free();
             this.cachedGravity = null;
         }
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined as unknown as RawPhysicsPipeline;
@@ -92,7 +95,7 @@ export class PhysicsPipeline {
             this.lastGravityZ = gravity.z;
         }
 
-        if (!!eventQueue) {
+        if (eventQueue) {
             this.raw.stepWithEvents(
                 this.cachedGravity,
                 integrationParameters.raw,
@@ -110,7 +113,7 @@ export class PhysicsPipeline {
                 hooks?.filterIntersectionPair,
                 this.modifySolverContactsCallback(hooks),
             );
-        } else if (!!hooks) {
+        } else if (hooks) {
             this.raw.stepWithHooks(
                 this.cachedGravity,
                 integrationParameters.raw,

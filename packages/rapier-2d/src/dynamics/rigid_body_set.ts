@@ -1,16 +1,18 @@
+import type {ColliderSet} from "../geometry";
+import type {RawRigidBodyType} from "../raw";
+import type {TransformBufferRef} from "../transform_buffer";
+import type {ImpulseJointSet} from "./impulse_joint_set";
+import type {IslandManager} from "./island_manager";
+import type {MultibodyJointSet} from "./multibody_joint_set";
+import type {RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
 import {Coarena} from "../coarena";
-import {ColliderSet} from "../geometry";
-import {RawRigidBodySet, RawRigidBodyType, wasmMemory} from "../raw";
+import {RawRigidBodySet, wasmMemory} from "../raw";
 import {
     createTransformBufferRef,
     invalidateTransformBuffer,
     refreshTransformBuffer,
-    type TransformBufferRef,
 } from "../transform_buffer";
-import {ImpulseJointSet} from "./impulse_joint_set";
-import {IslandManager} from "./island_manager";
-import {MultibodyJointSet} from "./multibody_joint_set";
-import {RigidBody, RigidBodyDesc, RigidBodyHandle} from "./rigid_body";
+import {RigidBody} from "./rigid_body";
 
 /**
  * A set of rigid bodies that can be handled by a physics pipeline.
@@ -29,7 +31,7 @@ export class RigidBodySet {
      * Release the WASM memory occupied by this rigid-body set.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
@@ -38,7 +40,7 @@ export class RigidBodySet {
         invalidateTransformBuffer(this._bufferRef);
         this._bufferRef = createTransformBufferRef();
 
-        if (!!this.map) {
+        if (this.map) {
             this.map.clear();
         }
         this.map = undefined!;
@@ -90,7 +92,7 @@ export class RigidBodySet {
         const com = desc.centerOfMass;
         const lv = desc.linvel;
 
-        let handle = this.raw.createRigidBody(
+        const handle = this.raw.createRigidBody(
             desc.enabled,
             tra.x,
             tra.y,
@@ -152,11 +154,11 @@ export class RigidBodySet {
             colliders.unmap(this.raw.rbCollider(handle, i));
         }
 
-        impulseJoints.forEachJointHandleAttachedToRigidBody(handle, (handle) =>
-            impulseJoints.unmap(handle),
+        impulseJoints.forEachJointHandleAttachedToRigidBody(handle, (jointHandle) =>
+            impulseJoints.unmap(jointHandle),
         );
-        multibodyJoints.forEachJointHandleAttachedToRigidBody(handle, (handle) =>
-            multibodyJoints.unmap(handle),
+        multibodyJoints.forEachJointHandleAttachedToRigidBody(handle, (jointHandle) =>
+            multibodyJoints.unmap(jointHandle),
         );
 
         // Remove the rigid-body.

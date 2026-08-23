@@ -1,21 +1,23 @@
-import {Vector3, Object3D, Mesh, BufferGeometry, BufferAttribute} from "three";
+import type * as RAPIER_NS from "@alexandernanberg/rapier3d";
+import type {Object3D, Mesh, BufferGeometry, BufferAttribute} from "three";
+import {Vector3} from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import type {Testbed} from "../Testbed";
-type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+type RAPIER_API = typeof RAPIER_NS;
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
+    const world = new RAPIER.World(gravity);
 
     // Create Ground.
-    let bodyDesc = RAPIER.RigidBodyDesc.fixed();
-    let groundBody = world.createRigidBody(bodyDesc);
-    let colliderDesc = RAPIER.ColliderDesc.cuboid(5.0, 0.1, 5.0);
-    world.createCollider(colliderDesc, groundBody);
+    const groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
+    const groundBody = world.createRigidBody(groundBodyDesc);
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(5.0, 0.1, 5.0);
+    world.createCollider(groundColliderDesc, groundBody);
 
     // Adding the 3d model
 
-    let loader = new GLTFLoader();
+    const loader = new GLTFLoader();
 
     loader.load("./suzanne_blender_monkey.glb", (gltf) => {
         gltf.scene.position.set(0, 1.2, 0);
@@ -52,7 +54,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     });
 
     testbed.setWorld(world);
-    let cameraPosition = {
+    const cameraPosition = {
         eye: {x: 10.0, y: 5.0, z: 10.0},
         target: {x: 0.0, y: 0.0, z: 0.0},
     };

@@ -1,16 +1,17 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier2d";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
+type RAPIER_API = typeof RAPIER_NS;
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector2(0.0, -9.81);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector2(0.0, -9.81);
+    const world = new RAPIER.World(gravity);
 
     /*
      * The ground
      */
-    let ground_size = 1.8;
-    let ground_height = 1.0;
+    const ground_size = 1.8;
+    const ground_height = 1.0;
 
     let bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(0.0, -ground_height);
     let body = world.createRigidBody(bodyDesc);

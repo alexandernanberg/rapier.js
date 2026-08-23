@@ -1,4 +1,5 @@
-import {RawFrictionModel, RawIntegrationParameters} from "../raw";
+import type {RawFrictionModel} from "../raw";
+import {RawIntegrationParameters} from "../raw";
 
 /**
  * The friction constraint model used by the solver.
@@ -27,7 +28,7 @@ export class IntegrationParameters {
      * Free the WASM memory used by these integration parameters.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;

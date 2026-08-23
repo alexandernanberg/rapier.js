@@ -1,6 +1,8 @@
-import {ColliderHandle} from "../geometry";
-import {Vector, VectorOps} from "../math";
-import {RawContactForceEvent, RawEventQueue} from "../raw";
+import type {ColliderHandle} from "../geometry";
+import type {Vector} from "../math";
+import type {RawContactForceEvent} from "../raw";
+import {VectorOps} from "../math";
+import {RawEventQueue} from "../raw";
 import {scratch} from "../scratch";
 
 /**
@@ -29,7 +31,7 @@ export class TempContactForceEvent {
     raw!: RawContactForceEvent;
 
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
@@ -110,7 +112,7 @@ export class EventQueue {
      * Release the WASM memory occupied by this event-queue.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
@@ -139,7 +141,7 @@ export class EventQueue {
      *            closure must take one `TempContactForceEvent` argument.
      */
     public drainContactForceEvents(f: (event: TempContactForceEvent) => void) {
-        let event = new TempContactForceEvent();
+        const event = new TempContactForceEvent();
         this.raw.drainContactForceEvents((raw: RawContactForceEvent) => {
             event.raw = raw;
             f(event);

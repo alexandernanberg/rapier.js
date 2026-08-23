@@ -1,56 +1,57 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier2d";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
+type RAPIER_API = typeof RAPIER_NS;
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector2(0.0, -9.81);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector2(0.0, -9.81);
+    const world = new RAPIER.World(gravity);
     let i, j;
 
     /*
      * Ground
      */
-    let nsubdivs = 100;
-    let points = [];
-    let groundSize = 30.0;
-    let stepSize = groundSize / nsubdivs;
+    const nsubdivs = 100;
+    const points = [];
+    const groundSize = 30.0;
+    const stepSize = groundSize / nsubdivs;
 
     points.push(-groundSize / 2.0, 25.0);
     for (i = 1; i < nsubdivs; ++i) {
-        let x = -groundSize / 2.0 + i * stepSize;
-        let y = Math.cos(i * stepSize) * 2.0;
+        const x = -groundSize / 2.0 + i * stepSize;
+        const y = Math.cos(i * stepSize) * 2.0;
         points.push(x, y);
     }
     points.push(groundSize / 2.0, 25.0);
-    let bodyDesc = RAPIER.RigidBodyDesc.fixed();
-    let body = world.createRigidBody(bodyDesc);
-    let colliderDesc = RAPIER.ColliderDesc.polyline(new Float32Array(points));
-    world.createCollider(colliderDesc, body);
+    const groundBodyDesc = RAPIER.RigidBodyDesc.fixed();
+    const groundBody = world.createRigidBody(groundBodyDesc);
+    const groundColliderDesc = RAPIER.ColliderDesc.polyline(new Float32Array(points));
+    world.createCollider(groundColliderDesc, groundBody);
 
     /*
      * Create the cubes
      */
-    let num = 10;
-    let rad = 0.5;
+    const num = 10;
+    const rad = 0.5;
 
-    let shift = rad * 2.0;
-    let centerx = shift * (num / 2);
-    let centery = shift / 2.0;
+    const shift = rad * 2.0;
+    const centerx = shift * (num / 2);
+    const centery = shift / 2.0;
 
     for (i = 0; i < num; ++i) {
         for (j = 0; j < num * 5; ++j) {
-            let x = i * shift - centerx;
-            let y = j * shift + centery + 3.0;
+            const x = i * shift - centerx;
+            const y = j * shift + centery + 3.0;
 
-            // Build the rigid body.
-            let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
-            let body = world.createRigidBody(bodyDesc);
+            // Build the rigid groundBody.
+            const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
+            const body = world.createRigidBody(bodyDesc);
 
             if (j % 2 == 0) {
-                let colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad);
+                const colliderDesc = RAPIER.ColliderDesc.cuboid(rad, rad);
                 world.createCollider(colliderDesc, body);
             } else {
-                let colliderDesc = RAPIER.ColliderDesc.ball(rad);
+                const colliderDesc = RAPIER.ColliderDesc.ball(rad);
                 world.createCollider(colliderDesc, body);
             }
         }

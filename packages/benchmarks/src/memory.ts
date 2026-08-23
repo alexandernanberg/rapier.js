@@ -132,6 +132,9 @@ async function measureBytesPerOp(bench: MemoryBench): Promise<{
         const before = process.memoryUsage().heapUsed;
         runCalls(bench, calls);
         const windowDelta = process.memoryUsage().heapUsed - before;
+        // Sequential on purpose: each window has to be measured on its own, with
+        // the observer flushed before the next one starts.
+        // eslint-disable-next-line no-await-in-loop
         const tally = await observer.stop();
         const perOp = Math.max(0, windowDelta) / (calls * bench.opsPerCall);
 
@@ -179,7 +182,11 @@ export async function measureMemory(
         // Warm up so JIT compilation and hidden-class churn land outside the window.
         runCalls(bench, 16);
 
+        // Sequential on purpose: overlapping runs would share a heap and the
+        // allocation rates would measure each other.
+        // eslint-disable-next-line no-await-in-loop
         const {bytesPerOp, collected} = await measureBytesPerOp(bench);
+        // eslint-disable-next-line no-await-in-loop
         const pressure = await measureGcPressure(bench, bytesPerOp, quick);
         const perMillion = 1e6 / pressure.ops;
 

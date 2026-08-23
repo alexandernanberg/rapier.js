@@ -1,9 +1,10 @@
+import type {JointData} from "./impulse_joint";
+import type {MultibodyJointHandle} from "./multibody_joint";
+import type {RigidBodyHandle} from "./rigid_body";
+import type {RigidBodySet} from "./rigid_body_set";
 import {Coarena} from "../coarena";
 import {RawMultibodyJointSet} from "../raw";
-import {JointData} from "./impulse_joint";
-import {MultibodyJoint, MultibodyJointHandle} from "./multibody_joint";
-import {RigidBodyHandle} from "./rigid_body";
-import {RigidBodySet} from "./rigid_body_set";
+import {MultibodyJoint} from "./multibody_joint";
 
 /**
  * A set of joints.
@@ -19,12 +20,12 @@ export class MultibodyJointSet {
      * Release the WASM memory occupied by this joint set.
      */
     public free() {
-        if (!!this.raw) {
+        if (this.raw) {
             this.raw.free();
         }
         this.raw = undefined!;
 
-        if (!!this.map) {
+        if (this.map) {
             this.map.clear();
         }
         this.map = undefined!;
@@ -77,7 +78,7 @@ export class MultibodyJointSet {
             );
         }
 
-        let joint = MultibodyJoint.newTyped(this.raw, bodies, handle);
+        const joint = MultibodyJoint.newTyped(this.raw, bodies, handle);
         this.map.set(handle, joint);
         return joint;
     }

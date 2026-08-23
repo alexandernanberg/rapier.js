@@ -20,6 +20,7 @@ jobs:
         outputs:
             src: ${{ steps.filter.outputs.src }}
             testbed: ${{ steps.filter.outputs.testbed }}
+            lintable: ${{ steps.filter.outputs.lintable }}
         steps:
             - uses: actions/checkout@v6
             - uses: dorny/paths-filter@v4
@@ -36,8 +37,14 @@ jobs:
                       testbed:
                         - 'packages/testbed2d/**'
                         - 'packages/testbed3d/**'
+                      lintable:
+                        - 'packages/**'
+                        - 'crates/**'
+                        - 'oxlint.config.ts'
+                        - 'package.json'
+                        - 'pnpm-lock.yaml'
 
-    lint:
+    format:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
@@ -49,15 +56,39 @@ jobs:
             - run: pnpm install --frozen-lockfile
             - name: Check formatting
               run: pnpm fmt --check
-            - name: Lint
-              run: pnpm lint
             - name: Check Rust formatting
               run: cargo fmt -- --check
+
+    # oxlint runs type-aware rules, so it needs the wasm-bindgen `.d.ts` files and
+    # every package's `dist/` — without them the cross-package types resolve to
+    # `any` and the rules fire on everything.
+    lint:
+        runs-on: ubuntu-latest
+        needs: [changes, build]
+        if: needs.changes.outputs.lintable == 'true'
+        steps:
+            - uses: actions/checkout@v6
+            - uses: pnpm/action-setup@v6
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  cache: "pnpm"
+            - run: pnpm install --frozen-lockfile
+            - name: Download build artifacts
+              uses: actions/download-artifact@v8
+              with:
+                  name: build-artifacts
+                  path: packages
+            - name: Lint
+              run: pnpm lint
 
     build:
         runs-on: ubuntu-latest
         needs: [changes]
-        if: needs.changes.outputs.src == 'true' || needs.changes.outputs.testbed == 'true'
+        if: |
+            needs.changes.outputs.src == 'true' ||
+            needs.changes.outputs.testbed == 'true' ||
+            needs.changes.outputs.lintable == 'true'
         env:
             RUSTFLAGS: -D warnings
         steps:

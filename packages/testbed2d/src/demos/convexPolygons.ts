@@ -1,57 +1,58 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier2d";
 import seedrandom from "seedrandom";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier2d");
+type RAPIER_API = typeof RAPIER_NS;
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector2(0.0, -9.81);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector2(0.0, -9.81);
+    const world = new RAPIER.World(gravity);
 
     /*
      * Ground
      */
     // Create Ground.
-    let groundSize = 30.0;
-    let grounds = [
+    const groundSize = 30.0;
+    const grounds = [
         {x: 0.0, y: 0.0, hx: groundSize, hy: 1.2},
         {x: -groundSize, y: groundSize, hx: 1.2, hy: groundSize},
         {x: groundSize, y: groundSize, hx: 1.2, hy: groundSize},
     ];
 
     grounds.forEach((ground) => {
-        let bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(ground.x, ground.y);
-        let body = world.createRigidBody(bodyDesc);
-        let colliderDesc = RAPIER.ColliderDesc.cuboid(ground.hx, ground.hy);
+        const bodyDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(ground.x, ground.y);
+        const body = world.createRigidBody(bodyDesc);
+        const colliderDesc = RAPIER.ColliderDesc.cuboid(ground.hx, ground.hy);
         world.createCollider(colliderDesc, body);
     });
 
     /*
      * Create the convex polygons
      */
-    let num = 14;
-    let scale = 4.0;
+    const num = 14;
+    const scale = 4.0;
 
-    let shift = scale;
-    let centerx = (shift * num) / 2.0;
-    let centery = shift / 2.0;
+    const shift = scale;
+    const centerx = (shift * num) / 2.0;
+    const centery = shift / 2.0;
 
     let i, j, k;
-    let rng = seedrandom("convexPolygon");
+    const rng = seedrandom("convexPolygon");
 
     for (i = 0; i < num; ++i) {
         for (j = 0; j < num * 2; ++j) {
-            let x = i * shift - centerx;
-            let y = j * shift * 2.0 + centery + 2.0;
+            const x = i * shift - centerx;
+            const y = j * shift * 2.0 + centery + 2.0;
 
-            let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
-            let body = world.createRigidBody(bodyDesc);
+            const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y);
+            const body = world.createRigidBody(bodyDesc);
 
-            let points = [];
+            const points = [];
             for (k = 0; k < 10; ++k) {
                 points.push(rng() * scale, rng() * scale);
             }
             // `convexHull` returns null if the random point set is degenerate.
-            let colliderDesc = RAPIER.ColliderDesc.convexHull(new Float32Array(points));
+            const colliderDesc = RAPIER.ColliderDesc.convexHull(new Float32Array(points));
             if (colliderDesc !== null) {
                 world.createCollider(colliderDesc, body);
             }

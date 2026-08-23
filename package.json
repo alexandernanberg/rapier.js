@@ -1,4 +1,5 @@
 {
+    "type": "module",
     "scripts": {
         "fmt": "oxfmt .",
         "lint": "oxlint",
@@ -30,7 +31,9 @@
         "@changesets/changelog-github": "^1.0.0",
         "@changesets/cli": "^3.0.0",
         "oxfmt": "0.63.0",
-        "oxlint": "1.78.0",
+        "oxlint": "1.79.0",
+        "oxlint-config-alexandernanberg": "^1.2.0",
+        "oxlint-tsgolint": "^7.0.2001",
         "typedoc": "0.28.20",
         "typescript": "7.0.2",
         "wasm-pack": "0.15.0"

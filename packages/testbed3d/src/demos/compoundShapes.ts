@@ -1,15 +1,16 @@
+import type * as RAPIER_NS from "@alexandernanberg/rapier3d";
 import seedrandom from "seedrandom";
 import type {Testbed} from "../Testbed";
 
-type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+type RAPIER_API = typeof RAPIER_NS;
 
 export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
-    let gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
-    let world = new RAPIER.World(gravity);
+    const gravity = new RAPIER.Vector3(0.0, -9.81, 0.0);
+    const world = new RAPIER.World(gravity);
 
     // Create the ground.
-    let groundDesc = RAPIER.RigidBodyDesc.fixed();
-    let ground = world.createRigidBody(groundDesc);
+    const groundDesc = RAPIER.RigidBodyDesc.fixed();
+    const ground = world.createRigidBody(groundDesc);
     world.createCollider(RAPIER.ColliderDesc.cuboid(30.0, 0.1, 30.0), ground);
 
     const identity = {x: 0.0, y: 0.0, z: 0.0, w: 1.0};
@@ -37,17 +38,17 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             [identity, identity],
         );
 
-    let rng = seedrandom("compoundShapes");
+    const rng = seedrandom("compoundShapes");
 
     for (let j = 0; j < 8; ++j) {
         for (let i = 0; i < 4; ++i) {
             for (let k = 0; k < 4; ++k) {
-                let x = i * 4.0 - 6.0;
-                let y = j * 3.0 + 3.0;
-                let z = k * 4.0 - 6.0;
+                const x = i * 4.0 - 6.0;
+                const y = j * 3.0 + 3.0;
+                const z = k * 4.0 - 6.0;
 
-                let bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
-                let body = world.createRigidBody(bodyDesc);
+                const bodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z);
+                const body = world.createRigidBody(bodyDesc);
                 world.createCollider(rng() < 0.5 ? dumbbell() : chair(), body);
             }
         }

@@ -72,7 +72,7 @@ export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): M
     // Results have to escape the benchmark, or V8's escape analysis scalar-
     // replaces them and the allocation being measured never happens. A small
     // rotating sink is enough to defeat it without retaining the whole run.
-    const sink: any[] = new Array(16).fill(null);
+    const sink: any[] = Array.from({length: 16}, () => null);
     let sinkIndex = 0;
     const keep = (value: any) => {
         sink[sinkIndex++ & 15] = value;

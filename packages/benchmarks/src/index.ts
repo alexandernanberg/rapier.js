@@ -1,6 +1,8 @@
 import {run} from "mitata";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type {BenchResult} from "./baseline.js";
+import type {MemoryResult} from "./memory.js";
 import {
     loadBaseline,
     saveBaseline,
@@ -10,9 +12,8 @@ import {
     summarizeComparison,
     printComparisonTable,
     printMemoryComparisonTable,
-    type BenchResult,
 } from "./baseline.js";
-import {gcAvailable, measureMemory, printMemoryTable, type MemoryResult} from "./memory.js";
+import {gcAvailable, measureMemory, printMemoryTable} from "./memory.js";
 import {allocationBenches} from "./scenarios/allocations.js";
 import {benchGetters} from "./scenarios/getters.js";
 import {benchLifecycle} from "./scenarios/lifecycle.js";
