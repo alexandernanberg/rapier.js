@@ -19,11 +19,14 @@ export class Query {
     /** per archetype, columns flattened in the same order as `fields` */
     bindings: Column[][] = [];
 
+    /** Archetypes carrying any of these are excluded. */
+    readonly without: ComponentDef[];
     private readonly world: World;
 
-    constructor(world: World, comps: ComponentDef[]) {
+    constructor(world: World, comps: ComponentDef[], without: ComponentDef[] = []) {
         this.world = world;
         this.comps = comps;
+        this.without = without;
         this.fields = comps.flatMap((c) => c.fields.map(([f]) => f));
         this.refresh();
     }
@@ -33,9 +36,11 @@ export class Query {
         this.archetypes = [];
         this.bindings = [];
         const want = this.comps.map((c) => c.id);
+        const banned = this.without.map((c) => c.id);
         for (const a of this.world.allArchetypes()) {
             const has = new Set(a.comps.map((c) => c.id));
             if (!want.every((id) => has.has(id))) continue;
+            if (banned.some((id) => has.has(id))) continue;
             this.archetypes.push(a);
             this.bindings.push(this.comps.flatMap((c) => a.bind(c)));
         }

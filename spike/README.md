@@ -14,6 +14,7 @@ node spike/bench/parallel.ts           # spike 03 — parallel executor + equiva
 node spike/test/harness.ts             # spike 04 — headless harness (13 checks)
 node spike/test/physics.ts             # spike 05 — Rapier over ECS columns (7 checks)
 node spike/test/koota-eval.ts          # spike 06 — evaluate pmndrs/koota as the ECS
+node spike/test/render.ts              # spike 07 — render seam + recording backend
 ```
 
 The kernel benchmarks need the wasm built first:
@@ -305,6 +306,65 @@ biggest gap in the current design and exactly what a contraption game needs. The
 `updateEach` / `useStores` tiering is the same conclusion spike 02 reached by
 measurement. If the threading requirement were dropped, Koota would be the better
 choice on every other axis.
+
+## Spike 07 — the render seam
+
+A backend interface plus a recording backend that draws nothing and records
+everything. No GPU, no canvas.
+
+```bash
+node spike/test/render.ts     # 8 checks
+```
+
+The interface is deliberately shaped toward the renderer we do *not* have yet:
+packed instance matrices, explicit camera state, materials as data. A library
+backend adapts down to that; a scene-graph-shaped interface could not adapt up.
+
+Note this contradicts the physics advice on purpose. There the interface was
+deferred because it would abstract over *behaviour* — solver semantics, joint
+types, CCD — which is unknowable with one implementation. This abstracts over
+*data transport*, whose shape is already measured. **Transport is worth defining
+up front; behaviour is not.**
+
+### What the recording backend is actually for
+
+Swap-safety is the least of it. It makes rendering assertable in the headless
+harness — the one subsystem that otherwise needs a human looking at pixels — and
+it is a continuously-running proof that the ECS is still the source of truth. If
+anything starts stashing render state outside the ECS, its output stops matching
+and you find out immediately, rather than when rewind quietly breaks.
+
+Checks cover: no engine code outside `render/` imports a render library; the
+backend holds resources and never scene state; a 90° yaw maps +X to -Z; scale
+lands on the right columns; entities batch by mesh and material; hidden entities
+are excluded by archetype; recorded frames keep their own copy; and a
+physics-driven body's rendered transform tracks the simulation over 240 ticks.
+
+### Extraction cost, and a correction
+
+| 20,000 instances, 4 batches | time     | per instance |
+| --------------------------- | -------- | ------------ |
+| materials interleaved       | 0.786 ms | 39.3 ns      |
+| materials grouped           | 0.587 ms | 29.4 ns      |
+
+**The earlier synthetic figure of 7 ns/instance was optimistic.** Real extraction
+through query bindings, with batching and a full TRS, is 4–5x that. Still well
+under 0.1 ms at the 2,000-entity target, so it changes no decision — but the
+margin over a library backend is smaller than the synthetic bench implied.
+
+A hypothesis that failed, recorded because it was wrong: caching the last bucket
+to skip a per-entity `Map` lookup produced no improvement when materials
+interleave, because the cache misses every entity. It pays 25% when they group.
+The Map lookup was never the bottleneck.
+
+### A further correction on Three
+
+`InstancedMesh.instanceMatrix.array` is a plain `Float32Array`. Extraction can
+write straight into it and set `needsUpdate`, so the "extra hop" through
+`setMatrixAt` measured earlier is avoidable entirely. A Three backend can let the
+extractor target its own instance buffer, at which point its per-frame cost for
+this workload is the same as a custom renderer's. The earlier 9.5x figure
+measured naive usage, not the achievable path.
 
 ## Caveat on codegen
 
