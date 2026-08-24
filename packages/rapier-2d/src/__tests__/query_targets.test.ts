@@ -13,61 +13,33 @@ function worldWithBall(y = 0, radius = 1) {
     return {world, body, collider};
 }
 
-function rayIntersectionTarget() {
-    return new RAPIER.RayColliderIntersection(
-        undefined!,
-        0,
-        {x: 0, y: 0},
-        RAPIER.FeatureType.Unknown,
-        undefined,
-    );
-}
-
-function pointProjectionTarget() {
-    return new RAPIER.PointColliderProjection(
-        undefined!,
-        {x: 0, y: 0},
-        false,
-        RAPIER.FeatureType.Unknown,
-        undefined,
-    );
-}
-
-function shapeCastTarget() {
-    return new RAPIER.ColliderShapeCastHit(
-        undefined!,
-        0,
-        {x: 0, y: 0},
-        {x: 0, y: 0},
-        {x: 0, y: 0},
-        {x: 0, y: 0},
-    );
-}
-
 /**
- * The scene queries and the getters that return a fresh object can write into a
- * caller-owned one instead. These check that the target is the object handed
- * back, that it holds the same values the allocating call returns, and that the
- * nested vectors are reused rather than replaced.
+ * Every getter and scene query writes into a caller-owned target. These check
+ * that the target is the object handed back, that the nested vectors are
+ * written through rather than replaced, and that a miss leaves it untouched.
  */
-describe("zero-allocation query targets", () => {
+describe("required query targets", () => {
+    test("world.castRay fills the target", () => {
+        const {world, collider} = worldWithBall();
+        const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});
+
+        const target = new RAPIER.RayColliderHit();
+        const hit = world.castRay(ray, 100, true, target);
+
+        expect(hit).toBe(target);
+        expect(target.collider.handle).toBe(collider.handle);
+        expect(target.timeOfImpact).toBeCloseTo(9, 4);
+
+        world.free();
+    });
+
     test("world.castRayAndGetNormal fills the target", () => {
         const {world, collider} = worldWithBall();
         const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});
 
-        const target = rayIntersectionTarget();
+        const target = new RAPIER.RayColliderIntersection();
         const normal = target.normal;
-        const hit = world.castRayAndGetNormal(
-            ray,
-            100,
-            true,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            target,
-        );
+        const hit = world.castRayAndGetNormal(ray, 100, true, target);
 
         expect(hit).toBe(target);
         expect(target.normal).toBe(normal);
@@ -82,22 +54,28 @@ describe("zero-allocation query targets", () => {
         const {world} = worldWithBall();
         const ray = new RAPIER.Ray({x: 50, y: 10}, {x: 0, y: -1});
 
-        const target = rayIntersectionTarget();
+        const target = new RAPIER.RayColliderIntersection();
         target.timeOfImpact = -1;
-        const hit = world.castRayAndGetNormal(
-            ray,
-            100,
-            true,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            target,
-        );
+        const hit = world.castRayAndGetNormal(ray, 100, true, target);
 
         expect(hit).toBeNull();
         expect(target.timeOfImpact).toBe(-1);
+
+        world.free();
+    });
+
+    test("one target can be reused across many casts", () => {
+        const {world} = worldWithBall();
+        const target = new RAPIER.RayColliderIntersection();
+        const normal = target.normal;
+
+        for (let i = 0; i < 8; i++) {
+            const ray = new RAPIER.Ray({x: 0, y: 10 + i}, {x: 0, y: -1});
+            const hit = world.castRayAndGetNormal(ray, 100, true, target);
+            expect(hit).toBe(target);
+            expect(target.normal).toBe(normal);
+            expect(target.timeOfImpact).toBeCloseTo(9 + i, 4);
+        }
 
         world.free();
     });
@@ -106,18 +84,9 @@ describe("zero-allocation query targets", () => {
         const {world, collider} = worldWithBall();
         const point = {x: 0, y: 5};
 
-        const target = pointProjectionTarget();
+        const target = new RAPIER.PointColliderProjection();
         const projected = target.point;
-        const proj = world.projectPoint(
-            point,
-            true,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            target,
-        );
+        const proj = world.projectPoint(point, true, target);
 
         expect(proj).toBe(target);
         expect(target.point).toBe(projected);
@@ -125,15 +94,7 @@ describe("zero-allocation query targets", () => {
         expect(target.isInside).toBe(false);
         expect(target.point.y).toBeCloseTo(1, 4);
 
-        const withFeature = world.projectPointAndGetFeature(
-            point,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            target,
-        );
+        const withFeature = world.projectPointAndGetFeature(point, target);
 
         expect(withFeature).toBe(target);
         expect(target.point.y).toBeCloseTo(1, 4);
@@ -145,23 +106,9 @@ describe("zero-allocation query targets", () => {
         const {world, collider} = worldWithBall();
         const shape = new RAPIER.Ball(0.5);
 
-        const target = shapeCastTarget();
+        const target = new RAPIER.ColliderShapeCastHit();
         const witness1 = target.witness1;
-        const hit = world.castShape(
-            {x: 0, y: 10},
-            0,
-            {x: 0, y: -1},
-            shape,
-            0,
-            100,
-            true,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            target,
-        );
+        const hit = world.castShape({x: 0, y: 10}, 0, {x: 0, y: -1}, shape, 0, 100, true, target);
 
         expect(hit).toBe(target);
         expect(target.witness1).toBe(witness1);
@@ -174,23 +121,17 @@ describe("zero-allocation query targets", () => {
     test("collider queries fill the target", () => {
         const {world, collider} = worldWithBall();
 
-        const projection = new RAPIER.PointProjection({x: 0, y: 0}, false);
+        const projection = new RAPIER.PointProjection();
         expect(collider.projectPoint({x: 0, y: 5}, true, projection)).toBe(projection);
         expect(projection.point.y).toBeCloseTo(1, 4);
 
-        const intersection = new RAPIER.RayIntersection(0, {x: 0, y: 0});
+        const intersection = new RAPIER.RayIntersection();
         const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});
         expect(collider.castRayAndGetNormal(ray, 100, true, intersection)).toBe(intersection);
         expect(intersection.timeOfImpact).toBeCloseTo(9, 4);
         expect(intersection.normal.y).toBeCloseTo(1, 4);
 
-        const contact = new RAPIER.ShapeContact(
-            0,
-            {x: 0, y: 0},
-            {x: 0, y: 0},
-            {x: 0, y: 0},
-            {x: 0, y: 0},
-        );
+        const contact = new RAPIER.ShapeContact();
         const contacted = collider.contactShape(new RAPIER.Ball(1), {x: 0, y: 1.5}, 0, 1, contact);
         expect(contacted).toBe(contact);
         expect(contact.distance).toBeCloseTo(-0.5, 4);
@@ -209,7 +150,6 @@ describe("zero-allocation query targets", () => {
 
         const velocity = {x: 0, y: 0};
         expect(body.velocityAtPoint({x: 1, y: 0}, velocity)).toBe(velocity);
-        expect(velocity).toEqual(body.velocityAtPoint({x: 1, y: 0}));
 
         const force = {x: 0, y: 0};
         expect(body.userForce(force)).toBe(force);
@@ -217,7 +157,7 @@ describe("zero-allocation query targets", () => {
 
         const invMass = {x: 0, y: 0};
         expect(body.effectiveInvMass(invMass)).toBe(invMass);
-        expect(invMass).toEqual(body.effectiveInvMass());
+        expect(invMass.x).toBeGreaterThan(0);
 
         world.free();
     });

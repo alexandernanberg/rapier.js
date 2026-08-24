@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81};
 
@@ -31,7 +32,7 @@ describe("impulse joints", () => {
         for (let i = 0; i < 60; i++) world.step();
 
         // A full second of free fall would put it near y = -0.9.
-        expect(hung.translation().y).toBeGreaterThan(4.5);
+        expect(hung.translation(_v()).y).toBeGreaterThan(4.5);
 
         world.free();
     });
@@ -51,7 +52,7 @@ describe("impulse joints", () => {
 
         for (let i = 0; i < 120; i++) world.step();
 
-        const t = bob.translation();
+        const t = bob.translation(_v());
         expect(Math.hypot(t.x, t.y - 5)).toBeCloseTo(2, 1);
 
         world.free();
@@ -94,7 +95,7 @@ describe("multibody joints", () => {
 
         for (let i = 0; i < 30; i++) world.step();
         // The link stays pinned one unit from the fixed root.
-        const t = b.translation();
+        const t = b.translation(_v());
         expect(Math.hypot(t.x, t.y)).toBeCloseTo(1, 1);
 
         world.removeMultibodyJoint(joint, true);
@@ -159,8 +160,8 @@ describe("multibody joint properties", () => {
         expect(joint.type()).toBe(RAPIER.JointType.Revolute);
         expect(joint.body1()!.handle).toBe(anchor.handle);
         expect(joint.body2()!.handle).toBe(arm.handle);
-        expect(joint.anchor1()).toEqual({x: 0, y: 0});
-        expect(joint.anchor2()).toEqual({x: -1, y: 0});
+        expect(joint.anchor1(_v())).toEqual({x: 0, y: 0});
+        expect(joint.anchor2(_v())).toEqual({x: -1, y: 0});
 
         // The zero-allocation form writes into the object it is given.
         const target = {x: 0, y: 0};
@@ -187,8 +188,8 @@ describe("multibody joint properties", () => {
 
         // The limit holds the arm within sin(0.1) of the horizontal, while the
         // unconstrained arm swings well past that.
-        expect(limited.arm.translation().y).toBeGreaterThan(5 - 0.15);
-        expect(free.arm.translation().y).toBeLessThan(4.8);
+        expect(limited.arm.translation(_v()).y).toBeGreaterThan(5 - 0.15);
+        expect(free.arm.translation(_v()).y).toBeLessThan(4.8);
 
         limited.world.free();
         free.world.free();
@@ -204,8 +205,8 @@ describe("multibody joint properties", () => {
         for (let i = 0; i < 30; i++) world.step();
 
         // Turning counter-clockwise with the arm out along +x lifts it.
-        expect(arm.translation().y).toBeGreaterThan(5.5);
-        expect(arm.translation().x).toBeLessThan(0.8);
+        expect(arm.translation(_v()).y).toBeGreaterThan(5.5);
+        expect(arm.translation(_v()).x).toBeLessThan(0.8);
 
         world.free();
     });

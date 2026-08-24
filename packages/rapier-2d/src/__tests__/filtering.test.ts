@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81};
 
@@ -26,7 +27,7 @@ describe("collision groups", () => {
 
         for (let i = 0; i < 60; i++) world.step();
 
-        expect(body.translation().y).toBeLessThan(0);
+        expect(body.translation(_v()).y).toBeLessThan(0);
 
         world.free();
     });
@@ -44,7 +45,7 @@ describe("collision groups", () => {
 
         for (let i = 0; i < 60; i++) world.step();
 
-        expect(body.translation().y).toBeGreaterThan(0);
+        expect(body.translation(_v()).y).toBeGreaterThan(0);
 
         world.free();
     });
@@ -59,8 +60,10 @@ describe("query filters", () => {
 
         const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});
 
-        expect(world.castRay(ray, 100, true)).not.toBeNull();
-        expect(world.castRay(ray, 100, true, undefined, GROUP_A)).toBeNull();
+        expect(world.castRay(ray, 100, true, new RAPIER.RayColliderHit())).not.toBeNull();
+        expect(
+            world.castRay(ray, 100, true, new RAPIER.RayColliderHit(), undefined, GROUP_A),
+        ).toBeNull();
 
         world.free();
     });
@@ -73,8 +76,18 @@ describe("query filters", () => {
 
         const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});
 
-        expect(world.castRay(ray, 100, true)).not.toBeNull();
-        expect(world.castRay(ray, 100, true, undefined, undefined, collider)).toBeNull();
+        expect(world.castRay(ray, 100, true, new RAPIER.RayColliderHit())).not.toBeNull();
+        expect(
+            world.castRay(
+                ray,
+                100,
+                true,
+                new RAPIER.RayColliderHit(),
+                undefined,
+                undefined,
+                collider,
+            ),
+        ).toBeNull();
 
         world.free();
     });
@@ -88,10 +101,30 @@ describe("query filters", () => {
         const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});
 
         expect(
-            world.castRay(ray, 100, true, undefined, undefined, undefined, undefined, () => false),
+            world.castRay(
+                ray,
+                100,
+                true,
+                new RAPIER.RayColliderHit(),
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                () => false,
+            ),
         ).toBeNull();
         expect(
-            world.castRay(ray, 100, true, undefined, undefined, undefined, undefined, () => true),
+            world.castRay(
+                ray,
+                100,
+                true,
+                new RAPIER.RayColliderHit(),
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                () => true,
+            ),
         ).not.toBeNull();
 
         world.free();
@@ -105,8 +138,16 @@ describe("query filters", () => {
 
         const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});
 
-        expect(world.castRay(ray, 100, true)).not.toBeNull();
-        expect(world.castRay(ray, 100, true, RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC)).toBeNull();
+        expect(world.castRay(ray, 100, true, new RAPIER.RayColliderHit())).not.toBeNull();
+        expect(
+            world.castRay(
+                ray,
+                100,
+                true,
+                new RAPIER.RayColliderHit(),
+                RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC,
+            ),
+        ).toBeNull();
 
         world.free();
     });

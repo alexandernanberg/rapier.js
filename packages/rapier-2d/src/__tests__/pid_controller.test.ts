@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const NO_GRAVITY = {x: 0, y: 0};
 
@@ -28,18 +29,18 @@ describe("pid controller", () => {
         const zero = {x: 0, y: 0};
 
         // No gains: nothing to correct with.
-        expect(controller.linearCorrection(body, target, zero)).toEqual(zero);
+        expect(controller.linearCorrection(body, target, zero, _v())).toEqual(zero);
 
         // Proportional: the position error is `target - translation`.
         controller.setKp(2, RAPIER.PidAxesMask.All);
-        let correction = controller.linearCorrection(body, target, zero);
+        let correction = controller.linearCorrection(body, target, zero, _v());
         expect(correction.x).toBeCloseTo(2, 5);
         expect(correction.y).toBeCloseTo(4, 5);
 
         // Derivative: the velocity error is `targetLinvel - linvel`, on every axis.
         controller.setKp(0, RAPIER.PidAxesMask.All);
         controller.setKd(3, RAPIER.PidAxesMask.All);
-        correction = controller.linearCorrection(body, zero, target);
+        correction = controller.linearCorrection(body, zero, target, _v());
         expect(correction.x).toBeCloseTo(3, 5);
         expect(correction.y).toBeCloseTo(6, 5);
 
@@ -55,14 +56,14 @@ describe("pid controller", () => {
         controller.setKi(1, RAPIER.PidAxesMask.All);
 
         const dt = world.integrationParameters.dt;
-        const first = controller.linearCorrection(body, target, zero).x;
-        const second = controller.linearCorrection(body, target, zero).x;
+        const first = controller.linearCorrection(body, target, zero, _v()).x;
+        const second = controller.linearCorrection(body, target, zero, _v()).x;
 
         expect(first).toBeCloseTo(dt, 5);
         expect(second).toBeCloseTo(2 * dt, 5);
 
         controller.resetIntegrals();
-        expect(controller.linearCorrection(body, target, zero).x).toBeCloseTo(dt, 5);
+        expect(controller.linearCorrection(body, target, zero, _v()).x).toBeCloseTo(dt, 5);
 
         world.free();
     });
@@ -73,7 +74,7 @@ describe("pid controller", () => {
         const target = {x: 1, y: 1};
 
         controller.setKp(1, RAPIER.PidAxesMask.All);
-        const correction = controller.linearCorrection(body, target, {x: 0, y: 0});
+        const correction = controller.linearCorrection(body, target, {x: 0, y: 0}, _v());
 
         expect(correction.x).toBeCloseTo(1, 5);
         expect(correction.y).toBeCloseTo(0, 5);

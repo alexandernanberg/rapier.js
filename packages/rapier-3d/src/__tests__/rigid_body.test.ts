@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v, _q} from "./_target";
 
 beforeAll(async () => {
     await init();
@@ -41,7 +42,7 @@ describe("RigidBody", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 2, 3));
 
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBe(1);
         expect(pos.y).toBe(2);
         expect(pos.z).toBe(3);
@@ -53,7 +54,7 @@ describe("RigidBody", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
 
-        const rot = body.rotation();
+        const rot = body.rotation(_q());
         expect(rot.x).toBe(0);
         expect(rot.y).toBe(0);
         expect(rot.z).toBe(0);
@@ -67,7 +68,7 @@ describe("RigidBody", () => {
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
 
         body.setTranslation({x: 5, y: 10, z: 15}, true);
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBe(5);
         expect(pos.y).toBe(10);
         expect(pos.z).toBe(15);
@@ -83,7 +84,7 @@ describe("RigidBody", () => {
         const q = {x: 0, y: 0.7071068, z: 0, w: 0.7071068};
         body.setRotation(q, true);
 
-        const rot = body.rotation();
+        const rot = body.rotation(_q());
         expect(rot.x).toBeCloseTo(q.x, 4);
         expect(rot.y).toBeCloseTo(q.y, 4);
         expect(rot.z).toBeCloseTo(q.z, 4);
@@ -99,14 +100,14 @@ describe("RigidBody", () => {
 
         body.setLinvel({x: 1, y: 0, z: 0}, true);
 
-        const vel = body.linvel();
+        const vel = body.linvel(_v());
         expect(vel.x).toBe(1);
         expect(vel.y).toBe(0);
         expect(vel.z).toBe(0);
 
         // After stepping, the body should have moved in X
         world.step();
-        expect(body.translation().x).toBeGreaterThan(0);
+        expect(body.translation(_v()).x).toBeGreaterThan(0);
 
         world.free();
     });
@@ -118,7 +119,7 @@ describe("RigidBody", () => {
 
         body.setAngvel({x: 0, y: 1, z: 0}, true);
 
-        const angvel = body.angvel();
+        const angvel = body.angvel(_v());
         expect(angvel.y).toBeCloseTo(1, 4);
 
         world.free();
@@ -132,7 +133,7 @@ describe("RigidBody", () => {
         const m = body.mass();
         body.applyImpulse({x: m * 4, y: 0, z: 0}, true);
 
-        const vel = body.linvel();
+        const vel = body.linvel(_v());
         expect(vel.x).toBeCloseTo(4, 3);
         expect(vel.y).toBeCloseTo(0, 5);
         expect(vel.z).toBeCloseTo(0, 5);
@@ -148,7 +149,7 @@ describe("RigidBody", () => {
         body.addForce({x: body.mass() * 10, y: 0, z: 0}, true);
         world.step();
 
-        const vel = body.linvel();
+        const vel = body.linvel(_v());
         expect(vel.x).toBeGreaterThan(0);
         expect(vel.y).toBeCloseTo(0, 5);
         expect(vel.z).toBeCloseTo(0, 5);
@@ -163,7 +164,7 @@ describe("RigidBody", () => {
 
         body.applyTorqueImpulse({x: 0, y: 3, z: 0}, true);
 
-        const angvel = body.angvel();
+        const angvel = body.angvel(_v());
         expect(angvel.y).toBeGreaterThan(0);
         expect(angvel.x).toBeCloseTo(0, 4);
         expect(angvel.z).toBeCloseTo(0, 4);
@@ -179,7 +180,7 @@ describe("RigidBody", () => {
         body.addTorque({x: 0, y: 0, z: 5}, true);
         world.step();
 
-        const angvel = body.angvel();
+        const angvel = body.angvel(_v());
         expect(angvel.z).toBeGreaterThan(0);
         expect(angvel.x).toBeCloseTo(0, 4);
         expect(angvel.y).toBeCloseTo(0, 4);
@@ -195,7 +196,7 @@ describe("RigidBody", () => {
         // impulse +z at world point (1,0,0) -> r=(1,0,0), F=(0,0,1) -> torque (0,-1,0)
         body.applyImpulseAtPoint({x: 0, y: 0, z: 1}, {x: 1, y: 0, z: 0}, true);
 
-        const angvel = body.angvel();
+        const angvel = body.angvel(_v());
         expect(angvel.y).toBeLessThan(0);
         expect(angvel.x).toBeCloseTo(0, 4);
         expect(angvel.z).toBeCloseTo(0, 4);
@@ -212,7 +213,7 @@ describe("RigidBody", () => {
         body.addForceAtPoint({x: 0, y: 0, z: 1}, {x: 1, y: 0, z: 0}, true);
         world.step();
 
-        const angvel = body.angvel();
+        const angvel = body.angvel(_v());
         expect(angvel.y).toBeLessThan(0);
         expect(angvel.x).toBeCloseTo(0, 3);
         expect(angvel.z).toBeCloseTo(0, 3);
@@ -299,12 +300,12 @@ describe("RigidBody", () => {
 
         // After step, buffer should be populated
         world.step();
-        const pos1 = body.translation();
+        const pos1 = body.translation(_v());
         expect(pos1.y).toBeLessThan(10);
 
         // After another step, position should change further
         world.step();
-        const pos2 = body.translation();
+        const pos2 = body.translation(_v());
         expect(pos2.y).toBeLessThan(pos1.y);
 
         world.free();
@@ -317,7 +318,7 @@ describe("RigidBody", () => {
         );
 
         // Before any step, translation should still return correct values
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBe(5);
         expect(pos.y).toBe(10);
         expect(pos.z).toBe(15);
@@ -333,7 +334,7 @@ describe("RigidBody", () => {
         // Step to populate the transform-buffer view (a Float32Array pointing
         // directly into WASM linear memory).
         world.step();
-        const before = body.translation();
+        const before = body.translation(_v());
         expect(Number.isNaN(before.x)).toBe(false);
 
         // Allocate enough colliders to grow WASM memory. This path does NOT
@@ -343,7 +344,7 @@ describe("RigidBody", () => {
             world.createCollider(RAPIER.ColliderDesc.ball(0.1));
         }
 
-        const after = body.translation();
+        const after = body.translation(_v());
         expect(Number.isNaN(after.x)).toBe(false);
         expect(after.x).toBeCloseTo(before.x, 5);
         expect(after.y).toBeCloseTo(before.y, 5);

@@ -196,7 +196,7 @@ export class Graphics {
 
         switch (collider.shapeType()) {
             case RAPIER.ShapeType.Cuboid:
-                let hext = collider.halfExtents();
+                let hext = collider.halfExtents({x: 0, y: 0})!;
                 instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceId];
                 graphics = instance.clone(true);
                 graphics.scale.set(hext.x, hext.y);
@@ -226,7 +226,7 @@ export class Graphics {
                 break;
             case RAPIER.ShapeType.HeightField:
                 let heights = Array.from(collider.heightfieldHeights());
-                let scale = collider.heightfieldScale();
+                let scale = collider.heightfieldScale({x: 0, y: 0});
                 let step = scale.x / (heights.length - 1);
 
                 graphics = new PIXI.Graphics();

@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81};
 
@@ -23,12 +24,12 @@ describe("body tuning", () => {
 
         for (let i = 0; i < 30; i++) world.step();
 
-        expect(body.translation().y).toBeCloseTo(5, 5);
+        expect(body.translation(_v()).y).toBeCloseTo(5, 5);
 
         // Re-enabling the axes lets it fall again.
         body.setEnabledTranslations(true, true, true);
         for (let i = 0; i < 30; i++) world.step();
-        expect(body.translation().y).toBeLessThan(5);
+        expect(body.translation(_v()).y).toBeLessThan(5);
 
         world.free();
     });
@@ -61,7 +62,7 @@ describe("body tuning", () => {
 
         for (let i = 0; i < 30; i++) world.step();
 
-        expect(slow.translation().y).toBeGreaterThan(fast.translation().y);
+        expect(slow.translation(_v()).y).toBeGreaterThan(fast.translation(_v()).y);
         expect(slow.gravityScale()).toBeCloseTo(0.5, 6);
 
         world.free();
@@ -80,7 +81,7 @@ describe("body tuning", () => {
 
         for (let i = 0; i < 30; i++) world.step();
 
-        expect(damped.linvel().x).toBeLessThan(free.linvel().x);
+        expect(damped.linvel(_v()).x).toBeLessThan(free.linvel(_v()).x);
         expect(damped.linearDamping()).toBeCloseTo(5, 6);
 
         world.free();
@@ -112,7 +113,7 @@ describe("body tuning", () => {
         expect(body.bodyType()).toBe(RAPIER.RigidBodyType.Fixed);
 
         for (let i = 0; i < 30; i++) world.step();
-        expect(body.translation().y).toBeCloseTo(5, 5);
+        expect(body.translation(_v()).y).toBeCloseTo(5, 5);
 
         world.free();
     });
@@ -135,7 +136,7 @@ describe("continuous collision detection", () => {
 
         for (let i = 0; i < 30; i++) world.step();
 
-        expect(bullet.translation().x).toBeLessThan(0.5);
+        expect(bullet.translation(_v()).x).toBeLessThan(0.5);
 
         world.free();
     });

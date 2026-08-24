@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v, _q, _sdp} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81, z: 0};
 const PAGE = 65536;
@@ -95,10 +96,20 @@ describe("memory", () => {
         expectSteadyMemory(
             () => {
                 for (let i = 0; i < 100; i++) {
-                    world.castRay(ray, 100, true);
-                    world.castRayAndGetNormal(ray, 100, true);
-                    world.projectPoint({x: 0, y: 2, z: 0}, true);
-                    world.intersectionsWithRay(ray, 100, true, () => true);
+                    world.castRay(ray, 100, true, new RAPIER.RayColliderHit());
+                    world.castRayAndGetNormal(ray, 100, true, new RAPIER.RayColliderIntersection());
+                    world.projectPoint(
+                        {x: 0, y: 2, z: 0},
+                        true,
+                        new RAPIER.PointColliderProjection(),
+                    );
+                    world.intersectionsWithRay(
+                        ray,
+                        100,
+                        true,
+                        () => true,
+                        new RAPIER.RayColliderIntersection(),
+                    );
                     world.intersectionsWithPoint({x: 0, y: 2, z: 0}, () => true);
                     world.castShape(
                         {x: 0, y: 30, z: 0},
@@ -108,6 +119,7 @@ describe("memory", () => {
                         0,
                         100,
                         true,
+                        new RAPIER.ColliderShapeCastHit(),
                     );
                 }
             },
@@ -130,13 +142,13 @@ describe("memory", () => {
         expectSteadyMemory(
             () => {
                 for (let i = 0; i < 500; i++) {
-                    body.principalInertia();
-                    body.invPrincipalInertia();
-                    body.principalInertiaLocalFrame();
-                    body.effectiveWorldInvInertia();
-                    body.effectiveAngularInertia();
-                    body.localCom();
-                    body.worldCom();
+                    body.principalInertia(_v());
+                    body.invPrincipalInertia(_v());
+                    body.principalInertiaLocalFrame(_q());
+                    body.effectiveWorldInvInertia(_sdp());
+                    body.effectiveAngularInertia(_sdp());
+                    body.localCom(_v());
+                    body.worldCom(_v());
                 }
             },
             {warmup: 10, measure: 100},
@@ -224,7 +236,7 @@ describe("memory", () => {
         // iteration count well below what it takes to move the heap.
         const probe = world.createCharacterController(0.01);
         probe.computeColliderMovement(world.colliders.getAll()[0], {x: 0, y: -0.1, z: 0});
-        expect(probe.computedMovement().y).toBeLessThan(0);
+        expect(probe.computedMovement(_v()).y).toBeLessThan(0);
         world.removeCharacterController(probe);
 
         expectSteadyMemory(
@@ -281,8 +293,8 @@ describe("memory", () => {
         const collider = world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
         world.step();
 
-        const beforeBody = body.translation();
-        const beforeCollider = collider.translation();
+        const beforeBody = body.translation(_v());
+        const beforeCollider = collider.translation(_v());
         const beforePages = pages();
 
         // Growing the linear memory detaches every Float32Array over it, which
@@ -290,13 +302,13 @@ describe("memory", () => {
         RAPIER.reserveMemory(64 * 1024 * 1024);
         expect(pages()).toBeGreaterThan(beforePages);
 
-        expect(body.translation()).toEqual(beforeBody);
-        expect(collider.translation()).toEqual(beforeCollider);
+        expect(body.translation(_v())).toEqual(beforeBody);
+        expect(collider.translation(_v())).toEqual(beforeCollider);
 
         // And the views have to be rebuilt rather than reused on the next step.
         world.step();
-        expect(body.translation().y).toBeLessThan(beforeBody.y);
-        expect(collider.translation()).toEqual(body.translation());
+        expect(body.translation(_v()).y).toBeLessThan(beforeBody.y);
+        expect(collider.translation(_v())).toEqual(body.translation(_v()));
 
         world.free();
     });

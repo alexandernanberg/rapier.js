@@ -110,7 +110,7 @@ export class PidController {
         body: RigidBody,
         targetPosition: Vector,
         targetLinvel: Vector,
-        target?: Vector,
+        target: Vector,
     ): Vector {
         let rawPos = VectorOps.intoRaw(targetPosition);
         let rawVel = VectorOps.intoRaw(targetLinvel);

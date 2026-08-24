@@ -72,6 +72,18 @@ by "wasm/release/rapier_wasm_*.js"` until wasm-bindgen regenerates them. This
 needs the Rust toolchain and `wasm-pack`; tests import the built packages, so
 they can't run without it either.
 
+`wasm-pack` downloads `wasm-opt` (binaryen) on first use with a downloader that
+ignores `HTTPS_PROXY`, so behind a proxy the build fails with `failed to
+download from .../binaryen-version_117-...`. It checks `PATH` for `wasm-opt`
+first, so fetching binaryen once and putting it there fixes it:
+
+```bash
+mkdir -p /opt/binaryen
+curl -sSL https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-x86_64-linux.tar.gz \
+  | tar -xz -C /opt/binaryen --strip-components=1
+export PATH="/opt/binaryen/bin:$PATH"
+```
+
 ## Benchmarks
 
 Run performance benchmarks to measure physics engine performance:
@@ -163,42 +175,50 @@ class KinematicCharacterController {
 }
 ```
 
-## Zero-Allocation Getters
+## Required Targets (Zero-Allocation API)
 
-For hot paths, use the optional `target` parameter to avoid allocations:
+Every read path writes into a caller-owned object. There is no allocating
+overload — the `target` parameter is required:
 
 ```typescript
-// Allocating (creates new object each call)
-const pos = body.translation();
-
-// Zero-allocation (reuses existing object)
+// Allocate once, outside the hot loop
 const _pos = {x: 0, y: 0, z: 0};
-body.translation(_pos); // writes into _pos
+
+body.translation(_pos); // writes into _pos and returns it
 ```
 
-Supported methods:
+This holds for every getter that returns a vector, rotation or matrix
+(`RigidBody`, `Collider`, `Shape`, joints, the character and vehicle
+controllers, `ContactModificationContext`, `EventQueue`, `NarrowPhase`), and for
+every scene query.
 
-- **RigidBody**: `translation()`, `rotation()`, `linvel()`, `angvel()`,
-  `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`,
-  `velocityAtPoint()`, `effectiveInvMass()`, `userForce()`, and (3D only)
-  `userTorque()`, `principalInertia()`, `invPrincipalInertia()`,
-  `principalInertiaLocalFrame()`, `effectiveAngularInertia()`,
-  `effectiveWorldInvInertia()`
-- **Collider**: `translation()`, `rotation()`, `halfExtents()`,
-  `heightfieldScale()`, `projectPoint()`, `castShape()`, `castCollider()`,
-  `contactShape()`, `contactCollider()`, `castRayAndGetNormal()`
-- **Shape**: `projectPoint()`, `castShape()`, `contactShape()`,
-  `castRayAndGetNormal()`
-- **World / BroadPhase**: `castRayAndGetNormal()`, `projectPoint()`,
-  `projectPointAndGetFeature()`, `castShape()`
-- **ImpulseJoint / MultibodyJoint**: `anchor1()`, `anchor2()`, and (3D only)
-  `frameX1()`, `frameX2()`
-- **ContactModificationContext**: `normal()`, `solverContactPoint1()`,
-  `solverContactPoint2()`, `solverContactTangentVelocity()`
-- **DynamicRayCastVehicleController** (3D): the wheel vector getters
+Result types (`RayColliderHit`, `RayColliderIntersection`, `PointProjection`,
+`PointColliderProjection`, `ShapeCastHit`, `ColliderShapeCastHit`,
+`ShapeContact`, `CharacterCollision`, `SdpMatrix3`) are zero-arg constructible
+and pre-fill their nested vectors, so `new RAPIER.RayColliderIntersection()` is
+a ready-to-use target. They no longer take constructor arguments.
 
-Queries take `target` as their last argument, after the filter arguments. When a
-query misses, it returns `null` and leaves the target untouched.
+**Argument position**: queries take `target` _after the required query inputs
+and before the optional filter arguments_ — TypeScript forbids a required
+parameter after an optional one, so it cannot be last:
+
+```typescript
+world.castRayAndGetNormal(ray, 100, true, _hit); // filters omitted
+world.castRayAndGetNormal(ray, 100, true, _hit, filterFlags, filterGroups);
+```
+
+Simple getters take it as their only argument.
+
+**Misses**: a query that misses returns `null` and leaves the target untouched,
+so branch on the return value, not on the target's contents.
+
+**Callbacks**: `intersectionsWithRay` reuses one target for every hit, so a
+callback that retains a result must copy it.
+
+Deliberate allocation is still available where a fresh object is genuinely
+wanted — `VectorOps.zeros()`, `RotationOps.identity()` — and the library uses
+those explicitly at one-off construction sites (shape and world
+deserialization).
 
 ## 2D vs 3D Differences
 

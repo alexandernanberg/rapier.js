@@ -116,7 +116,7 @@ export class PidController {
         body: RigidBody,
         targetPosition: Vector,
         targetLinvel: Vector,
-        target?: Vector,
+        target: Vector,
     ): Vector {
         let rawPos = VectorOps.intoRaw(targetPosition);
         let rawVel = VectorOps.intoRaw(targetLinvel);
@@ -131,7 +131,7 @@ export class PidController {
         body: RigidBody,
         targetRotation: Rotation,
         targetAngVel: Vector,
-        target?: Vector,
+        target: Vector,
     ): Vector {
         let rawPos = RotationOps.intoRaw(targetRotation);
         let rawVel = VectorOps.intoRaw(targetAngVel);

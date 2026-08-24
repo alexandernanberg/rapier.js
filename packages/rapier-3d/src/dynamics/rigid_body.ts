@@ -274,13 +274,12 @@ export class RigidBody {
     /**
      * The world-space translation of this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public translation(target?: Vector): Vector {
+    public translation(target: Vector): Vector {
         const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset;
-            target ??= VectorOps.zeros();
             target.x = buf[o];
             target.y = buf[o + 1];
             target.z = buf[o + 2];
@@ -293,13 +292,12 @@ export class RigidBody {
     /**
      * The world-space orientation of this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public rotation(target?: Rotation): Rotation {
+    public rotation(target: Rotation): Rotation {
         const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset + 3;
-            target ??= RotationOps.identity();
             target.x = buf[o];
             target.y = buf[o + 1];
             target.z = buf[o + 2];
@@ -317,9 +315,9 @@ export class RigidBody {
      * method and is used for estimating the kinematic body velocity at the next timestep.
      * For non-kinematic bodies, this value is currently unspecified.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public nextTranslation(target?: Vector): Vector {
+    public nextTranslation(target: Vector): Vector {
         this.rawSet.rbNextTranslation(this.handle);
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -331,9 +329,9 @@ export class RigidBody {
      * method and is used for estimating the kinematic body velocity at the next timestep.
      * For non-kinematic bodies, this value is currently unspecified.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public nextRotation(target?: Rotation): Rotation {
+    public nextRotation(target: Rotation): Rotation {
         this.rawSet.rbNextRotation(this.handle);
         return RotationOps.fromBuffer(scratch(), target);
     }
@@ -523,13 +521,12 @@ export class RigidBody {
     /**
      * The linear velocity of this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public linvel(target?: Vector): Vector {
+    public linvel(target: Vector): Vector {
         const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset + 7;
-            target ??= VectorOps.zeros();
             target.x = buf[o];
             target.y = buf[o + 1];
             target.z = buf[o + 2];
@@ -542,9 +539,9 @@ export class RigidBody {
     /**
      * The velocity of the given world-space point on this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public velocityAtPoint(point: Vector, target?: Vector): Vector {
+    public velocityAtPoint(point: Vector, target: Vector): Vector {
         const rawPoint = VectorOps.intoRaw(point);
         let result = VectorOps.fromRaw(
             this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
@@ -557,13 +554,12 @@ export class RigidBody {
     /**
      * The angular velocity of this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public angvel(target?: Vector): Vector {
+    public angvel(target: Vector): Vector {
         const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset + 10;
-            target ??= VectorOps.zeros();
             target.x = buf[o];
             target.y = buf[o + 1];
             target.z = buf[o + 2];
@@ -583,9 +579,9 @@ export class RigidBody {
     /**
      * The inverse mass taking into account translation locking.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public effectiveInvMass(target?: Vector): Vector {
+    public effectiveInvMass(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle), target)!;
     }
 
@@ -601,9 +597,9 @@ export class RigidBody {
     /**
      * The center of mass of a rigid-body expressed in its local-space.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public localCom(target?: Vector): Vector {
+    public localCom(target: Vector): Vector {
         this.rawSet.rbLocalCom(this.handle);
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -611,9 +607,9 @@ export class RigidBody {
     /**
      * The world-space center of mass of the rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public worldCom(target?: Vector): Vector {
+    public worldCom(target: Vector): Vector {
         this.rawSet.rbWorldCom(this.handle);
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -623,27 +619,27 @@ export class RigidBody {
      *
      * Components set to zero are assumed to be infinite along the corresponding principal axis.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public invPrincipalInertia(target?: Vector): Vector {
+    public invPrincipalInertia(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.rbInvPrincipalInertia(this.handle), target)!;
     }
 
     /**
      * The angular inertia along the principal inertia axes of the rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public principalInertia(target?: Vector): Vector {
+    public principalInertia(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.rbPrincipalInertia(this.handle), target)!;
     }
 
     /**
      * The principal vectors of the local angular inertia tensor of the rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public principalInertiaLocalFrame(target?: Rotation): Rotation {
+    public principalInertiaLocalFrame(target: Rotation): Rotation {
         return RotationOps.fromRaw(this.rawSet.rbPrincipalInertiaLocalFrame(this.handle), target)!;
     }
 
@@ -651,9 +647,9 @@ export class RigidBody {
      * The world-space inverse angular inertia tensor of the rigid-body,
      * taking into account rotation locking.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public effectiveWorldInvInertia(target?: SdpMatrix3): SdpMatrix3 {
+    public effectiveWorldInvInertia(target: SdpMatrix3): SdpMatrix3 {
         return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveWorldInvInertia(this.handle), target);
     }
 
@@ -661,9 +657,9 @@ export class RigidBody {
      * The effective world-space angular inertia (that takes the potential rotation locking into account) of
      * this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public effectiveAngularInertia(target?: SdpMatrix3): SdpMatrix3 {
+    public effectiveAngularInertia(target: SdpMatrix3): SdpMatrix3 {
         return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveAngularInertia(this.handle), target);
     }
 
@@ -991,9 +987,9 @@ export class RigidBody {
      * Retrieves the constant force(s) the user added to this rigid-body
      * Returns zero if the rigid-body is not dynamic.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public userForce(target?: Vector): Vector {
+    public userForce(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle), target)!;
     }
 
@@ -1001,9 +997,9 @@ export class RigidBody {
      * Retrieves the constant torque(s) the user added to this rigid-body
      * Returns zero if the rigid-body is not dynamic.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public userTorque(target?: Vector): Vector {
+    public userTorque(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.rbUserTorque(this.handle), target)!;
     }
 }

@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 beforeAll(async () => {
     await init();
@@ -19,9 +20,9 @@ describe("World", () => {
         const body = world.createRigidBody(bodyDesc);
         world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
 
-        const initialY = body.translation().y;
+        const initialY = body.translation(_v()).y;
         world.step();
-        expect(body.translation().y).toBeLessThan(initialY);
+        expect(body.translation(_v()).y).toBeLessThan(initialY);
 
         world.free();
     });
@@ -33,7 +34,7 @@ describe("World", () => {
         world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
 
         world.step();
-        expect(body.translation().y).toBe(5);
+        expect(body.translation(_v()).y).toBe(5);
 
         world.free();
     });
@@ -85,7 +86,7 @@ describe("World", () => {
         const positions: number[] = [];
         for (let i = 0; i < 10; i++) {
             world.step();
-            positions.push(body.translation().y);
+            positions.push(body.translation(_v()).y);
         }
 
         for (let i = 1; i < positions.length; i++) {
@@ -109,14 +110,14 @@ describe("World", () => {
         world.step();
 
         // Populates the shared transform buffers.
-        expect(body.translation().y).toBeCloseTo(2, 1);
-        expect(collider.translation().y).toBeCloseTo(2, 1);
+        expect(body.translation(_v()).y).toBeCloseTo(2, 1);
+        expect(collider.translation(_v()).y).toBeCloseTo(2, 1);
 
         world.free();
 
         // The buffers point into WASM memory that has just been freed, so reads
         // must not silently return whatever is left there.
-        expect(() => body.translation()).toThrow();
-        expect(() => collider.translation()).toThrow();
+        expect(() => body.translation(_v())).toThrow();
+        expect(() => collider.translation(_v())).toThrow();
     });
 });

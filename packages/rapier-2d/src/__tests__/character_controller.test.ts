@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81};
 
@@ -36,7 +37,7 @@ describe("kinematic character controller", () => {
         controller.enableSnapToGround(0.5);
         controller.computeColliderMovement(collider, {x: 1, y: -0.5});
 
-        const movement = controller.computedMovement();
+        const movement = controller.computedMovement(_v());
         expect(movement.x).toBeCloseTo(1, 2);
         expect(controller.computedGrounded()).toBe(true);
 
@@ -52,10 +53,10 @@ describe("kinematic character controller", () => {
 
         // The character stands half a unit above the floor, so only that much of
         // the five-unit descent survives.
-        expect(controller.computedMovement().y).toBeCloseTo(-0.5, 1);
+        expect(controller.computedMovement(_v()).y).toBeCloseTo(-0.5, 1);
         expect(controller.computedGrounded()).toBe(true);
         expect(controller.numComputedCollisions()).toBeGreaterThan(0);
-        expect(controller.computedCollision(0)).not.toBeNull();
+        expect(controller.computedCollision(0, new RAPIER.CharacterCollision())).not.toBeNull();
 
         world.removeCharacterController(controller);
         world.free();
@@ -67,7 +68,7 @@ describe("kinematic character controller", () => {
         const controller = world.createCharacterController(0.01);
         controller.computeColliderMovement(collider, {x: 0, y: -5});
 
-        const hit = controller.computedCollision(0)!;
+        const hit = controller.computedCollision(0, new RAPIER.CharacterCollision())!;
         expect(hit).not.toBeNull();
 
         // Every field arrives in one `getComponents` write, so an off-by-one in
@@ -108,7 +109,7 @@ describe("kinematic character controller", () => {
         controller.computeColliderMovement(collider, {x: 5, y: 0});
 
         // The wall sits ~1.1 units away from the character's edge.
-        expect(controller.computedMovement().x).toBeLessThan(1.5);
+        expect(controller.computedMovement(_v()).x).toBeLessThan(1.5);
 
         world.removeCharacterController(controller);
         world.free();
@@ -145,14 +146,14 @@ describe("kinematic character controller", () => {
         world.free();
     });
 
-    // `up()` used to hand back `this.raw.up()` directly, so callers got a
+    // `up()` used to hand back `this.raw.up(_v())` directly, so callers got a
     // `RawVector` handle rather than a plain vector — and nothing freed it.
     test("up() returns a plain vector", () => {
         const world = new RAPIER.World(GRAVITY);
         const controller = world.createCharacterController(0.01);
 
         controller.setUp({x: 0, y: 1});
-        expect(controller.up()).toEqual({x: 0, y: 1});
+        expect(controller.up(_v())).toEqual({x: 0, y: 1});
 
         world.removeCharacterController(controller);
         world.free();

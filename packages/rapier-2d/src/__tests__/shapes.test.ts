@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81};
 
@@ -25,7 +26,7 @@ describe("shape families", () => {
 
         for (let i = 0; i < 120; i++) world.step();
 
-        expect(body.translation().y).toBeGreaterThan(0);
+        expect(body.translation(_v()).y).toBeGreaterThan(0);
 
         world.free();
     });
@@ -105,7 +106,7 @@ describe("shape families", () => {
 
         for (let i = 0; i < 120; i++) world.step();
 
-        expect(body.translation().y).toBeGreaterThan(0);
+        expect(body.translation(_v()).y).toBeGreaterThan(0);
 
         world.free();
     });
@@ -137,7 +138,7 @@ describe("shape families", () => {
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 5));
         world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
         world.step();
-        expect(body.translation().y).toBeLessThan(5);
+        expect(body.translation(_v()).y).toBeLessThan(5);
         world.free();
     });
 

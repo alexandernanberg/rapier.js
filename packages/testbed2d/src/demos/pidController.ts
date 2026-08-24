@@ -52,6 +52,9 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let targetVelocity = {x: 0.0, y: 0.0};
     let _targetRotation = 0.0;
 
+    // Reused every frame: the getter writes into this instead of allocating.
+    const _targetPoint = {x: 0, y: 0};
+
     let updateCharacter = () => {
         let charBody = testbed.world.getRigidBody(characterHandle);
 
@@ -70,7 +73,7 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
             pidController.setAxes(RAPIER.PidAxesMask.All);
         }
 
-        let targetPoint = charBody.translation();
+        let targetPoint = charBody.translation(_targetPoint);
         targetPoint.x += movementDirection.x;
         targetPoint.y += movementDirection.y;
 

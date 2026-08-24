@@ -22,7 +22,7 @@ describe("scene queries", () => {
         const {world, collider} = worldWithBall();
 
         const ray = new RAPIER.Ray({x: 0, y: 10, z: 0}, {x: 0, y: -1, z: 0});
-        const hit = world.castRay(ray, 100, true);
+        const hit = world.castRay(ray, 100, true, new RAPIER.RayColliderHit());
 
         expect(hit).not.toBeNull();
         expect(hit!.collider.handle).toBe(collider.handle);
@@ -36,7 +36,7 @@ describe("scene queries", () => {
         const {world} = worldWithBall();
 
         const ray = new RAPIER.Ray({x: 50, y: 10, z: 0}, {x: 0, y: -1, z: 0});
-        expect(world.castRay(ray, 100, true)).toBeNull();
+        expect(world.castRay(ray, 100, true, new RAPIER.RayColliderHit())).toBeNull();
 
         world.free();
     });
@@ -45,7 +45,7 @@ describe("scene queries", () => {
         const {world, collider} = worldWithBall();
 
         const ray = new RAPIER.Ray({x: 0, y: 10, z: 0}, {x: 0, y: -1, z: 0});
-        const hit = world.castRayAndGetNormal(ray, 100, true);
+        const hit = world.castRayAndGetNormal(ray, 100, true, new RAPIER.RayColliderIntersection());
 
         expect(hit).not.toBeNull();
         expect(hit!.collider.handle).toBe(collider.handle);
@@ -70,14 +70,20 @@ describe("scene queries", () => {
 
         const ray = new RAPIER.Ray({x: 0, y: 20, z: 0}, {x: 0, y: -1, z: 0});
         const hits: {handle: number; timeOfImpact: number; normalY: number}[] = [];
-        world.intersectionsWithRay(ray, 100, true, (inter) => {
-            hits.push({
-                handle: inter.collider.handle,
-                timeOfImpact: inter.timeOfImpact,
-                normalY: inter.normal.y,
-            });
-            return true;
-        });
+        world.intersectionsWithRay(
+            ray,
+            100,
+            true,
+            (inter) => {
+                hits.push({
+                    handle: inter.collider.handle,
+                    timeOfImpact: inter.timeOfImpact,
+                    normalY: inter.normal.y,
+                });
+                return true;
+            },
+            new RAPIER.RayColliderIntersection(),
+        );
 
         expect(hits.map((h) => h.handle).sort()).toEqual(handles.sort());
         for (const hit of hits) {
@@ -107,6 +113,7 @@ describe("scene queries", () => {
                 count += 1;
                 return false;
             },
+            new RAPIER.RayColliderIntersection(),
         );
 
         expect(count).toBe(1);
@@ -117,7 +124,11 @@ describe("scene queries", () => {
     test("projectPoint reports the projection and whether the point is inside", () => {
         const {world, collider} = worldWithBall();
 
-        const outside = world.projectPoint({x: 0, y: 10, z: 0}, true);
+        const outside = world.projectPoint(
+            {x: 0, y: 10, z: 0},
+            true,
+            new RAPIER.PointColliderProjection(),
+        );
         expect(outside).not.toBeNull();
         expect(outside!.collider.handle).toBe(collider.handle);
         expect(outside!.isInside).toBe(false);
@@ -125,7 +136,11 @@ describe("scene queries", () => {
         expect(outside!.point.y).toBeCloseTo(1, 4);
         expect(outside!.point.z).toBeCloseTo(0, 4);
 
-        const inside = world.projectPoint({x: 0, y: 0.25, z: 0}, true);
+        const inside = world.projectPoint(
+            {x: 0, y: 0.25, z: 0},
+            true,
+            new RAPIER.PointColliderProjection(),
+        );
         expect(inside!.isInside).toBe(true);
 
         world.free();
@@ -137,7 +152,10 @@ describe("scene queries", () => {
         const collider = world.createCollider(RAPIER.ColliderDesc.cuboid(1, 1, 1), body);
         world.step();
 
-        const proj = world.projectPointAndGetFeature({x: 0, y: 10, z: 0});
+        const proj = world.projectPointAndGetFeature(
+            {x: 0, y: 10, z: 0},
+            new RAPIER.PointColliderProjection(),
+        );
         expect(proj).not.toBeNull();
         expect(proj!.collider.handle).toBe(collider.handle);
         expect(proj!.point.y).toBeCloseTo(1, 4);
@@ -171,7 +189,12 @@ describe("scene queries", () => {
         const {world} = worldWithBall();
         const ray = new RAPIER.Ray({x: 0, y: 10, z: 0}, {x: 0, y: -1, z: 0});
 
-        const before = world.castRayAndGetNormal(ray, 100, true)!;
+        const before = world.castRayAndGetNormal(
+            ray,
+            100,
+            true,
+            new RAPIER.RayColliderIntersection(),
+        )!;
 
         // Creating bodies grows WASM memory, which detaches the JS view over the
         // query result buffer; the next query must re-create it.
@@ -179,7 +202,12 @@ describe("scene queries", () => {
             world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(100, i, 100));
         }
 
-        const after = world.castRayAndGetNormal(ray, 100, true)!;
+        const after = world.castRayAndGetNormal(
+            ray,
+            100,
+            true,
+            new RAPIER.RayColliderIntersection(),
+        )!;
         expect(after.collider.handle).toBe(before.collider.handle);
         expect(after.timeOfImpact).toBeCloseTo(before.timeOfImpact, 6);
         expect(after.normal.y).toBeCloseTo(before.normal.y, 6);

@@ -29,21 +29,23 @@ export function benchGetters(RAPIER: any, is3D: boolean, quick: boolean): void {
     // Step once to initialize velocities
     world.step();
 
-    // Check if zero-alloc pattern is supported (our fork only)
+    // This fork requires a target on every getter; the official packages
+    // allocate and take none. Each row is emitted for whichever API is present.
     const supportsTargetParam = (() => {
         try {
-            const target = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};
-            bodies[0].translation(target);
-            return target.x !== undefined;
+            const target: any = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};
+            return bodies[0].translation(target) === target;
         } catch {
             return false;
         }
     })();
 
     summary(() => {
-        bench(`body.translation() x${bodyCount} [alloc]`, () => {
-            for (const b of bodies) b.translation();
-        });
+        if (!supportsTargetParam) {
+            bench(`body.translation() x${bodyCount} [alloc]`, () => {
+                for (const b of bodies) b.translation();
+            });
+        }
 
         if (supportsTargetParam) {
             const translationTarget = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};
@@ -54,9 +56,11 @@ export function benchGetters(RAPIER: any, is3D: boolean, quick: boolean): void {
     });
 
     summary(() => {
-        bench(`body.rotation() x${bodyCount} [alloc]`, () => {
-            for (const b of bodies) b.rotation();
-        });
+        if (!supportsTargetParam) {
+            bench(`body.rotation() x${bodyCount} [alloc]`, () => {
+                for (const b of bodies) b.rotation();
+            });
+        }
 
         if (supportsTargetParam && is3D) {
             const rotationTarget = {x: 0, y: 0, z: 0, w: 1};
@@ -67,9 +71,11 @@ export function benchGetters(RAPIER: any, is3D: boolean, quick: boolean): void {
     });
 
     summary(() => {
-        bench(`body.linvel() x${bodyCount} [alloc]`, () => {
-            for (const b of bodies) b.linvel();
-        });
+        if (!supportsTargetParam) {
+            bench(`body.linvel() x${bodyCount} [alloc]`, () => {
+                for (const b of bodies) b.linvel();
+            });
+        }
 
         if (supportsTargetParam) {
             const linvelTarget = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};
@@ -80,9 +86,11 @@ export function benchGetters(RAPIER: any, is3D: boolean, quick: boolean): void {
     });
 
     summary(() => {
-        bench(`collider.translation() x${bodyCount} [alloc]`, () => {
-            for (const c of colliders) c.translation();
-        });
+        if (!supportsTargetParam) {
+            bench(`collider.translation() x${bodyCount} [alloc]`, () => {
+                for (const c of colliders) c.translation();
+            });
+        }
 
         if (supportsTargetParam) {
             const colliderTransTarget = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};

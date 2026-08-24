@@ -28,10 +28,9 @@ export class VectorOps {
     }
 
     // FIXME: type ram: RawVector?
-    public static fromRaw(raw: RawVector, target?: Vector): Vector | null {
+    public static fromRaw(raw: RawVector, target: Vector): Vector | null {
         if (!raw) return null;
 
-        target ??= VectorOps.zeros();
         target.x = raw.x;
         target.y = raw.y;
         raw.free();
@@ -48,26 +47,21 @@ export class VectorOps {
     }
 
     /**
-     * Writes the given components into `target`, allocating a new vector only if
-     * `target` wasn’t provided.
+     * Writes the given components into `target`.
      */
-    public static set(target: Vector | undefined, x: number, y: number): Vector {
-        if (!target) return VectorOps.new(x, y);
-
+    public static set(target: Vector, x: number, y: number): Vector {
         target.x = x;
         target.y = y;
         return target;
     }
 
-    public static fromBuffer(buffer: Float32Array, target?: Vector): Vector {
-        target ??= VectorOps.zeros();
+    public static fromBuffer(buffer: Float32Array, target: Vector): Vector {
         target.x = buffer[0];
         target.y = buffer[1];
         return target;
     }
 
-    public static fromBufferAt(buffer: Float32Array, offset: number, target?: Vector): Vector {
-        target ??= VectorOps.zeros();
+    public static fromBufferAt(buffer: Float32Array, offset: number, target: Vector): Vector {
         target.x = buffer[offset];
         target.y = buffer[offset + 1];
         return target;

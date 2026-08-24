@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v, _q} from "./_target";
 
 beforeAll(async () => {
     await init();
@@ -18,15 +19,15 @@ describe("collider transform buffer sync", () => {
 
         for (let i = 0; i < 10; i++) world.step();
 
-        const b = body.translation();
-        const c = collider.translation();
+        const b = body.translation(_v());
+        const c = collider.translation(_v());
         expect(c.x).toBeCloseTo(b.x, 5);
         expect(c.y).toBeCloseTo(b.y, 5);
         expect(c.z).toBeCloseTo(b.z, 5);
 
         // Rotation should match the parent too.
-        const br = body.rotation();
-        const cr = collider.rotation();
+        const br = body.rotation(_q());
+        const cr = collider.rotation(_q());
         expect(cr.x).toBeCloseTo(br.x, 5);
         expect(cr.w).toBeCloseTo(br.w, 5);
 
@@ -47,10 +48,10 @@ describe("collider transform buffer sync", () => {
         }
         expect(body.isSleeping()).toBe(true);
 
-        const resting = collider.translation().y;
+        const resting = collider.translation(_v()).y;
         for (let i = 0; i < 30; i++) {
             world.step();
-            expect(collider.translation().y).toBeCloseTo(resting, 5);
+            expect(collider.translation(_v()).y).toBeCloseTo(resting, 5);
         }
 
         world.free();
@@ -64,7 +65,7 @@ describe("collider transform buffer sync", () => {
 
         for (let i = 0; i < 10; i++) world.step();
 
-        const t = collider.translation();
+        const t = collider.translation(_v());
         expect(t.x).toBeCloseTo(4, 5);
         expect(t.y).toBeCloseTo(2, 5);
         expect(t.z).toBeCloseTo(-3, 5);
@@ -80,7 +81,7 @@ describe("collider transform buffer sync", () => {
         world.step();
 
         collider.setTranslation({x: 7, y: 8, z: 9});
-        const t = collider.translation();
+        const t = collider.translation(_v());
         expect(t.x).toBeCloseTo(7, 5);
         expect(t.y).toBeCloseTo(8, 5);
         expect(t.z).toBeCloseTo(9, 5);
@@ -95,7 +96,7 @@ describe("collider transform buffer sync", () => {
         world.step();
 
         // Reference value read via the (valid) buffer path.
-        const expected = collider.translation();
+        const expected = collider.translation(_v());
 
         // A WASM `memory.grow()` detaches the view's underlying ArrayBuffer,
         // leaving a 0-length view (reads would otherwise yield undefined). The
@@ -109,7 +110,7 @@ describe("collider transform buffer sync", () => {
         // The buffer contents are still valid, so `liveBuffer()` must re-create
         // the view rather than fall back to the WASM path, and yield the same
         // values as before (not undefined/garbage).
-        const t = collider.translation();
+        const t = collider.translation(_v());
         expect(t.x).toBeCloseTo(expected.x, 4);
         expect(t.y).toBeCloseTo(expected.y, 4);
         expect(t.z).toBeCloseTo(expected.z, 4);
@@ -124,14 +125,14 @@ describe("collider transform buffer sync", () => {
         const collider = world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
         world.step();
 
-        const expected = collider.translation();
+        const expected = collider.translation(_v());
 
         // `ptr === 0` marks the contents as stale: reads must go through WASM
         // and must not resurrect the view.
         world.colliders._bufferRef.buffer = null;
         world.colliders._bufferRef.ptr = 0;
 
-        const t = collider.translation();
+        const t = collider.translation(_v());
         expect(t.x).toBeCloseTo(expected.x, 4);
         expect(t.y).toBeCloseTo(expected.y, 4);
         expect(t.z).toBeCloseTo(expected.z, 4);
@@ -155,7 +156,7 @@ describe("collider transform buffer sync", () => {
         // Compare the buffer value (default path) with a forced WASM read.
         const scratch = {x: 0, y: 0, z: 0};
         for (const c of colliders) {
-            const fromBuffer = c.translation();
+            const fromBuffer = c.translation(_v());
             // Force the WASM fallback.
             world.colliders._bufferRef.buffer = null;
             world.colliders._bufferRef.ptr = 0;

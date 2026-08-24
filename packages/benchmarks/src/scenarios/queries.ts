@@ -23,7 +23,19 @@ export function benchQueries(RAPIER: any, is3D: boolean, quick: boolean): void {
     // work, rather than a handful of casts wrapped in loop and timer overhead.
     const RAY_COUNT = quick ? 250 : 1000;
 
-    const world = createSparseWorld(RAPIER, is3D, bodyCount);
+    // `any`: this file runs against both this fork (targets required) and the
+    // official packages (allocating), whose signatures differ.
+    const world: any = createSparseWorld(RAPIER, is3D, bodyCount);
+
+    // This fork's result types are zero-arg constructible and pre-fill their
+    // vectors; the official ones leave them undefined.
+    const targetApi = (() => {
+        try {
+            return new RAPIER.PointProjection().point !== undefined;
+        } catch {
+            return false;
+        }
+    })();
 
     // Let bodies settle
     for (let i = 0; i < 60; i++) world.step();
@@ -41,28 +53,40 @@ export function benchQueries(RAPIER: any, is3D: boolean, quick: boolean): void {
         }
     }
 
+    const rayHit = targetApi ? new RAPIER.RayColliderHit() : undefined;
+    const rayNormalHit = targetApi ? new RAPIER.RayColliderIntersection() : undefined;
+    const pointProj = targetApi ? new RAPIER.PointColliderProjection() : undefined;
+
     summary(() => {
         bench(`castRay x${RAY_COUNT} (${bodyCount} bodies)`, () => {
             for (let i = 0; i < RAY_COUNT; i++) {
-                world.castRay(rays[i], 100, true);
+                targetApi
+                    ? world.castRay(rays[i], 100, true, rayHit)
+                    : world.castRay(rays[i], 100, true);
             }
         });
 
         bench(`castRayAndGetNormal x${RAY_COUNT}`, () => {
             for (let i = 0; i < RAY_COUNT; i++) {
-                world.castRayAndGetNormal(rays[i], 100, true);
+                targetApi
+                    ? world.castRayAndGetNormal(rays[i], 100, true, rayNormalHit)
+                    : world.castRayAndGetNormal(rays[i], 100, true);
             }
         });
 
         bench(`intersectionsWithRay x${RAY_COUNT}`, () => {
             for (let i = 0; i < RAY_COUNT; i++) {
-                world.intersectionsWithRay(rays[i], 100, true, () => true);
+                targetApi
+                    ? world.intersectionsWithRay(rays[i], 100, true, () => true, rayNormalHit)
+                    : world.intersectionsWithRay(rays[i], 100, true, () => true);
             }
         });
 
         bench(`projectPoint x${RAY_COUNT}`, () => {
             for (let i = 0; i < RAY_COUNT; i++) {
-                world.projectPoint(points[i], true);
+                targetApi
+                    ? world.projectPoint(points[i], true, pointProj)
+                    : world.projectPoint(points[i], true);
             }
         });
 

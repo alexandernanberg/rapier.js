@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81};
 
@@ -26,7 +27,7 @@ describe("snapshots", () => {
 
     test("a restored world reproduces the snapshotted transforms", () => {
         const {world, body} = scene();
-        const before = body.translation();
+        const before = body.translation(_v());
 
         const snapshot = world.takeSnapshot();
         expect(snapshot.byteLength).toBeGreaterThan(0);
@@ -36,8 +37,8 @@ describe("snapshots", () => {
 
         const restoredBody = restored.getRigidBody(body.handle)!;
         expect(restoredBody).not.toBeNull();
-        expect(restoredBody.translation().x).toBeCloseTo(before.x, 5);
-        expect(restoredBody.translation().y).toBeCloseTo(before.y, 5);
+        expect(restoredBody.translation(_v()).x).toBeCloseTo(before.x, 5);
+        expect(restoredBody.translation(_v()).y).toBeCloseTo(before.y, 5);
 
         restored.free();
         world.free();
@@ -67,8 +68,8 @@ describe("snapshots", () => {
         }
 
         const restoredBody = restored.getRigidBody(body.handle)!;
-        expect(restoredBody.translation().x).toBeCloseTo(body.translation().x, 4);
-        expect(restoredBody.translation().y).toBeCloseTo(body.translation().y, 4);
+        expect(restoredBody.translation(_v()).x).toBeCloseTo(body.translation(_v()).x, 4);
+        expect(restoredBody.translation(_v()).y).toBeCloseTo(body.translation(_v()).y, 4);
 
         restored.free();
         world.free();

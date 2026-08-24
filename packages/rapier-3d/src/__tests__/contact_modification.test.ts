@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81, z: 0};
 
@@ -57,7 +58,7 @@ describe("contact modification", () => {
 
         expect(calls).toBeGreaterThan(0);
         // Without a contact response the ball falls straight through the ground.
-        expect(body.translation().y).toBeLessThan(-1);
+        expect(body.translation(_v()).y).toBeLessThan(-1);
         world.free();
     });
 
@@ -73,9 +74,9 @@ describe("contact modification", () => {
             modifySolverContacts(context) {
                 colliders = [context.collider1(), context.collider2()];
                 numContacts = context.numSolverContacts();
-                normalY = context.normal().y;
+                normalY = context.normal(_v()).y;
                 dist = context.solverContactDist(0);
-                point = context.solverContactPoint1(0);
+                point = context.solverContactPoint1(0, _v());
             },
         };
 
@@ -87,7 +88,7 @@ describe("contact modification", () => {
         expect(Math.abs(normalY)).toBeCloseTo(1, 1);
         expect(Math.abs(dist)).toBeLessThan(0.1);
         expect(point).not.toBeNull();
-        expect(point!.y).toBeCloseTo(body.translation().y - 0.5, 1);
+        expect(point!.y).toBeCloseTo(body.translation(_v()).y - 0.5, 1);
 
         world.free();
     });
@@ -98,7 +99,7 @@ describe("contact modification", () => {
         expect(context.isActive()).toBe(false);
         expect(context.numSolverContacts()).toBe(0);
         expect(context.collider1()).toBeUndefined();
-        expect(context.solverContactPoint1(0)).toBeNull();
+        expect(context.solverContactPoint1(0, _v())).toBeNull();
         // Setters are no-ops rather than writes through a dangling pointer.
         context.setFriction(1);
         expect(context.friction()).toBe(0);
@@ -138,8 +139,8 @@ describe("contact modification", () => {
         for (let i = 0; i < 180; i++) world.step(undefined, hooks);
 
         // The ball lands, is dragged along the belt, and never falls through.
-        expect(body.translation().y).toBeGreaterThan(0);
-        expect(Math.abs(body.translation().x)).toBeGreaterThan(0.5);
+        expect(body.translation(_v()).y).toBeGreaterThan(0);
+        expect(Math.abs(body.translation(_v()).x)).toBeGreaterThan(0.5);
         world.free();
     });
 
@@ -168,7 +169,7 @@ describe("contact modification", () => {
                       };
 
             for (let i = 0; i < 120; i++) world.step(undefined, hooks);
-            const x = box.translation().x;
+            const x = box.translation(_v()).x;
             world.free();
             return x;
         }

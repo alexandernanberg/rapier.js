@@ -10,37 +10,28 @@ export class PointProjection {
     /**
      * The projection of the point on the collider.
      */
-    point: Vector;
+    point: Vector = VectorOps.zeros();
     /**
      * Is the point inside of the collider?
      */
-    isInside: boolean;
-
-    constructor(point: Vector, isInside: boolean) {
-        this.point = point;
-        this.isInside = isInside;
-    }
+    isInside = false;
 
     /**
      * Reads a point projection from its raw representation.
      *
      * @param raw - The raw projection. It is always freed before returning.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public static fromRaw(
         raw: RawPointProjection,
-        target?: PointProjection,
+        target: PointProjection,
     ): PointProjection | null {
         if (!raw) return null;
 
-        const point = VectorOps.fromRaw(raw.point(), target?.point)!;
-        const isInside = raw.isInside();
+        VectorOps.fromRaw(raw.point(), target.point);
+        target.isInside = raw.isInside();
         raw.free();
 
-        if (!target) return new PointProjection(point, isInside);
-
-        target.point = point;
-        target.isInside = isInside;
         return target;
     }
 }
@@ -52,15 +43,15 @@ export class PointColliderProjection {
     /**
      * The collider hit by the ray.
      */
-    collider: Collider;
+    collider!: Collider;
     /**
      * The projection of the point on the collider.
      */
-    point: Vector;
+    point: Vector = VectorOps.zeros();
     /**
      * Is the point inside of the collider?
      */
-    isInside: boolean;
+    isInside = false;
 
     /**
      * The type of the geometric feature the point was projected on.
@@ -71,18 +62,4 @@ export class PointColliderProjection {
      * The id of the geometric feature the point was projected on.
      */
     featureId: number | undefined = undefined;
-
-    constructor(
-        collider: Collider,
-        point: Vector,
-        isInside: boolean,
-        featureType?: FeatureType,
-        featureId?: number,
-    ) {
-        this.collider = collider;
-        this.point = point;
-        this.isInside = isInside;
-        if (featureId !== undefined) this.featureId = featureId;
-        if (featureType !== undefined) this.featureType = featureType;
-    }
 }
