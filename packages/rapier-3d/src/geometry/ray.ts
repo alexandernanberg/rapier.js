@@ -27,12 +27,17 @@ export class Ray {
         this.dir = dir;
     }
 
-    public pointAt(t: number): Vector {
-        return {
-            x: this.origin.x + this.dir.x * t,
-            y: this.origin.y + this.dir.y * t,
-            z: this.origin.z + this.dir.z * t,
-        };
+    /**
+     * The point at parameter `t` along this ray.
+     *
+     * @param t - The ray parameter.
+     * @param target - The object the result is written into.
+     */
+    public pointAt(t: number, target: Vector): Vector {
+        target.x = this.origin.x + this.dir.x * t;
+        target.y = this.origin.y + this.dir.y * t;
+        target.z = this.origin.z + this.dir.z * t;
+        return target;
     }
 }
 
@@ -45,11 +50,11 @@ export class RayIntersection {
      *
      * The hit point is obtained from the ray's origin and direction: `origin + dir * timeOfImpact`.
      */
-    timeOfImpact: number;
+    timeOfImpact = 0;
     /**
      * The normal of the collider at the hit point.
      */
-    normal: Vector;
+    normal: Vector = VectorOps.zeros();
 
     /**
      * The type of the geometric feature the point was projected on.
@@ -61,42 +66,24 @@ export class RayIntersection {
      */
     featureId: number | undefined = undefined;
 
-    constructor(
-        timeOfImpact: number,
-        normal: Vector,
-        featureType?: FeatureType,
-        featureId?: number,
-    ) {
-        this.timeOfImpact = timeOfImpact;
-        this.normal = normal;
-        if (featureId !== undefined) this.featureId = featureId;
-        if (featureType !== undefined) this.featureType = featureType;
-    }
-
     /**
      * Reads a ray intersection from its raw representation.
      *
      * @param raw - The raw intersection. It is always freed before returning.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public static fromRaw(
         raw: RawRayIntersection,
-        target?: RayIntersection,
+        target: RayIntersection,
     ): RayIntersection | null {
         if (!raw) return null;
 
-        const timeOfImpact = raw.time_of_impact();
-        const normal = VectorOps.fromRaw(raw.normal(), target?.normal)!;
-        const featureType = raw.featureType() as number as FeatureType;
-        const featureId = raw.featureId();
+        target.timeOfImpact = raw.time_of_impact();
+        VectorOps.fromRaw(raw.normal(), target.normal);
+        target.featureType = raw.featureType() as number as FeatureType;
+        target.featureId = raw.featureId();
         raw.free();
 
-        if (!target) return new RayIntersection(timeOfImpact, normal, featureType, featureId);
-
-        target.timeOfImpact = timeOfImpact;
-        target.normal = normal;
-        target.featureType = featureType;
-        target.featureId = featureId;
         return target;
     }
 }
@@ -108,17 +95,17 @@ export class RayColliderIntersection {
     /**
      * The collider hit by the ray.
      */
-    collider: Collider;
+    collider!: Collider;
     /**
      * The time-of-impact of the ray with the collider.
      *
      * The hit point is obtained from the ray's origin and direction: `origin + dir * timeOfImpact`.
      */
-    timeOfImpact: number;
+    timeOfImpact = 0;
     /**
      * The normal of the collider at the hit point.
      */
-    normal: Vector;
+    normal: Vector = VectorOps.zeros();
 
     /**
      * The type of the geometric feature the point was projected on.
@@ -129,20 +116,6 @@ export class RayColliderIntersection {
      * The id of the geometric feature the point was projected on.
      */
     featureId: number | undefined = undefined;
-
-    constructor(
-        collider: Collider,
-        timeOfImpact: number,
-        normal: Vector,
-        featureType?: FeatureType,
-        featureId?: number,
-    ) {
-        this.collider = collider;
-        this.timeOfImpact = timeOfImpact;
-        this.normal = normal;
-        if (featureId !== undefined) this.featureId = featureId;
-        if (featureType !== undefined) this.featureType = featureType;
-    }
 }
 
 /**
@@ -152,16 +125,11 @@ export class RayColliderHit {
     /**
      * The handle of the collider hit by the ray.
      */
-    collider: Collider;
+    collider!: Collider;
     /**
      * The time-of-impact of the ray with the collider.
      *
      * The hit point is obtained from the ray's origin and direction: `origin + dir * timeOfImpact`.
      */
-    timeOfImpact: number;
-
-    constructor(collider: Collider, timeOfImpact: number) {
-        this.collider = collider;
-        this.timeOfImpact = timeOfImpact;
-    }
+    timeOfImpact = 0;
 }

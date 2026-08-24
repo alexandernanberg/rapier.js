@@ -82,9 +82,9 @@ export class MultibodyJoint {
      * The first anchor gives the position of the application point on the
      * local frame of the first rigid-body it is attached to.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public anchor1(target?: Vector): Vector {
+    public anchor1(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle), target)!;
     }
 
@@ -94,9 +94,9 @@ export class MultibodyJoint {
      * The second anchor gives the position of the application point on the
      * local frame of the second rigid-body it is attached to.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public anchor2(target?: Vector): Vector {
+    public anchor2(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle), target)!;
     }
 

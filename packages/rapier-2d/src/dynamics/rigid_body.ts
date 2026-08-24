@@ -226,13 +226,12 @@ export class RigidBody {
     /**
      * The world-space translation of this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public translation(target?: Vector): Vector {
+    public translation(target: Vector): Vector {
         const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset;
-            target ??= VectorOps.zeros();
             target.x = buf[o];
             target.y = buf[o + 1];
             return target;
@@ -260,9 +259,9 @@ export class RigidBody {
      * method and is used for estimating the kinematic body velocity at the next timestep.
      * For non-kinematic bodies, this value is currently unspecified.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public nextTranslation(target?: Vector): Vector {
+    public nextTranslation(target: Vector): Vector {
         this.rawSet.rbNextTranslation(this.handle);
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -430,13 +429,12 @@ export class RigidBody {
     /**
      * The linear velocity of this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public linvel(target?: Vector): Vector {
+    public linvel(target: Vector): Vector {
         const buf = this.liveBuffer();
         if (buf) {
             const o = this._bufferOffset + 3;
-            target ??= VectorOps.zeros();
             target.x = buf[o];
             target.y = buf[o + 1];
             return target;
@@ -448,9 +446,9 @@ export class RigidBody {
     /**
      * The velocity of the given world-space point on this rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public velocityAtPoint(point: Vector, target?: Vector): Vector {
+    public velocityAtPoint(point: Vector, target: Vector): Vector {
         const rawPoint = VectorOps.intoRaw(point);
         let result = VectorOps.fromRaw(
             this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
@@ -481,9 +479,9 @@ export class RigidBody {
     /**
      * The inverse mass taking into account translation locking.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public effectiveInvMass(target?: Vector): Vector {
+    public effectiveInvMass(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle), target)!;
     }
 
@@ -499,9 +497,9 @@ export class RigidBody {
     /**
      * The center of mass of a rigid-body expressed in its local-space.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public localCom(target?: Vector): Vector {
+    public localCom(target: Vector): Vector {
         this.rawSet.rbLocalCom(this.handle);
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -509,9 +507,9 @@ export class RigidBody {
     /**
      * The world-space center of mass of the rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public worldCom(target?: Vector): Vector {
+    public worldCom(target: Vector): Vector {
         this.rawSet.rbWorldCom(this.handle);
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -847,9 +845,9 @@ export class RigidBody {
      * Retrieves the constant force(s) the user added to this rigid-body
      * Returns zero if the rigid-body is not dynamic.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public userForce(target?: Vector): Vector {
+    public userForce(target: Vector): Vector {
         return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle), target)!;
     }
 

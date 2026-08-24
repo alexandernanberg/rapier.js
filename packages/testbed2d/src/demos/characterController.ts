@@ -50,6 +50,10 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
     let speed = 0.2;
     let movementDirection = {x: 0.0, y: -speed};
 
+    // Reused every frame: the getters write into these instead of allocating.
+    const _movement = {x: 0, y: 0};
+    const _newPos = {x: 0, y: 0};
+
     let updateCharacter = () => {
         let charBody = testbed.world.getRigidBody(characterHandle);
         let charCollider = testbed.world.getCollider(characterColliderHandle);
@@ -61,8 +65,8 @@ export function initWorld(RAPIER: RAPIER_API, testbed: Testbed) {
 
         characterController.computeColliderMovement(charCollider, movementDirection);
 
-        let movement = characterController.computedMovement();
-        let newPos = charBody.translation();
+        let movement = characterController.computedMovement(_movement);
+        let newPos = charBody.translation(_newPos);
         newPos.x += movement.x;
         newPos.y += movement.y;
         charBody.setNextKinematicTranslation(newPos);

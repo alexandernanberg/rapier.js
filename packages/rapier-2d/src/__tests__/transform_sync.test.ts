@@ -1,5 +1,6 @@
 import RAPIER, {init, scratch} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 beforeAll(async () => {
     await init();
@@ -37,11 +38,11 @@ function rawColliderTranslation(world: RAPIER.World, collider: RAPIER.Collider) 
 /** Asserts that every buffered transform in the world matches WASM exactly. */
 function expectBufferMatchesWasm(world: RAPIER.World) {
     world.bodies.forEach((body) => {
-        expect(body.translation()).toEqual(rawBodyTranslation(world, body));
-        expect(body.linvel()).toEqual(rawBodyLinvel(world, body));
+        expect(body.translation(_v())).toEqual(rawBodyTranslation(world, body));
+        expect(body.linvel(_v())).toEqual(rawBodyLinvel(world, body));
     });
     world.colliders.forEach((collider) => {
-        expect(collider.translation()).toEqual(rawColliderTranslation(world, collider));
+        expect(collider.translation(_v())).toEqual(rawColliderTranslation(world, collider));
     });
 }
 
@@ -92,7 +93,7 @@ describe("incremental transform buffer sync", () => {
 
         // Wake a single body and drop it back down; every other slot must stay
         // valid while only that one island is being refreshed.
-        bodies[0].setTranslation({x: bodies[0].translation().x, y: 8}, true);
+        bodies[0].setTranslation({x: bodies[0].translation(_v()).x, y: 8}, true);
         for (let i = 0; i < 200; i++) {
             world.step();
             expectBufferMatchesWasm(world);
@@ -115,7 +116,7 @@ describe("incremental transform buffer sync", () => {
         world.step();
 
         expectBufferMatchesWasm(world);
-        expect(collider.translation().x).toBeCloseTo(20, 5);
+        expect(collider.translation(_v()).x).toBeCloseTo(20, 5);
 
         world.free();
     });
@@ -130,7 +131,7 @@ describe("incremental transform buffer sync", () => {
         body.setLinvel({x: 3, y: 0}, false);
         world.step();
 
-        expect(body.linvel()).toEqual(rawBodyLinvel(world, body));
+        expect(body.linvel(_v())).toEqual(rawBodyLinvel(world, body));
 
         world.free();
     });
@@ -175,7 +176,7 @@ describe("incremental transform buffer sync", () => {
         world.createCollider(RAPIER.ColliderDesc.ball(0.5), fresh);
         world.step();
 
-        expect(fresh.translation().x).toBeCloseTo(-40, 5);
+        expect(fresh.translation(_v()).x).toBeCloseTo(-40, 5);
         expectBufferMatchesWasm(world);
 
         world.free();
@@ -191,7 +192,7 @@ describe("incremental transform buffer sync", () => {
         const bodies = createStack(world, 6);
 
         // Keep them falling, so the body removed below is in the active set.
-        for (const b of bodies) b.setTranslation({x: b.translation().x, y: 20}, true);
+        for (const b of bodies) b.setTranslation({x: b.translation(_v()).x, y: 20}, true);
         for (let i = 0; i < 5; i++) world.step();
         expect(bodies.some((b) => !b.isSleeping())).toBe(true);
 
@@ -207,7 +208,7 @@ describe("incremental transform buffer sync", () => {
 
         world.step();
 
-        expect(fixed.translation()).toEqual({x: 17, y: 4});
+        expect(fixed.translation(_v())).toEqual({x: 17, y: 4});
         expectBufferMatchesWasm(world);
 
         world.free();

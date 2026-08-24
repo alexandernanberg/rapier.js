@@ -8,8 +8,9 @@ import {createSparseWorld} from "../worlds/sparse.js";
  * `world.step()` is included as a canary — it should allocate nothing, since the
  * transform sync writes into a buffer shared with WASM.
  *
- * The `target` forms only exist on this fork's `World` queries, so each pair
- * probes for support first; `--official` runs simply report the allocating rows.
+ * This fork has only the `target` form; the official packages have only the
+ * allocating one. Each row is emitted for whichever API is under test, so a
+ * fork run reports the `[reuse]` rows and `--official` the allocating ones.
  */
 /**
  * Deterministic stand-in for `Math.random`, installed while the scene and the
@@ -39,7 +40,9 @@ export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): M
     const bodyCount = quick ? 1000 : 5000;
     const queryCount = quick ? 250 : 1000;
 
-    const world = withSeededRandom(0x5eed, () => createSparseWorld(RAPIER, is3D, bodyCount));
+    // `any`: this file runs against both this fork (targets required) and the
+    // official packages (allocating), whose signatures differ.
+    const world: any = withSeededRandom(0x5eed, () => createSparseWorld(RAPIER, is3D, bodyCount));
     for (let i = 0; i < 60; i++) world.step();
 
     // A separate, smaller world for the stepping canary: allocation per step
@@ -92,17 +95,19 @@ export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): M
         },
     ];
 
-    // --- body.translation() -------------------------------------------------
-    benches.push({
-        name: `body.translation() x${bodies.length}`,
-        opsPerCall: bodies.length,
-        fn: () => {
-            for (const b of bodies) keep(b.translation());
-        },
-    });
+    // This fork's result types are zero-arg constructible and pre-fill their
+    // vectors; the official ones leave them undefined.
+    const targetApi = (() => {
+        try {
+            return new RAPIER.PointProjection().point !== undefined;
+        } catch {
+            return false;
+        }
+    })();
 
-    const translationTarget = vec(0, 0, 0);
-    if (bodies[0].translation(translationTarget) === translationTarget) {
+    // --- body.translation() -------------------------------------------------
+    if (targetApi) {
+        const translationTarget = vec(0, 0, 0);
         benches.push({
             name: `body.translation() x${bodies.length} [reuse]`,
             opsPerCall: bodies.length,
@@ -110,149 +115,100 @@ export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): M
                 for (const b of bodies) keep(b.translation(translationTarget));
             },
         });
+    } else {
+        benches.push({
+            name: `body.translation() x${bodies.length}`,
+            opsPerCall: bodies.length,
+            fn: () => {
+                for (const b of bodies) keep(b.translation());
+            },
+        });
     }
 
-    // --- castRay (no target form: the hit holds no vectors) ------------------
-    benches.push({
-        name: `castRay x${queryCount}`,
-        opsPerCall: queryCount,
-        fn: () => {
-            for (let i = 0; i < queryCount; i++) keep(world.castRay(rays[i], 100, true));
-        },
-    });
+    // --- castRay ------------------------------------------------------------
+    if (targetApi) {
+        const rayHit = new RAPIER.RayColliderHit();
+        benches.push({
+            name: `castRay x${queryCount} [reuse]`,
+            opsPerCall: queryCount,
+            fn: () => {
+                for (let i = 0; i < queryCount; i++)
+                    keep(world.castRay(rays[i], 100, true, rayHit));
+            },
+        });
+    } else {
+        benches.push({
+            name: `castRay x${queryCount}`,
+            opsPerCall: queryCount,
+            fn: () => {
+                for (let i = 0; i < queryCount; i++) keep(world.castRay(rays[i], 100, true));
+            },
+        });
+    }
 
     // --- castRayAndGetNormal ------------------------------------------------
-    benches.push({
-        name: `castRayAndGetNormal x${queryCount}`,
-        opsPerCall: queryCount,
-        fn: () => {
-            for (let i = 0; i < queryCount; i++)
-                keep(world.castRayAndGetNormal(rays[i], 100, true));
-        },
-    });
-
-    const hitTarget = new RAPIER.RayColliderIntersection(
-        undefined,
-        0,
-        vec(0, 0, 0),
-        RAPIER.FeatureType.Unknown,
-        undefined,
-    );
-    const supportsQueryTarget =
-        world.castRayAndGetNormal(
-            rays[0],
-            100,
-            true,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            hitTarget,
-        ) === hitTarget;
-
-    if (supportsQueryTarget) {
+    if (targetApi) {
+        const hitTarget = new RAPIER.RayColliderIntersection();
         benches.push({
             name: `castRayAndGetNormal x${queryCount} [reuse]`,
             opsPerCall: queryCount,
             fn: () => {
                 for (let i = 0; i < queryCount; i++)
-                    keep(
-                        world.castRayAndGetNormal(
-                            rays[i],
-                            100,
-                            true,
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            hitTarget,
-                        ),
-                    );
+                    keep(world.castRayAndGetNormal(rays[i], 100, true, hitTarget));
+            },
+        });
+    } else {
+        benches.push({
+            name: `castRayAndGetNormal x${queryCount}`,
+            opsPerCall: queryCount,
+            fn: () => {
+                for (let i = 0; i < queryCount; i++)
+                    keep(world.castRayAndGetNormal(rays[i], 100, true));
             },
         });
     }
 
     // --- projectPoint -------------------------------------------------------
-    benches.push({
-        name: `projectPoint x${queryCount}`,
-        opsPerCall: queryCount,
-        fn: () => {
-            for (let i = 0; i < queryCount; i++) keep(world.projectPoint(points[i], true));
-        },
-    });
-
-    if (supportsQueryTarget) {
-        const projTarget = new RAPIER.PointColliderProjection(
-            undefined,
-            vec(0, 0, 0),
-            false,
-            RAPIER.FeatureType.Unknown,
-            undefined,
-        );
+    if (targetApi) {
+        const projTarget = new RAPIER.PointColliderProjection();
         benches.push({
             name: `projectPoint x${queryCount} [reuse]`,
             opsPerCall: queryCount,
             fn: () => {
                 for (let i = 0; i < queryCount; i++)
-                    keep(
-                        world.projectPoint(
-                            points[i],
-                            true,
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            projTarget,
-                        ),
-                    );
+                    keep(world.projectPoint(points[i], true, projTarget));
+            },
+        });
+    } else {
+        benches.push({
+            name: `projectPoint x${queryCount}`,
+            opsPerCall: queryCount,
+            fn: () => {
+                for (let i = 0; i < queryCount; i++) keep(world.projectPoint(points[i], true));
             },
         });
     }
 
     // --- castShape ----------------------------------------------------------
-    benches.push({
-        name: `castShape x${queryCount}`,
-        opsPerCall: queryCount,
-        fn: () => {
-            for (let i = 0; i < queryCount; i++)
-                keep(world.castShape(points[i], identity, down, shape, 0, 100, true));
-        },
-    });
-
-    if (supportsQueryTarget) {
-        const castTarget = new RAPIER.ColliderShapeCastHit(
-            undefined,
-            0,
-            vec(0, 0, 0),
-            vec(0, 0, 0),
-            vec(0, 0, 0),
-            vec(0, 0, 0),
-        );
+    if (targetApi) {
+        const castTarget = new RAPIER.ColliderShapeCastHit();
         benches.push({
             name: `castShape x${queryCount} [reuse]`,
             opsPerCall: queryCount,
             fn: () => {
                 for (let i = 0; i < queryCount; i++)
                     keep(
-                        world.castShape(
-                            points[i],
-                            identity,
-                            down,
-                            shape,
-                            0,
-                            100,
-                            true,
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            castTarget,
-                        ),
+                        world.castShape(points[i], identity, down, shape, 0, 100, true, castTarget),
                     );
+            },
+        });
+    } else {
+        benches.push({
+            name: `castShape x${queryCount}`,
+            opsPerCall: queryCount,
+            fn: () => {
+                for (let i = 0; i < queryCount; i++)
+                    keep(world.castShape(points[i], identity, down, shape, 0, 100, true));
             },
         });
     }

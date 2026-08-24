@@ -12,19 +12,19 @@ export class CharacterCollision {
     /** The collider involved in the collision. Null if the collider no longer exists in the physics world. */
     public collider: Collider | null = null;
     /** The translation delta applied to the character before this collision took place. */
-    public translationDeltaApplied!: Vector;
+    public translationDeltaApplied: Vector = VectorOps.zeros();
     /** The translation delta the character would move after this collision if there is no other obstacles. */
-    public translationDeltaRemaining!: Vector;
+    public translationDeltaRemaining: Vector = VectorOps.zeros();
     /** The time-of-impact between the character and the obstacles. */
-    public toi!: number;
+    public toi = 0;
     /** The world-space contact point on the collider when the collision happens. */
-    public witness1!: Vector;
+    public witness1: Vector = VectorOps.zeros();
     /** The local-space contact point on the character when the collision happens. */
-    public witness2!: Vector;
+    public witness2: Vector = VectorOps.zeros();
     /** The world-space outward contact normal on the collider when the collision happens. */
-    public normal1!: Vector;
+    public normal1: Vector = VectorOps.zeros();
     /** The local-space outward contact normal on the character when the collision happens. */
-    public normal2!: Vector;
+    public normal2: Vector = VectorOps.zeros();
 }
 
 /**
@@ -76,8 +76,8 @@ export class KinematicCharacterController {
     /**
      * The direction that goes "up". Used to determine where the floor is, and the floor’s angle.
      */
-    public up(): Vector {
-        return VectorOps.fromRaw(this.raw.up())!;
+    public up(target: Vector): Vector {
+        return VectorOps.fromRaw(this.raw.up(), target)!;
     }
 
     /**
@@ -323,7 +323,7 @@ export class KinematicCharacterController {
     /**
      * The movement computed by the last call to `this.computeColliderMovement`.
      */
-    public computedMovement(target?: Vector): Vector {
+    public computedMovement(target: Vector): Vector {
         this.raw.computedMovement();
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -348,33 +348,32 @@ export class KinematicCharacterController {
      * call to `this.computeColliderMovement`.
      *
      * @param i - The i-th collision will be returned.
-     * @param out - If this argument is set, it will be filled with the collision information.
+     * @param target - The object the collision information is written into.
      */
-    public computedCollision(i: number, out?: CharacterCollision): CharacterCollision | null {
+    public computedCollision(i: number, target: CharacterCollision): CharacterCollision | null {
         if (!this.raw.computedCollision(i, this.rawCharacterCollision)) {
             return null;
         } else {
             let c = this.rawCharacterCollision;
-            out = out ?? new CharacterCollision();
             c.getComponents();
             const s = scratch();
-            out.toi = s[0];
-            out.translationDeltaApplied = VectorOps.fromBufferAt(
+            target.toi = s[0];
+            target.translationDeltaApplied = VectorOps.fromBufferAt(
                 scratch(),
                 1,
-                out.translationDeltaApplied,
+                target.translationDeltaApplied,
             );
-            out.translationDeltaRemaining = VectorOps.fromBufferAt(
+            target.translationDeltaRemaining = VectorOps.fromBufferAt(
                 scratch(),
                 4,
-                out.translationDeltaRemaining,
+                target.translationDeltaRemaining,
             );
-            out.witness1 = VectorOps.fromBufferAt(s, 7, out.witness1);
-            out.witness2 = VectorOps.fromBufferAt(s, 10, out.witness2);
-            out.normal1 = VectorOps.fromBufferAt(s, 13, out.normal1);
-            out.normal2 = VectorOps.fromBufferAt(s, 16, out.normal2);
-            out.collider = this.colliders.get(c.handle());
-            return out;
+            target.witness1 = VectorOps.fromBufferAt(s, 7, target.witness1);
+            target.witness2 = VectorOps.fromBufferAt(s, 10, target.witness2);
+            target.normal1 = VectorOps.fromBufferAt(s, 13, target.normal1);
+            target.normal2 = VectorOps.fromBufferAt(s, 16, target.normal2);
+            target.collider = this.colliders.get(c.handle());
+            return target;
         }
     }
 }

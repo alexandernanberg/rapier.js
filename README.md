@@ -31,7 +31,7 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 - Rapier 0.35 with glam math library
 - pnpm monorepo with tsdown bundler
 - Contiguous transform buffer (body reads with zero WASM crossings)
-- Zero-allocation getters and scene queries (optional target parameter)
+- Zero-allocation getters and scene queries (every result is written into a caller-owned target)
 - Batch transform setters (`setTransform`, `setNextKinematicTransform`)
 - Full `IntegrationParameters` surface (warm-starting, contact softness, contact clustering/recycling, friction model)
 - Contact modification hooks (`PhysicsHooks.modifySolverContacts`) and the full multibody joint API (anchors, limits, motors)
@@ -63,7 +63,7 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 | body.setTransform()              | 22.2µs  | 31.3µs   | 1.4x    |
 | body.setNextKinematicTransform() | 20.7µs  | 33.2µs   | 1.6x    |
 
-Official = `@dimforge/rapier3d-compat` v0.19.3. Reuse = zero-allocation target parameter (fork only), speedup compared against official alloc. Getter times are for 1000 bodies. Run `pnpm bench` / `pnpm bench --official` to benchmark on your machine.
+Official = `@dimforge/rapier3d-compat` v0.19.3. Reuse = the fork's required target parameter, compared against the official allocating call. Getter times are for 1000 bodies. Run `pnpm bench` / `pnpm bench --official` to benchmark on your machine.
 
 > These figures predate the larger benchmark sizes (5000 bodies, 1000 casts) and
 > the split of `world.step()` into its active and sleeping cases, so they no
@@ -76,38 +76,34 @@ Official = `@dimforge/rapier3d-compat` v0.19.3. Reuse = zero-allocation target p
 Body transforms are synced into a contiguous `Float32Array` backed by WASM linear memory during `world.step()`. Reading `translation()`, `rotation()`, `linvel()`, and `angvel()` reads directly from this buffer with no WASM boundary crossing.
 
 ```typescript
-// Reads from shared Float32Array — no WASM call
-const pos = body.translation();
-
-// Zero-allocation variant (reuses existing object)
+// Allocate the target once, outside the loop
 const _pos = {x: 0, y: 0, z: 0};
+
+// Reads from shared Float32Array — no WASM call, no allocation
 body.translation(_pos);
 ```
 
-Supported: `translation()`, `rotation()`, `linvel()`, `angvel()`, `nextTranslation()`, `nextRotation()`, `localCom()`, `worldCom()`
+Every getter that returns a vector, rotation or matrix takes the target as its
+last argument, and returns it. There is no allocating overload: passing the
+target is how the API is used. `translation()`, `rotation()`, `linvel()` and
+`angvel()` additionally read straight from the shared buffer.
 
 **Zero-allocation scene queries**
 
-Scene queries and the remaining vector getters take the same optional `target`, passed as the last argument (after the filter arguments). The target is returned as-is, so a hot loop can reuse one result object:
+Scene queries take their target directly after the query inputs and before the
+optional filter arguments. Result types are zero-arg constructible, so a hot
+loop allocates one and reuses it:
 
 ```typescript
-const _hit = new RAPIER.RayColliderIntersection(undefined!, 0, {x: 0, y: 0, z: 0});
+const _hit = new RAPIER.RayColliderIntersection();
 
 // Writes into _hit instead of allocating a hit and a normal vector
-const hit = world.castRayAndGetNormal(
-    ray,
-    100,
-    true,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    _hit,
-);
+const hit = world.castRayAndGetNormal(ray, 100, true, _hit);
 ```
 
-Supported on `castRayAndGetNormal()`, `projectPoint()`, `projectPointAndGetFeature()` and `castShape()` (on `World` and `BroadPhase`), on the `Collider` and `Shape` query methods, on the mass-property and force getters of `RigidBody`, on joint anchors and frames, and on the vehicle controller's wheel getters. A query that misses returns `null` and leaves the target untouched.
+A query that misses returns `null` and leaves the target untouched, so check the
+return value rather than the target's contents. `intersectionsWithRay` reuses
+the single target for every hit, so a callback that keeps a result must copy it.
 
 **Optimized ray casting**
 

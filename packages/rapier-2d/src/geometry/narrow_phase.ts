@@ -116,17 +116,17 @@ export class TempContactManifold {
         this.bodies = bodies!;
     }
 
-    public normal(target?: Vector): Vector {
+    public normal(target: Vector): Vector {
         this.raw.normal();
         return VectorOps.fromBuffer(scratch(), target);
     }
 
-    public localNormal1(target?: Vector): Vector {
+    public localNormal1(target: Vector): Vector {
         this.raw.local_n1();
         return VectorOps.fromBuffer(scratch(), target);
     }
 
-    public localNormal2(target?: Vector): Vector {
+    public localNormal2(target: Vector): Vector {
         this.raw.local_n2();
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -152,12 +152,12 @@ export class TempContactManifold {
         return this.raw.num_contacts();
     }
 
-    public localContactPoint1(i: number, target?: Vector): Vector | null {
+    public localContactPoint1(i: number, target: Vector): Vector | null {
         if (!this.raw.contact_local_p1(i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
 
-    public localContactPoint2(i: number, target?: Vector): Vector | null {
+    public localContactPoint2(i: number, target: Vector): Vector | null {
         if (!this.raw.contact_local_p2(i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -193,7 +193,7 @@ export class TempContactManifold {
      * world-space when the first side has no solver body (no rigid-body, or world-attached
      * by dominance — fixed bodies included).
      */
-    public solverContactAnchor1(i: number, target?: Vector): Vector | null {
+    public solverContactAnchor1(i: number, target: Vector): Vector | null {
         if (!this.raw.solver_contact_anchor1(i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -202,7 +202,7 @@ export class TempContactManifold {
      * The contact point on the second body's surface, expressed like
      * {@link solverContactAnchor1}.
      */
-    public solverContactAnchor2(i: number, target?: Vector): Vector | null {
+    public solverContactAnchor2(i: number, target: Vector): Vector | null {
         if (!this.raw.solver_contact_anchor2(i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -212,7 +212,7 @@ export class TempContactManifold {
      *
      * Returns `null` if `i` is out of bounds.
      */
-    public solverContactPoint(i: number, target?: Vector): Vector | null {
+    public solverContactPoint(i: number, target: Vector): Vector | null {
         if (!this.raw.solver_contact_point(this.bodies.raw, i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -239,7 +239,7 @@ export class TempContactManifold {
         return this.raw.restitution();
     }
 
-    public solverContactTangentVelocity(i: number, target?: Vector): Vector | null {
+    public solverContactTangentVelocity(i: number, target: Vector): Vector | null {
         if (!this.raw.solver_contact_tangent_velocity(i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }

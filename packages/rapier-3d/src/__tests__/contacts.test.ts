@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81, z: 0};
 
@@ -42,11 +43,11 @@ describe("narrow phase contacts", () => {
             manifolds++;
             expect(manifold.numContacts()).toBeGreaterThan(0);
 
-            const n = manifold.normal();
+            const n = manifold.normal(_v());
             expect(Math.hypot(n.x, n.y, n.z)).toBeCloseTo(1, 3);
 
-            expect(manifold.localContactPoint1(0)).not.toBeNull();
-            expect(manifold.localContactPoint2(0)).not.toBeNull();
+            expect(manifold.localContactPoint1(0, _v())).not.toBeNull();
+            expect(manifold.localContactPoint2(0, _v())).not.toBeNull();
         });
         expect(manifolds).toBeGreaterThan(0);
 
@@ -57,7 +58,7 @@ describe("narrow phase contacts", () => {
         const {world, groundCollider, bodyCollider} = restingScene();
 
         world.contactPair(bodyCollider, groundCollider, (manifold) => {
-            const expected = manifold.normal();
+            const expected = manifold.normal(_v());
 
             const target = {x: 0, y: 0, z: 0};
             expect(manifold.normal(target)).toBe(target);
@@ -113,11 +114,11 @@ describe("contact force events", () => {
                 events++;
                 expect(event.totalForceMagnitude()).toBeGreaterThan(0);
 
-                const force = event.totalForce();
+                const force = event.totalForce(_v());
                 expect(Number.isFinite(force.x)).toBe(true);
                 expect(Number.isFinite(force.y)).toBe(true);
 
-                const direction = event.maxForceDirection();
+                const direction = event.maxForceDirection(_v());
                 expect(Math.hypot(direction.x, direction.y, direction.z)).toBeCloseTo(1, 3);
 
                 // These read through a shared scratch buffer, so the target
@@ -168,7 +169,7 @@ describe("physics hooks", () => {
         for (let i = 0; i < 60; i++) world.step(queue, hooks);
 
         // With the contact filtered out the body falls straight through.
-        expect(body.translation().y).toBeLessThan(0);
+        expect(body.translation(_v()).y).toBeLessThan(0);
 
         queue.free();
         world.free();
@@ -183,7 +184,7 @@ describe("physics hooks", () => {
 
         for (let i = 0; i < 60; i++) world.step(undefined, hooks);
 
-        expect(body.translation().y).toBeGreaterThan(0);
+        expect(body.translation(_v()).y).toBeGreaterThan(0);
 
         world.free();
     });
@@ -195,7 +196,7 @@ describe("physics hooks", () => {
 
         for (let i = 0; i < 60; i++) world.step(undefined, hooks);
 
-        expect(body.translation().y).toBeLessThan(0);
+        expect(body.translation(_v()).y).toBeLessThan(0);
 
         world.free();
     });

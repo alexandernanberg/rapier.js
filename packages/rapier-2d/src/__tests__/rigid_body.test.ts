@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 beforeAll(async () => {
     await init();
@@ -41,7 +42,7 @@ describe("RigidBody", () => {
         const world = new RAPIER.World({x: 0, y: -9.81});
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 2));
 
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBe(1);
         expect(pos.y).toBe(2);
 
@@ -64,7 +65,7 @@ describe("RigidBody", () => {
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
 
         body.setTranslation({x: 5, y: 10}, true);
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBe(5);
         expect(pos.y).toBe(10);
 
@@ -90,12 +91,12 @@ describe("RigidBody", () => {
 
         body.setLinvel({x: 1, y: 0}, true);
 
-        const vel = body.linvel();
+        const vel = body.linvel(_v());
         expect(vel.x).toBe(1);
         expect(vel.y).toBe(0);
 
         world.step();
-        expect(body.translation().x).toBeGreaterThan(0);
+        expect(body.translation(_v()).x).toBeGreaterThan(0);
 
         world.free();
     });
@@ -121,7 +122,7 @@ describe("RigidBody", () => {
         const m = body.mass();
         body.applyImpulse({x: m * 2, y: m * 5}, true);
 
-        const vel = body.linvel();
+        const vel = body.linvel(_v());
         expect(vel.x).toBeCloseTo(2, 3);
         expect(vel.y).toBeCloseTo(5, 3);
 
@@ -136,7 +137,7 @@ describe("RigidBody", () => {
         body.addForce({x: body.mass() * 10, y: 0}, true);
         world.step();
 
-        const vel = body.linvel();
+        const vel = body.linvel(_v());
         expect(vel.x).toBeGreaterThan(0);
         expect(vel.y).toBeCloseTo(0, 5);
 
@@ -206,7 +207,7 @@ describe("RigidBody", () => {
         const world = new RAPIER.World({x: 0, y: -9.81});
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(5, 10));
 
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBe(5);
         expect(pos.y).toBe(10);
 
@@ -221,7 +222,7 @@ describe("RigidBody", () => {
         // Step to populate the transform-buffer view (a Float32Array pointing
         // directly into WASM linear memory).
         world.step();
-        const before = body.translation();
+        const before = body.translation(_v());
         expect(Number.isNaN(before.x)).toBe(false);
 
         // Allocate enough colliders to grow WASM memory. This path does NOT
@@ -231,7 +232,7 @@ describe("RigidBody", () => {
             world.createCollider(RAPIER.ColliderDesc.ball(0.1));
         }
 
-        const after = body.translation();
+        const after = body.translation(_v());
         expect(Number.isNaN(after.x)).toBe(false);
         expect(after.x).toBeCloseTo(before.x, 5);
         expect(after.y).toBeCloseTo(before.y, 5);
@@ -260,7 +261,7 @@ describe("RigidBody", () => {
         body.setNextKinematicTranslation({x: 5, y: 10});
         world.step();
 
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBeCloseTo(5);
         expect(pos.y).toBeCloseTo(10);
 
@@ -275,7 +276,7 @@ describe("RigidBody", () => {
         world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
 
         world.step();
-        expect(body.translation().y).toBeCloseTo(5);
+        expect(body.translation(_v()).y).toBeCloseTo(5);
 
         world.free();
     });

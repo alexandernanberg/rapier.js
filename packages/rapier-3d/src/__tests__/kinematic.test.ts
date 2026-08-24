@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 beforeAll(async () => {
     await init();
@@ -16,7 +17,7 @@ describe("Kinematic Bodies", () => {
         body.setNextKinematicTranslation({x: 1, y: 2, z: 3});
         world.step();
 
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBeCloseTo(1);
         expect(pos.y).toBeCloseTo(2);
         expect(pos.z).toBeCloseTo(3);
@@ -36,7 +37,7 @@ describe("Kinematic Bodies", () => {
         body.setNextKinematicTranslation({x: 5, y: 5, z: 5});
         world.step();
 
-        const pos = body.translation();
+        const pos = body.translation(_v());
         expect(pos.x).toBeCloseTo(5);
         expect(pos.y).toBeCloseTo(5);
         expect(pos.z).toBeCloseTo(5);
@@ -56,8 +57,8 @@ describe("Kinematic Bodies", () => {
         world.step();
 
         // Should be at the target position
-        expect(body.translation().x).toBeCloseTo(10);
-        expect(body.translation().y).toBeCloseTo(0);
+        expect(body.translation(_v()).x).toBeCloseTo(10);
+        expect(body.translation(_v()).y).toBeCloseTo(0);
 
         world.free();
     });
@@ -73,7 +74,7 @@ describe("Kinematic Bodies", () => {
         world.step();
 
         // Should have moved in X direction
-        expect(body.translation().x).toBeGreaterThan(0);
+        expect(body.translation(_v()).x).toBeGreaterThan(0);
 
         world.free();
     });
@@ -88,7 +89,7 @@ describe("Kinematic Bodies", () => {
         world.step();
 
         // Kinematic body should not fall
-        expect(body.translation().y).toBeCloseTo(5);
+        expect(body.translation(_v()).y).toBeCloseTo(5);
 
         world.free();
     });
@@ -108,7 +109,7 @@ describe("Kinematic Bodies", () => {
         );
         world.createCollider(RAPIER.ColliderDesc.ball(1), dynamic);
 
-        const initialDynamicX = dynamic.translation().x;
+        const initialDynamicX = dynamic.translation(_v()).x;
 
         // Move kinematic body toward dynamic body
         for (let i = 0; i < 10; i++) {
@@ -121,7 +122,7 @@ describe("Kinematic Bodies", () => {
         }
 
         // Dynamic body should have been pushed
-        expect(dynamic.translation().x).toBeGreaterThan(initialDynamicX);
+        expect(dynamic.translation(_v()).x).toBeGreaterThan(initialDynamicX);
 
         world.free();
     });
@@ -140,7 +141,7 @@ describe("Kinematic Bodies", () => {
             const x = Math.sin(i * 0.3) * 5;
             body.setNextKinematicTranslation({x, y: 0, z: 0});
             world.step();
-            positions.push(body.translation().x);
+            positions.push(body.translation(_v()).x);
         }
 
         // Verify the body followed the sinusoidal path
@@ -161,7 +162,7 @@ describe("Kinematic Bodies", () => {
         body.setNextKinematicRotation(q);
         world.step();
 
-        const rot = body.rotation();
+        const rot = body.rotation({x: 0, y: 0, z: 0, w: 1});
         expect(rot.x).toBeCloseTo(q.x, 3);
         expect(rot.y).toBeCloseTo(q.y, 3);
         expect(rot.z).toBeCloseTo(q.z, 3);

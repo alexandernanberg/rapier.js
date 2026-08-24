@@ -11,52 +11,38 @@ export class ShapeCastHit {
     /**
      * The time of impact of the two shapes.
      */
-    time_of_impact: number;
+    time_of_impact = 0;
     /**
      * The local-space contact point on the first shape, at
      * the time of impact.
      */
-    witness1: Vector;
+    witness1: Vector = VectorOps.zeros();
     /**
      * The local-space contact point on the second shape, at
      * the time of impact.
      */
-    witness2: Vector;
+    witness2: Vector = VectorOps.zeros();
     /**
      * The local-space normal on the first shape, at
      * the time of impact.
      */
-    normal1: Vector;
+    normal1: Vector = VectorOps.zeros();
     /**
      * The local-space normal on the second shape, at
      * the time of impact.
      */
-    normal2: Vector;
-
-    constructor(
-        time_of_impact: number,
-        witness1: Vector,
-        witness2: Vector,
-        normal1: Vector,
-        normal2: Vector,
-    ) {
-        this.time_of_impact = time_of_impact;
-        this.witness1 = witness1;
-        this.witness2 = witness2;
-        this.normal1 = normal1;
-        this.normal2 = normal2;
-    }
+    normal2: Vector = VectorOps.zeros();
 
     /**
      * Reads a shape-cast hit from its raw representation.
      *
      * @param raw - The raw hit. It is always freed before returning.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public static fromRaw(
         colliderSet: ColliderSet | null,
         raw: RawShapeCastHit,
-        target?: ShapeCastHit,
+        target: ShapeCastHit,
     ): ShapeCastHit | null {
         if (!raw) return null;
 
@@ -64,22 +50,12 @@ export class ShapeCastHit {
         const s = scratch();
         raw.free();
 
-        const result =
-            target ??
-            new ShapeCastHit(
-                0,
-                VectorOps.zeros(),
-                VectorOps.zeros(),
-                VectorOps.zeros(),
-                VectorOps.zeros(),
-            );
-
-        result.time_of_impact = s[0];
-        result.witness1 = VectorOps.set(result.witness1, s[1], s[2]);
-        result.witness2 = VectorOps.set(result.witness2, s[3], s[4]);
-        result.normal1 = VectorOps.set(result.normal1, s[5], s[6]);
-        result.normal2 = VectorOps.set(result.normal2, s[7], s[8]);
-        return result;
+        target.time_of_impact = s[0];
+        target.witness1 = VectorOps.set(target.witness1, s[1], s[2]);
+        target.witness2 = VectorOps.set(target.witness2, s[3], s[4]);
+        target.normal1 = VectorOps.set(target.normal1, s[5], s[6]);
+        target.normal2 = VectorOps.set(target.normal2, s[7], s[8]);
+        return target;
     }
 }
 
@@ -90,30 +66,18 @@ export class ColliderShapeCastHit extends ShapeCastHit {
     /**
      * The handle of the collider hit by the ray.
      */
-    collider: Collider;
-
-    constructor(
-        collider: Collider,
-        time_of_impact: number,
-        witness1: Vector,
-        witness2: Vector,
-        normal1: Vector,
-        normal2: Vector,
-    ) {
-        super(time_of_impact, witness1, witness2, normal1, normal2);
-        this.collider = collider;
-    }
+    collider!: Collider;
 
     /**
      * Reads a collider shape-cast hit from its raw representation.
      *
      * @param raw - The raw hit. It is always freed before returning.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public static fromRaw(
         colliderSet: ColliderSet,
         raw: RawColliderShapeCastHit,
-        target?: ColliderShapeCastHit,
+        target: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
         if (!raw) return null;
 
@@ -122,23 +86,12 @@ export class ColliderShapeCastHit extends ShapeCastHit {
         const s = scratch();
         raw.free();
 
-        const result =
-            target ??
-            new ColliderShapeCastHit(
-                collider,
-                0,
-                VectorOps.zeros(),
-                VectorOps.zeros(),
-                VectorOps.zeros(),
-                VectorOps.zeros(),
-            );
-
-        result.collider = collider;
-        result.time_of_impact = s[0];
-        result.witness1 = VectorOps.set(result.witness1, s[1], s[2]);
-        result.witness2 = VectorOps.set(result.witness2, s[3], s[4]);
-        result.normal1 = VectorOps.set(result.normal1, s[5], s[6]);
-        result.normal2 = VectorOps.set(result.normal2, s[7], s[8]);
-        return result;
+        target.collider = collider;
+        target.time_of_impact = s[0];
+        target.witness1 = VectorOps.set(target.witness1, s[1], s[2]);
+        target.witness2 = VectorOps.set(target.witness2, s[3], s[4]);
+        target.normal1 = VectorOps.set(target.normal1, s[5], s[6]);
+        target.normal2 = VectorOps.set(target.normal2, s[7], s[8]);
+        return target;
     }
 }

@@ -182,13 +182,12 @@ export class Collider {
     /**
      * The world-space translation of this collider.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public translation(target?: Vector): Vector {
+    public translation(target: Vector): Vector {
         const buf = this.liveBuffer();
         if (buf !== null) {
             const o = this._bufferOffset;
-            target ??= VectorOps.zeros();
             target.x = buf[o];
             target.y = buf[o + 1];
             target.z = buf[o + 2];
@@ -203,9 +202,9 @@ export class Collider {
      *
      * Returns `null` if the collider doesn't have a parent rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public translationWrtParent(target?: Vector): Vector | null {
+    public translationWrtParent(target: Vector): Vector | null {
         const hasParent = this.colliderSet.raw.coTranslationWrtParent(this.handle);
         if (!hasParent) return null;
         return VectorOps.fromBuffer(scratch(), target);
@@ -214,13 +213,12 @@ export class Collider {
     /**
      * The world-space orientation of this collider.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public rotation(target?: Rotation): Rotation {
+    public rotation(target: Rotation): Rotation {
         const buf = this.liveBuffer();
         if (buf !== null) {
             const o = this._bufferOffset + 3;
-            target ??= RotationOps.identity();
             target.x = buf[o];
             target.y = buf[o + 1];
             target.z = buf[o + 2];
@@ -236,9 +234,9 @@ export class Collider {
      *
      * Returns `null` if the collider doesn't have a parent rigid-body.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public rotationWrtParent(target?: Rotation): Rotation | null {
+    public rotationWrtParent(target: Rotation): Rotation | null {
         const hasParent = this.colliderSet.raw.coRotationWrtParent(this.handle);
         if (!hasParent) return null;
         return RotationOps.fromBuffer(scratch(), target);
@@ -572,9 +570,9 @@ export class Collider {
     /**
      * The half-extents of this collider if it is a cuboid shape.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public halfExtents(target?: Vector): Vector {
+    public halfExtents(target: Vector): Vector {
         return VectorOps.fromRaw(this.colliderSet.raw.coHalfExtents(this.handle)!, target)!;
     }
 
@@ -766,7 +764,7 @@ export class Collider {
      * If this collider has a heightfield shape, this returns the scale
      * applied to it.
      */
-    public heightfieldScale(target?: Vector): Vector {
+    public heightfieldScale(target: Vector): Vector {
         let scale = this.colliderSet.raw.coHeightfieldScale(this.handle)!;
         return VectorOps.fromRaw(scale, target)!;
     }
@@ -866,12 +864,12 @@ export class Collider {
      *   itself). If it is set to `false` the collider shapes are considered to be hollow
      *   (if the point is located inside of an hollow shape, it is projected on the shape's
      *   boundary).
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public projectPoint(
         point: Vector,
         solid: boolean,
-        target?: PointProjection,
+        target: PointProjection,
     ): PointProjection | null {
         let rawPoint = VectorOps.intoRaw(point);
         let result = PointProjection.fromRaw(
@@ -917,7 +915,7 @@ export class Collider {
      * @param stopAtPenetration - If set to `false`, the linear shape-cast won’t immediately stop if
      *   the shape is penetrating another shape at its starting point **and** its trajectory is such
      *   that it’s on a path to exit that penetration state.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public castShape(
         collider1Vel: Vector,
@@ -928,7 +926,7 @@ export class Collider {
         targetDistance: number,
         maxToi: number,
         stopAtPenetration: boolean,
-        target?: ShapeCastHit,
+        target: ShapeCastHit,
     ): ShapeCastHit | null {
         let rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
         let rawShape2Pos = VectorOps.intoRaw(shape2Pos);
@@ -974,7 +972,7 @@ export class Collider {
      * @param stopAtPenetration - If set to `false`, the linear shape-cast won’t immediately stop if
      *   the shape is penetrating another shape at its starting point **and** its trajectory is such
      *   that it’s on a path to exit that penetration state.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public castCollider(
         collider1Vel: Vector,
@@ -983,7 +981,7 @@ export class Collider {
         targetDistance: number,
         maxToi: number,
         stopAtPenetration: boolean,
-        target?: ColliderShapeCastHit,
+        target: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
         let rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
         let rawCollider2Vel = VectorOps.intoRaw(collider2Vel);
@@ -1034,7 +1032,7 @@ export class Collider {
      * @param shape2Pos - The initial position of the second shape.
      * @param shape2Rot - The rotation of the second shape.
      * @param prediction - The prediction value, if the shapes are separated by a distance greater than this value, test will fail.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      * @returns `null` if the shapes are separated by a distance greater than prediction, otherwise contact details. The result is given in world-space.
      */
     contactShape(
@@ -1042,7 +1040,7 @@ export class Collider {
         shape2Pos: Vector,
         shape2Rot: Rotation,
         prediction: number,
-        target?: ShapeContact,
+        target: ShapeContact,
     ): ShapeContact | null {
         let rawPos2 = VectorOps.intoRaw(shape2Pos);
         let rawRot2 = RotationOps.intoRaw(shape2Rot);
@@ -1076,7 +1074,7 @@ export class Collider {
     contactCollider(
         collider2: Collider,
         prediction: number,
-        target?: ShapeContact,
+        target: ShapeContact,
     ): ShapeContact | null {
         return ShapeContact.fromRaw(
             this.colliderSet.raw.coContactCollider(this.handle, collider2.handle, prediction)!,
@@ -1122,7 +1120,7 @@ export class Collider {
         ray: Ray,
         maxToi: number,
         solid: boolean,
-        target?: RayIntersection,
+        target: RayIntersection,
     ): RayIntersection | null {
         let rawOrig = VectorOps.intoRaw(ray.origin);
         let rawDir = VectorOps.intoRaw(ray.dir);

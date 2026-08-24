@@ -1,5 +1,6 @@
 import RAPIER, {init, scratch} from "@alexandernanberg/rapier2d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 beforeAll(async () => {
     await init();
@@ -64,14 +65,14 @@ describe("transform buffer fuzz", () => {
                 if (mismatches.length > 0) return;
                 world.bodies.forEach((b) => {
                     const wt = wasmRead(() => world.bodies.raw.rbTranslation(b.handle), 2);
-                    const t = b.translation();
+                    const t = b.translation(_v());
                     if (!near(t.x, wt[0]) || !near(t.y, wt[1]))
                         mismatches.push(
                             `step ${step}: body translation ${JSON.stringify(t)} vs wasm [${wt}]`,
                         );
 
                     const wv = wasmRead(() => world.bodies.raw.rbLinvel(b.handle), 2);
-                    const v = b.linvel();
+                    const v = b.linvel(_v());
                     if (!near(v.x, wv[0]) || !near(v.y, wv[1]))
                         mismatches.push(`step ${step}: body linvel ${JSON.stringify(v)}`);
 
@@ -82,7 +83,7 @@ describe("transform buffer fuzz", () => {
                 });
                 world.colliders.forEach((c) => {
                     const wt = wasmRead(() => world.colliders.raw.coTranslation(c.handle), 2);
-                    const t = c.translation();
+                    const t = c.translation(_v());
                     if (!near(t.x, wt[0]) || !near(t.y, wt[1]))
                         mismatches.push(`step ${step}: collider translation ${JSON.stringify(t)}`);
                 });

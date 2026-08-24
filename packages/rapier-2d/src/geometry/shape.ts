@@ -58,11 +58,11 @@ export abstract class Shape {
                 case RawShapeType.Ball:
                     return new Ball(rawShape.radius()!);
                 case RawShapeType.Cuboid:
-                    extents = VectorOps.fromRaw(rawShape.halfExtents()!)!;
+                    extents = VectorOps.fromRaw(rawShape.halfExtents()!, VectorOps.zeros())!;
                     return new Cuboid(extents.x, extents.y);
 
                 case RawShapeType.RoundCuboid:
-                    extents = VectorOps.fromRaw(rawShape.halfExtents()!)!;
+                    extents = VectorOps.fromRaw(rawShape.halfExtents()!, VectorOps.zeros())!;
                     borderRadius = rawShape.roundRadius()!;
                     return new RoundCuboid(extents.x, extents.y, borderRadius);
 
@@ -99,12 +99,14 @@ export abstract class Shape {
                     );
 
                 case RawShapeType.HalfSpace:
-                    return new HalfSpace(VectorOps.fromRaw(rawShape.halfspaceNormal()!)!);
+                    return new HalfSpace(
+                        VectorOps.fromRaw(rawShape.halfspaceNormal()!, VectorOps.zeros())!,
+                    );
 
                 case RawShapeType.Voxels:
                     return new Voxels(
                         rawShape.voxelData()!,
-                        VectorOps.fromRaw(rawShape.voxelSize()!)!,
+                        VectorOps.fromRaw(rawShape.voxelSize()!, VectorOps.zeros())!,
                     );
 
                 case RawShapeType.TriMesh:
@@ -115,7 +117,7 @@ export abstract class Shape {
                 case RawShapeType.HeightField:
                     return new Heightfield(
                         rawShape.heightfieldHeights()!,
-                        VectorOps.fromRaw(rawShape.heightfieldScale()!)!,
+                        VectorOps.fromRaw(rawShape.heightfieldScale()!, VectorOps.zeros())!,
                     );
 
                 case RawShapeType.ConvexPolygon:
@@ -170,7 +172,7 @@ export abstract class Shape {
         targetDistance: number,
         maxToi: number,
         stopAtPenetration: boolean,
-        target?: ShapeCastHit,
+        target: ShapeCastHit,
     ): ShapeCastHit | null {
         let rawPos1 = VectorOps.intoRaw(shapePos1);
         let rawRot1 = RotationOps.intoRaw(shapeRot1);
@@ -268,7 +270,7 @@ export abstract class Shape {
         shapePos2: Vector,
         shapeRot2: Rotation,
         prediction: number,
-        target?: ShapeContact,
+        target: ShapeContact,
     ): ShapeContact | null {
         let rawPos1 = VectorOps.intoRaw(shapePos1);
         let rawRot1 = RotationOps.intoRaw(shapeRot1);
@@ -315,7 +317,7 @@ export abstract class Shape {
         shapeRot: Rotation,
         point: Vector,
         solid: boolean,
-        target?: PointProjection,
+        target: PointProjection,
     ): PointProjection {
         let rawPos = VectorOps.intoRaw(shapePos);
         let rawRot = RotationOps.intoRaw(shapeRot);
@@ -383,7 +385,7 @@ export abstract class Shape {
         shapeRot: Rotation,
         maxToi: number,
         solid: boolean,
-        target?: RayIntersection,
+        target: RayIntersection,
     ): RayIntersection {
         let rawPos = VectorOps.intoRaw(shapePos);
         let rawRot = RotationOps.intoRaw(shapeRot);
@@ -946,7 +948,10 @@ export class Compound extends Shape {
 
             for (let i = 0; i < numShapes; i++) {
                 shapes[i] = Shape.fromRawShape(rawShape.compoundShape(i)!);
-                positions[i] = VectorOps.fromRaw(rawShape.compoundTranslation(i)!)!;
+                positions[i] = VectorOps.fromRaw(
+                    rawShape.compoundTranslation(i)!,
+                    VectorOps.zeros(),
+                )!;
                 rotations[i] = RotationOps.fromRaw(rawShape.compoundRotation(i)!)!;
             }
 

@@ -157,7 +157,7 @@ export class World {
         if (!raw) return null;
 
         return new World(
-            VectorOps.fromRaw(raw.takeGravity()!)!,
+            VectorOps.fromRaw(raw.takeGravity()!, VectorOps.zeros())!,
             raw.takeIntegrationParameters(),
             raw.takeIslandManager(),
             raw.takeBroadPhase(),
@@ -666,6 +666,7 @@ export class World {
         ray: Ray,
         maxToi: number,
         solid: boolean,
+        target: RayColliderHit,
         filterFlags?: QueryFilterFlags,
         filterGroups?: InteractionGroups,
         filterExcludeCollider?: Collider,
@@ -679,6 +680,7 @@ export class World {
             ray,
             maxToi,
             solid,
+            target,
             filterFlags,
             filterGroups,
             filterExcludeCollider ? filterExcludeCollider.handle : undefined,
@@ -698,18 +700,18 @@ export class World {
      *   origin already lies inside of a shape. In other terms, `true` implies that all shapes are plain,
      *   whereas `false` implies that all shapes are hollow for this ray-cast.
      * @param groups - Used to filter the colliders that can or cannot be hit by the ray.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public castRayAndGetNormal(
         ray: Ray,
         maxToi: number,
         solid: boolean,
+        target: RayColliderIntersection,
         filterFlags?: QueryFilterFlags,
         filterGroups?: InteractionGroups,
         filterExcludeCollider?: Collider,
         filterExcludeRigidBody?: RigidBody,
         filterPredicate?: (collider: Collider) => boolean,
-        target?: RayColliderIntersection,
     ): RayColliderIntersection | null {
         return this.broadPhase.castRayAndGetNormal(
             this.narrowPhase,
@@ -718,12 +720,12 @@ export class World {
             ray,
             maxToi,
             solid,
+            target,
             filterFlags,
             filterGroups,
             filterExcludeCollider ? filterExcludeCollider.handle : undefined,
             filterExcludeRigidBody ? filterExcludeRigidBody.handle : undefined,
             this.colliders.castClosure(filterPredicate),
-            target,
         );
     }
 
@@ -745,6 +747,7 @@ export class World {
         maxToi: number,
         solid: boolean,
         callback: (intersect: RayColliderIntersection) => boolean,
+        target: RayColliderIntersection,
         filterFlags?: QueryFilterFlags,
         filterGroups?: InteractionGroups,
         filterExcludeCollider?: Collider,
@@ -759,6 +762,7 @@ export class World {
             maxToi,
             solid,
             callback,
+            target,
             filterFlags,
             filterGroups,
             filterExcludeCollider ? filterExcludeCollider.handle : undefined,
@@ -813,17 +817,17 @@ export class World {
      *   boundary).
      * @param groups - The bit groups and filter associated to the point to project, in order to only
      *   project on colliders with collision groups compatible with the ray's group.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public projectPoint(
         point: Vector,
         solid: boolean,
+        target: PointColliderProjection,
         filterFlags?: QueryFilterFlags,
         filterGroups?: InteractionGroups,
         filterExcludeCollider?: Collider,
         filterExcludeRigidBody?: RigidBody,
         filterPredicate?: (collider: Collider) => boolean,
-        target?: PointColliderProjection,
     ): PointColliderProjection | null {
         return this.broadPhase.projectPoint(
             this.narrowPhase,
@@ -831,12 +835,12 @@ export class World {
             this.colliders,
             point,
             solid,
+            target,
             filterFlags,
             filterGroups,
             filterExcludeCollider ? filterExcludeCollider.handle : undefined,
             filterExcludeRigidBody ? filterExcludeRigidBody.handle : undefined,
             this.colliders.castClosure(filterPredicate),
-            target,
         );
     }
 
@@ -846,28 +850,28 @@ export class World {
      * @param point - The point to project.
      * @param groups - The bit groups and filter associated to the point to project, in order to only
      *   project on colliders with collision groups compatible with the ray's group.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public projectPointAndGetFeature(
         point: Vector,
+        target: PointColliderProjection,
         filterFlags?: QueryFilterFlags,
         filterGroups?: InteractionGroups,
         filterExcludeCollider?: Collider,
         filterExcludeRigidBody?: RigidBody,
         filterPredicate?: (collider: Collider) => boolean,
-        target?: PointColliderProjection,
     ): PointColliderProjection | null {
         return this.broadPhase.projectPointAndGetFeature(
             this.narrowPhase,
             this.bodies,
             this.colliders,
             point,
+            target,
             filterFlags,
             filterGroups,
             filterExcludeCollider ? filterExcludeCollider.handle : undefined,
             filterExcludeRigidBody ? filterExcludeRigidBody.handle : undefined,
             this.colliders.castClosure(filterPredicate),
-            target,
         );
     }
 
@@ -921,7 +925,7 @@ export class World {
      *   that it’s on a path to exit that penetration state.
      * @param groups - The bit groups and filter associated to the shape to cast, in order to only
      *   test on colliders with collision groups compatible with this group.
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
     public castShape(
         shapePos: Vector,
@@ -931,12 +935,12 @@ export class World {
         targetDistance: number,
         maxToi: number,
         stopAtPenetration: boolean,
+        target: ColliderShapeCastHit,
         filterFlags?: QueryFilterFlags,
         filterGroups?: InteractionGroups,
         filterExcludeCollider?: Collider,
         filterExcludeRigidBody?: RigidBody,
         filterPredicate?: (collider: Collider) => boolean,
-        target?: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
         return this.broadPhase.castShape(
             this.narrowPhase,
@@ -949,12 +953,12 @@ export class World {
             targetDistance,
             maxToi,
             stopAtPenetration,
+            target,
             filterFlags,
             filterGroups,
             filterExcludeCollider ? filterExcludeCollider.handle : undefined,
             filterExcludeRigidBody ? filterExcludeRigidBody.handle : undefined,
             this.colliders.castClosure(filterPredicate),
-            target,
         );
     }
 

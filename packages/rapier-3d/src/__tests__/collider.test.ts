@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v, _q} from "./_target";
 
 beforeAll(async () => {
     await init();
@@ -52,17 +53,17 @@ describe("Collider", () => {
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 10, 0));
         const collider = world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
 
-        const initialColliderY = collider.translation().y;
+        const initialColliderY = collider.translation(_v()).y;
         expect(initialColliderY).toBeCloseTo(10, 1);
 
         world.step();
 
         // Collider should have moved with the body
-        const newColliderY = collider.translation().y;
+        const newColliderY = collider.translation(_v()).y;
         expect(newColliderY).toBeLessThan(initialColliderY);
 
         // Collider and body positions should match
-        expect(newColliderY).toBeCloseTo(body.translation().y, 4);
+        expect(newColliderY).toBeCloseTo(body.translation(_v()).y, 4);
 
         world.free();
     });
@@ -72,12 +73,12 @@ describe("Collider", () => {
         const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(5, 10, 15));
         const collider = world.createCollider(RAPIER.ColliderDesc.ball(1), body);
 
-        const pos = collider.translation();
+        const pos = collider.translation(_v());
         expect(pos.x).toBeCloseTo(5);
         expect(pos.y).toBeCloseTo(10);
         expect(pos.z).toBeCloseTo(15);
 
-        const rot = collider.rotation();
+        const rot = collider.rotation(_q());
         expect(rot.x).toBeCloseTo(0);
         expect(rot.y).toBeCloseTo(0);
         expect(rot.z).toBeCloseTo(0);
@@ -113,7 +114,7 @@ describe("Collider", () => {
         }
 
         // Sensor body should have fallen below the floor (y < -0.1)
-        expect(body.translation().y).toBeLessThan(-0.1);
+        expect(body.translation(_v()).y).toBeLessThan(-0.1);
 
         world.free();
     });

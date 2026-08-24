@@ -34,10 +34,9 @@ export class VectorOps {
         return VectorOps.new(0.0, 0.0, 0.0);
     }
 
-    public static fromRaw(raw: RawVector, target?: Vector): Vector | null {
+    public static fromRaw(raw: RawVector, target: Vector): Vector | null {
         if (!raw) return null;
 
-        target ??= VectorOps.zeros();
         target.x = raw.x;
         target.y = raw.y;
         target.z = raw.z;
@@ -52,28 +51,23 @@ export class VectorOps {
     }
 
     /**
-     * Writes the given components into `target`, allocating a new vector only if
-     * `target` wasn’t provided.
+     * Writes the given components into `target`.
      */
-    public static set(target: Vector | undefined, x: number, y: number, z: number): Vector {
-        if (!target) return VectorOps.new(x, y, z);
-
+    public static set(target: Vector, x: number, y: number, z: number): Vector {
         target.x = x;
         target.y = y;
         target.z = z;
         return target;
     }
 
-    public static fromBuffer(buffer: Float32Array, target?: Vector): Vector {
-        target ??= VectorOps.zeros();
+    public static fromBuffer(buffer: Float32Array, target: Vector): Vector {
         target.x = buffer[0];
         target.y = buffer[1];
         target.z = buffer[2];
         return target;
     }
 
-    public static fromBufferAt(buffer: Float32Array, offset: number, target?: Vector): Vector {
-        target ??= VectorOps.zeros();
+    public static fromBufferAt(buffer: Float32Array, offset: number, target: Vector): Vector {
         target.x = buffer[offset];
         target.y = buffer[offset + 1];
         target.z = buffer[offset + 2];
@@ -110,10 +104,9 @@ export class RotationOps {
         return new Quaternion(0.0, 0.0, 0.0, 1.0);
     }
 
-    public static fromRaw(raw: RawRotation, target?: Rotation): Rotation | null {
+    public static fromRaw(raw: RawRotation, target: Rotation): Rotation | null {
         if (!raw) return null;
 
-        target ??= RotationOps.identity();
         target.x = raw.x;
         target.y = raw.y;
         target.z = raw.z;
@@ -133,8 +126,7 @@ export class RotationOps {
         out.w = input.w;
     }
 
-    public static fromBuffer(buffer: Float32Array, target?: Rotation): Rotation {
-        target ??= RotationOps.identity();
+    public static fromBuffer(buffer: Float32Array, target: Rotation): Rotation {
         target.x = buffer[0];
         target.y = buffer[1];
         target.z = buffer[2];
@@ -215,17 +207,15 @@ export class SdpMatrix3 {
         return this.elements[5];
     }
 
-    constructor(elements: Float32Array) {
+    constructor(elements: Float32Array = new Float32Array(6)) {
         this.elements = elements;
     }
 }
 
 export class SdpMatrix3Ops {
-    public static fromRaw(raw: RawSdpMatrix3, target?: SdpMatrix3): SdpMatrix3 {
+    public static fromRaw(raw: RawSdpMatrix3, target: SdpMatrix3): SdpMatrix3 {
         const elements = raw.elements();
         raw.free();
-
-        if (!target) return new SdpMatrix3(elements);
 
         target.elements.set(elements);
         return target;

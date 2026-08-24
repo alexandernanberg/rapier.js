@@ -52,7 +52,7 @@ export class TempContactForceEvent {
     /**
      * The sum of all the forces between the two colliders.
      */
-    public totalForce(target?: Vector): Vector {
+    public totalForce(target: Vector): Vector {
         this.raw.total_force();
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -71,7 +71,7 @@ export class TempContactForceEvent {
     /**
      * The world-space (unit) direction of the force with strongest magnitude.
      */
-    public maxForceDirection(target?: Vector): Vector {
+    public maxForceDirection(target: Vector): Vector {
         this.raw.max_force_direction();
         return VectorOps.fromBuffer(scratch(), target);
     }

@@ -1,5 +1,6 @@
 import RAPIER, {init} from "@alexandernanberg/rapier3d/compat";
 import {describe, test, expect, beforeAll} from "vitest";
+import {_v} from "./_target";
 
 const GRAVITY = {x: 0, y: -9.81, z: 0};
 
@@ -122,7 +123,7 @@ describe("integration parameters", () => {
         for (let i = 0; i < 120; i++) world.step();
 
         // Resting on top of the ground: 0.5 (ground half-height) + 0.5 (box half-height).
-        expect(body.translation().y).toBeCloseTo(1, 1);
+        expect(body.translation(_v()).y).toBeCloseTo(1, 1);
 
         world.free();
     });

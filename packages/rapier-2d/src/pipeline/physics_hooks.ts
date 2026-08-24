@@ -81,9 +81,9 @@ export class ContactModificationContext {
     /**
      * The contact normal, pointing from the first collider towards the second one.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public normal(target?: Vector): Vector {
+    public normal(target: Vector): Vector {
         this.raw.normal();
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -172,9 +172,9 @@ export class ContactModificationContext {
      * The world-space contact point of the `i`-th solver contact, on the first
      * collider's surface.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public solverContactPoint1(i: number, target?: Vector): Vector | null {
+    public solverContactPoint1(i: number, target: Vector): Vector | null {
         if (!this.raw.solverContactPoint1(i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -183,9 +183,9 @@ export class ContactModificationContext {
      * The world-space contact point of the `i`-th solver contact, on the second
      * collider's surface.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public solverContactPoint2(i: number, target?: Vector): Vector | null {
+    public solverContactPoint2(i: number, target: Vector): Vector | null {
         if (!this.raw.solverContactPoint2(i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -227,9 +227,9 @@ export class ContactModificationContext {
     /**
      * The tangent (surface) velocity of the `i`-th solver contact.
      *
-     * @param target - Optional target object to write the result to (avoids allocation).
+     * @param target - The object the result is written into.
      */
-    public solverContactTangentVelocity(i: number, target?: Vector): Vector | null {
+    public solverContactTangentVelocity(i: number, target: Vector): Vector | null {
         if (!this.raw.solverContactTangentVelocity(i)) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
