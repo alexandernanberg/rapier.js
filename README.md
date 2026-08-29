@@ -43,31 +43,31 @@ This is a fork of [@dimforge/rapier.js](https://github.com/dimforge/rapier.js) w
 3D, 5000 bodies / 1000 casts (`world.step()` on a 3000-body pyramid), mean
 times (Apple M1 Max, Node v24.16.0):
 
-| Benchmark                                 | Fork    | Official | Speedup |
-| ------------------------------------------ | ------- | -------- | ------- |
-| world.step() [active]                     | 2.262ms | 5.102ms  | 2.3x    |
-| world.step() [sleeping]                   | 755ns   | 2.5µs    | 3.3x    |
-| create 5000 bodies+colliders               | 3.312ms | 15.831ms | 4.8x    |
-| spawn+despawn 500 bodies (1000 resident)   | 419.0µs | 1.649ms  | 3.9x    |
-| castRay x1000                              | 487.6µs | 1.212ms  | 2.5x    |
-| castRayAndGetNormal x1000                  | 899.2µs | 1.735ms  | 1.9x    |
-| intersectionsWithRay x1000                 | 825.9µs | 2.148ms  | 2.6x    |
-| projectPoint x1000                         | 1.581ms | 2.709ms  | 1.7x    |
-| intersectionsWithPoint x1000               | 104.8µs | 308.0µs  | 2.9x    |
-| body.translation() [alloc]                 | 31.9µs  | 321.2µs  | 10.1x   |
-| body.translation() [reuse]                 | 26.9µs  | 313.6µs  | 11.7x   |
-| body.rotation() [alloc]                    | 29.4µs  | 344.8µs  | 11.7x   |
-| body.rotation() [reuse]                    | 30.0µs  | 346.1µs  | 11.5x   |
-| body.linvel() [alloc]                      | 31.5µs  | 320.0µs  | 10.2x   |
-| body.linvel() [reuse]                      | 27.8µs  | 317.2µs  | 11.4x   |
-| collider.translation() [alloc]             | 35.2µs  | 315.3µs  | 9.0x    |
-| collider.translation() [reuse]             | 32.7µs  | 317.7µs  | 9.7x    |
-| body.setTransform()                        | 109.8µs | 154.1µs  | 1.4x    |
-| body.setNextKinematicTransform()           | 100.2µs | 152.5µs  | 1.5x    |
-| body.setLinvel()                           | 68.3µs  | 970.4µs  | 14.2x   |
-| body.applyImpulse()                        | 74.1µs  | 976.4µs  | 13.2x   |
-| body.addForce()                            | 69.6µs  | 970.7µs  | 14.0x   |
-| body.applyImpulseAtPoint()                 | 105.7µs | 1.904ms  | 18.0x   |
+| Benchmark                                | Fork    | Official | Speedup |
+| ---------------------------------------- | ------- | -------- | ------- |
+| world.step() [active]                    | 2.262ms | 5.102ms  | 2.3x    |
+| world.step() [sleeping]                  | 755ns   | 2.5µs    | 3.3x    |
+| create 5000 bodies+colliders             | 3.312ms | 15.831ms | 4.8x    |
+| spawn+despawn 500 bodies (1000 resident) | 419.0µs | 1.649ms  | 3.9x    |
+| castRay x1000                            | 487.6µs | 1.212ms  | 2.5x    |
+| castRayAndGetNormal x1000                | 899.2µs | 1.735ms  | 1.9x    |
+| intersectionsWithRay x1000               | 825.9µs | 2.148ms  | 2.6x    |
+| projectPoint x1000                       | 1.581ms | 2.709ms  | 1.7x    |
+| intersectionsWithPoint x1000             | 104.8µs | 308.0µs  | 2.9x    |
+| body.translation() [alloc]               | 31.9µs  | 321.2µs  | 10.1x   |
+| body.translation() [reuse]               | 26.9µs  | 313.6µs  | 11.7x   |
+| body.rotation() [alloc]                  | 29.4µs  | 344.8µs  | 11.7x   |
+| body.rotation() [reuse]                  | 30.0µs  | 346.1µs  | 11.5x   |
+| body.linvel() [alloc]                    | 31.5µs  | 320.0µs  | 10.2x   |
+| body.linvel() [reuse]                    | 27.8µs  | 317.2µs  | 11.4x   |
+| collider.translation() [alloc]           | 35.2µs  | 315.3µs  | 9.0x    |
+| collider.translation() [reuse]           | 32.7µs  | 317.7µs  | 9.7x    |
+| body.setTransform()                      | 109.8µs | 154.1µs  | 1.4x    |
+| body.setNextKinematicTransform()         | 100.2µs | 152.5µs  | 1.5x    |
+| body.setLinvel()                         | 68.3µs  | 970.4µs  | 14.2x   |
+| body.applyImpulse()                      | 74.1µs  | 976.4µs  | 13.2x   |
+| body.addForce()                          | 69.6µs  | 970.7µs  | 14.0x   |
+| body.applyImpulseAtPoint()               | 105.7µs | 1.904ms  | 18.0x   |
 
 Official = `@dimforge/rapier3d-compat` v0.20.0. Reuse = optional zero-allocation
 `target` parameter — official added the same parameter to these getters in
