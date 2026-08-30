@@ -358,6 +358,13 @@ export class Graphics {
                 instance.userData.elementId2coll = new Map();
                 instance.count = 0;
                 instance.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+                // An InstancedMesh is culled against a bounding volume derived
+                // from its base geometry, not from where its instances actually
+                // are. We move instances all over the world every frame and
+                // never recompute it, so once a demo travels any distance the
+                // whole group is culled at once and its bodies vanish. Cheaper
+                // to skip culling than to rebuild the bounds each frame.
+                instance.frustumCulled = false;
                 this.scene.add(instance);
             });
         });
@@ -526,6 +533,13 @@ export class Graphics {
         this.coll2mesh.forEach((mesh) => {
             this.scene.remove(mesh);
         });
+
+        // Objects a demo added to the scene itself (wheels, gizmos, ...) are
+        // not tracked as colliders, so they would otherwise survive into the
+        // next demo and hang in mid-air.
+        this.scene.children
+            .filter((child) => child.userData.demoObject)
+            .forEach((child) => child.removeFromParent());
 
         this.coll2instance = new Map();
         this.rb2colls = new Map();

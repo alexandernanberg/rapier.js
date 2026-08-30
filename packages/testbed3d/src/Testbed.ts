@@ -54,6 +54,7 @@ export class Testbed {
     // Assigned by `setWorld()`, which every demo builder calls.
     world!: RAPIER.World;
     preTimestepAction?: (gfx: Graphics) => void;
+    renderAction?: (gfx: Graphics, alpha: number) => void;
     stepId: number;
     prevDemo?: string;
     lastMessageTime: number;
@@ -100,11 +101,47 @@ export class Testbed {
         this.preTimestepAction = action;
     }
 
+    /**
+     * Runs once per rendered frame, just before the scene is drawn, with the
+     * interpolation factor between the last two physics steps.
+     *
+     * Anything visual belongs here rather than in `setpreTimestepAction`: that
+     * one runs inside the fixed-step loop, so it fires zero, one or two times
+     * per frame, and driving meshes or the camera from it makes them stutter
+     * against the colliders, which the renderer interpolates.
+     */
+    setRenderAction(action: (gfx: Graphics, alpha: number) => void) {
+        this.renderAction = action;
+    }
+
+    /**
+     * Hand the camera to the demo.
+     *
+     * `Graphics.render` calls `controls.update()` every frame, which re-derives
+     * the camera position from OrbitControls' own damped state. A demo that
+     * also writes `camera.position` each frame ends up fighting it, and the
+     * result reads as a jittery camera. Turning input and damping off leaves
+     * the demo in sole control.
+     */
+    useChaseCamera() {
+        this.graphics.controls.enabled = false;
+        this.graphics.controls.enableDamping = false;
+    }
+
     setWorld(world: RAPIER.World) {
         document.onkeydown = null; // Reset key events.
         document.onkeyup = null; // Reset key events.
 
+        // Drop any DOM a previous demo added on top of the canvas, so its HUD
+        // does not linger over the next one.
+        document.querySelectorAll(".demo-overlay").forEach((node) => node.remove());
+
         this.preTimestepAction = undefined;
+        this.renderAction = undefined;
+        // A demo may take the camera over (see `useChaseCamera`); give the next
+        // one the orbit camera back.
+        this.graphics.controls.enabled = true;
+        this.graphics.controls.enableDamping = true;
         this.world = world;
         this.world.numSolverIterations = this.parameters.numSolverIters;
         this.demoToken += 1;
@@ -253,6 +290,10 @@ export class Testbed {
         if (this.parameters.stepping) {
             this.parameters.running = false;
             this.parameters.stepping = false;
+        }
+
+        if (!!this.renderAction) {
+            this.renderAction(this.graphics, alpha);
         }
 
         this.gui.stats.begin();
