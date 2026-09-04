@@ -58,13 +58,13 @@ Performance:
   per call now write into the shared scratch buffer instead, so their `target`
   form is genuinely allocation-free and each is a single WASM call:
   `RigidBody.velocityAtPoint/effectiveInvMass/userForce/userTorque/
-  principalInertia/invPrincipalInertia/principalInertiaLocalFrame/
-  effectiveWorldInvInertia/effectiveAngularInertia`, `Collider.halfExtents/
-  heightfieldScale`, the joint `anchor1/anchor2/frameX1/frameX2` getters, the
+principalInertia/invPrincipalInertia/principalInertiaLocalFrame/
+effectiveWorldInvInertia/effectiveAngularInertia`, `Collider.halfExtents/
+heightfieldScale`, the joint `anchor1/anchor2/frameX1/frameX2` getters, the
   vehicle wheel vector getters and `KinematicCharacterController.up()` (which
   now also takes a `target`).
 - `Collider.castRayAndGetNormal/castRay/intersectsRay/containsPoint/
-  projectPoint` and the `Shape` equivalents pass their inputs as scalars and
+projectPoint` and the `Shape` equivalents pass their inputs as scalars and
   read their results out of the scratch buffer: a collider ray cast went from
   two input allocations, a result object and four getter crossings to one
   call. Feature ids ride along as exact `u32` bit patterns.
