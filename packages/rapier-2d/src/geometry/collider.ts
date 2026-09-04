@@ -138,7 +138,10 @@ export class Collider {
     /** @internal */
     public finalizeDeserialization(bodies: RigidBodySet) {
         if (this.handle != null) {
-            this._parent = bodies.get(this.colliderSet.raw.coParent(this.handle)!);
+            // `coParent` is `undefined` for a parentless collider; passing that
+            // through `bodies.get` would alias to arena index 0.
+            const parent = this.colliderSet.raw.coParent(this.handle);
+            this._parent = parent === undefined ? null : bodies.get(parent);
         }
     }
 
@@ -1141,7 +1144,6 @@ export class ColliderDesc {
     mass: number;
     centerOfMass: Vector;
     principalAngularInertia: number;
-    rotationsEnabled: boolean;
     density: number;
     friction: number;
     restitution: number;
@@ -1186,7 +1188,6 @@ export class ColliderDesc {
         this.contactSkin = 0.0;
 
         this.principalAngularInertia = 0.0;
-        this.rotationsEnabled = true;
     }
 
     /**
@@ -1259,8 +1260,8 @@ export class ColliderDesc {
      * @param indices - The indices of the polyline's segments. If this is `undefined` or `null`,
      *    the vertices are assumed to describe a line strip.
      */
-    public static polyline(vertices: Float32Array, indices?: Uint32Array): ColliderDesc {
-        const shape = new Polyline(vertices, indices);
+    public static polyline(vertices: Float32Array, indices?: Uint32Array | null): ColliderDesc {
+        const shape = new Polyline(vertices, indices ?? undefined);
         return new ColliderDesc(shape);
     }
 

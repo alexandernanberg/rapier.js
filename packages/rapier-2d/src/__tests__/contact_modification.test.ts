@@ -73,7 +73,7 @@ describe("contact modification", () => {
             modifySolverContacts(context) {
                 colliders = [context.collider1(), context.collider2()];
                 numContacts = context.numSolverContacts();
-                normalY = context.normal().y;
+                normalY = context.normal()!.y;
                 dist = context.solverContactDist(0);
                 point = context.solverContactPoint1(0);
             },

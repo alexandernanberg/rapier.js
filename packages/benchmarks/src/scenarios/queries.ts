@@ -1,4 +1,5 @@
 import {bench, summary} from "mitata";
+import {withSeededRandom} from "../seeded_random.js";
 import {createSparseWorld} from "../worlds/sparse.js";
 
 function createRays(RAPIER: any, is3D: boolean, count: number) {
@@ -23,23 +24,27 @@ export function benchQueries(RAPIER: any, is3D: boolean, quick: boolean): void {
     // work, rather than a handful of casts wrapped in loop and timer overhead.
     const RAY_COUNT = quick ? 250 : 1000;
 
-    const world = createSparseWorld(RAPIER, is3D, bodyCount);
+    // Seeded so the hit rate — and therefore the cost — is the same on every run.
+    const world = withSeededRandom(0x5eed, () => createSparseWorld(RAPIER, is3D, bodyCount));
 
     // Let bodies settle
     for (let i = 0; i < 60; i++) world.step();
 
-    const rays = createRays(RAPIER, is3D, RAY_COUNT);
+    const rays = withSeededRandom(0x7a45, () => createRays(RAPIER, is3D, RAY_COUNT));
 
-    const points: any[] = [];
-    for (let i = 0; i < RAY_COUNT; i++) {
-        const x = (Math.random() - 0.5) * 80;
-        if (is3D) {
-            const z = (Math.random() - 0.5) * 80;
-            points.push({x, y: 5, z});
-        } else {
-            points.push({x, y: 5});
+    const points: any[] = withSeededRandom(0x9017, () => {
+        const points: any[] = [];
+        for (let i = 0; i < RAY_COUNT; i++) {
+            const x = (Math.random() - 0.5) * 80;
+            if (is3D) {
+                const z = (Math.random() - 0.5) * 80;
+                points.push({x, y: 5, z});
+            } else {
+                points.push({x, y: 5});
+            }
         }
-    }
+        return points;
+    });
 
     summary(() => {
         bench(`castRay x${RAY_COUNT} (${bodyCount} bodies)`, () => {

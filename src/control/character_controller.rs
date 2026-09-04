@@ -53,7 +53,10 @@ impl RawKinematicCharacterController {
     }
 
     pub fn setUp(&mut self, vector: &RawVector) {
-        self.controller.up = vector.0.normalize();
+        // Ignore a zero vector rather than setting a NaN up direction.
+        if let Some(up) = vector.0.try_normalize() {
+            self.controller.up = up;
+        }
     }
 
     pub fn normalNudgeFactor(&self) -> Real {
@@ -163,8 +166,7 @@ impl RawKinematicCharacterController {
 
             crate::utils::with_filter(filter_predicate, |predicate| {
                 let query_filter = QueryFilter {
-                    flags: QueryFilterFlags::from_bits(filter_flags)
-                        .unwrap_or(QueryFilterFlags::empty()),
+                    flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                     groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                     exclude_collider: Some(handle),
                     exclude_rigid_body: collider_parent,
@@ -208,7 +210,14 @@ impl RawKinematicCharacterController {
                 }
             });
         } else {
-            self.result.translation = Vector::ZERO;
+            // The collider is gone: report no movement, no contacts, not grounded,
+            // rather than leaving the previous call's results in place.
+            self.events.clear();
+            self.result = EffectiveCharacterMovement {
+                translation: Vector::ZERO,
+                grounded: false,
+                is_sliding_down_slope: false,
+            };
         }
     }
 

@@ -80,6 +80,10 @@ pub(crate) struct TransformBuffer<H> {
     /// Handles the next sync has to refresh even though the simulation may not
     /// have touched them.
     pending: Vec<H>,
+    /// Dedup set for `pending`, keyed by arena index. Without it, mutating the
+    /// same few entities many times between steps (a force applied to a body
+    /// every frame, say) would count each call toward the full-sync threshold.
+    pending_set: IndexSet,
     /// Rewrite every slot on the next sync. Set for a fresh or deserialized set,
     /// and whenever `pending` grew past the point where a full pass is cheaper.
     needs_full_sync: bool,
@@ -93,6 +97,7 @@ impl<H> Default for TransformBuffer<H> {
             // whole buffer (this is also the deserialization entry point, where
             // the set already holds entities).
             pending: Vec::new(),
+            pending_set: IndexSet::default(),
             needs_full_sync: true,
         }
     }
@@ -121,19 +126,36 @@ impl<H: ArenaHandle> TransformBuffer<H> {
         }
 
         if self.pending.len() >= (set_len / 2).max(64) {
-            self.pending.clear();
+            self.clear_pending();
             self.needs_full_sync = true;
             return;
         }
 
-        self.pending.push(handle);
+        if self.pending_set.insert(handle.arena_index()) {
+            self.pending.push(handle);
+        }
+    }
+
+    /// Releases a removed entity's arena index from the dedup set, so whatever
+    /// entity recycles the index before the next sync can be marked in turn.
+    ///
+    /// Without this, a body removed and re-created between two steps would be
+    /// swallowed by the stale mark of its predecessor — and if the newcomer is
+    /// fixed, the island manager never reports it either, so its slot would
+    /// never be written. The stale handle itself stays in `pending`; the sync
+    /// drops it when it finds no entity behind it.
+    #[inline]
+    pub(crate) fn forget(&mut self, handle: H) {
+        self.pending_set.remove(handle.arena_index());
     }
 
     /// Drops the pending list. Only valid for a caller that is about to rewrite
     /// every slot anyway.
     #[inline]
     pub(crate) fn clear_pending(&mut self) {
-        self.pending.clear();
+        for handle in self.pending.drain(..) {
+            self.pending_set.remove(handle.arena_index());
+        }
     }
 
     /// Takes the pending list, leaving an empty one behind. The caller must give
@@ -146,7 +168,9 @@ impl<H: ArenaHandle> TransformBuffer<H> {
     /// Gives the (now drained) `pending` allocation back after a sync.
     #[inline]
     pub(crate) fn restore_pending(&mut self, mut pending: Vec<H>) {
-        pending.clear();
+        for handle in pending.drain(..) {
+            self.pending_set.remove(handle.arena_index());
+        }
         self.pending = pending;
     }
 
@@ -154,6 +178,22 @@ impl<H: ArenaHandle> TransformBuffer<H> {
     #[inline]
     pub(crate) fn take_needs_full_sync(&mut self) -> bool {
         core::mem::replace(&mut self.needs_full_sync, false)
+    }
+
+    /// Returns the `STRIDE` floats belonging to `index` if that slot already
+    /// exists, without ever growing (and therefore moving) the buffer.
+    ///
+    /// This is the write-through path for mutations made between steps: JS may
+    /// hold a live view onto the buffer at that point, so the data must not be
+    /// reallocated. A slot that does not exist yet belongs to an entity created
+    /// since the last sync; its `pending` mark gets it written on the next one.
+    #[inline]
+    pub(crate) fn existing_slot<const STRIDE: usize>(
+        &mut self,
+        index: u32,
+    ) -> Option<&mut [f32; STRIDE]> {
+        let offset = index as usize * STRIDE;
+        self.data.get_mut(offset..)?.first_chunk_mut::<STRIDE>()
     }
 
     /// Returns the `STRIDE` floats belonging to `index`, growing the buffer if

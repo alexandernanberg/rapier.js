@@ -290,6 +290,8 @@ impl RawColliderSet {
             }
             #[cfg(feature = "dim3")]
             ShapeType::Cone => co.shape().as_cone().map(|b| b.radius),
+            #[cfg(feature = "dim3")]
+            ShapeType::RoundCone => co.shape().as_round_cone().map(|b| b.inner_shape.radius),
             _ => None,
         })
     }
@@ -314,6 +316,11 @@ impl RawColliderSet {
                 .map(|b| b.inner_shape.radius = newRadius),
             #[cfg(feature = "dim3")]
             ShapeType::Cone => co.shape_mut().as_cone_mut().map(|b| b.radius = newRadius),
+            #[cfg(feature = "dim3")]
+            ShapeType::RoundCone => co
+                .shape_mut()
+                .as_round_cone_mut()
+                .map(|b| b.inner_shape.radius = newRadius),
             _ => None,
         });
     }
@@ -331,6 +338,11 @@ impl RawColliderSet {
                 .map(|b| b.inner_shape.half_height),
             #[cfg(feature = "dim3")]
             ShapeType::Cone => co.shape().as_cone().map(|b| b.half_height),
+            #[cfg(feature = "dim3")]
+            ShapeType::RoundCone => co
+                .shape()
+                .as_round_cone()
+                .map(|b| b.inner_shape.half_height),
             _ => None,
         })
     }
@@ -360,6 +372,11 @@ impl RawColliderSet {
                 .shape_mut()
                 .as_cone_mut()
                 .map(|b| b.half_height = newHalfheight),
+            #[cfg(feature = "dim3")]
+            ShapeType::RoundCone => co
+                .shape_mut()
+                .as_round_cone_mut()
+                .map(|b| b.inner_shape.half_height = newHalfheight),
             _ => None,
         });
     }
@@ -546,7 +563,6 @@ impl RawColliderSet {
         };
         self.map(handle, |co| match co.shape().shape_type() {
             ShapeType::TriMesh => co.shape().as_trimesh().map(|t| flatten(t.vertices())),
-            #[cfg(feature = "dim2")]
             ShapeType::Polyline => co.shape().as_polyline().map(|p| flatten(p.vertices())),
             #[cfg(feature = "dim3")]
             ShapeType::ConvexPolyhedron => co
@@ -966,17 +982,17 @@ impl RawColliderSet {
     }
 
     pub fn coSetActiveHooks(&mut self, handle: FlatHandle, hooks: u32) {
-        let hooks = ActiveHooks::from_bits(hooks).unwrap_or(ActiveHooks::empty());
+        let hooks = ActiveHooks::from_bits_truncate(hooks);
         self.map_mut(handle, |co| co.set_active_hooks(hooks));
     }
 
     pub fn coSetActiveEvents(&mut self, handle: FlatHandle, events: u32) {
-        let events = ActiveEvents::from_bits(events).unwrap_or(ActiveEvents::empty());
+        let events = ActiveEvents::from_bits_truncate(events);
         self.map_mut(handle, |co| co.set_active_events(events))
     }
 
     pub fn coSetActiveCollisionTypes(&mut self, handle: FlatHandle, types: u16) {
-        let types = ActiveCollisionTypes::from_bits(types).unwrap_or(ActiveCollisionTypes::empty());
+        let types = ActiveCollisionTypes::from_bits_truncate(types);
         self.map_mut(handle, |co| co.set_active_collision_types(types));
     }
 

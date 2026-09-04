@@ -131,8 +131,7 @@ impl RawBroadPhase {
     ) -> bool {
         let Some((handle, timeOfImpact)) = utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -179,8 +178,7 @@ impl RawBroadPhase {
     ) -> bool {
         let Some((handle, timeOfImpact)) = utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -228,8 +226,7 @@ impl RawBroadPhase {
     ) -> bool {
         let Some((handle, inter)) = utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -276,8 +273,7 @@ impl RawBroadPhase {
     ) -> bool {
         let Some((handle, inter)) = utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -328,8 +324,7 @@ impl RawBroadPhase {
     ) {
         utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -386,8 +381,7 @@ impl RawBroadPhase {
     ) {
         utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -437,8 +431,7 @@ impl RawBroadPhase {
     ) -> Option<FlatHandle> {
         utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -667,8 +660,7 @@ impl RawBroadPhase {
     ) -> bool {
         let projection = utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -708,8 +700,7 @@ impl RawBroadPhase {
     ) -> bool {
         let projection = utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -751,8 +742,7 @@ impl RawBroadPhase {
     ) {
         utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -805,8 +795,7 @@ impl RawBroadPhase {
     ) -> Option<RawColliderShapeCastHit> {
         utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
@@ -855,8 +844,7 @@ impl RawBroadPhase {
     ) {
         utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
                 exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),

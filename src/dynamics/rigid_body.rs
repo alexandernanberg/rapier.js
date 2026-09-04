@@ -316,9 +316,11 @@ impl RawRigidBodySet {
     ) {
         let q = Rotation::from_xyzw(rx, ry, rz, rw);
         self.map_mut(handle, |rb| {
-            rb.set_translation(Vector::new(tx, ty, tz), false);
+            // Wake on the translation so a rejected (non-normalized) quaternion
+            // does not also drop the requested wake-up.
+            rb.set_translation(Vector::new(tx, ty, tz), wakeUp);
             if q.is_normalized() {
-                rb.set_rotation(q, wakeUp);
+                rb.set_rotation(q, false);
             }
         })
     }
@@ -718,8 +720,10 @@ impl RawRigidBodySet {
     /// # Parameters
     /// - `at`: The index of the collider to retrieve. Must be a number in `[0, this.numColliders()[`.
     ///         This index is **not** the same as the unique identifier of the collider.
-    pub fn rbCollider(&self, handle: FlatHandle, at: usize) -> FlatHandle {
-        self.map(handle, |rb| utils::flat_handle(rb.colliders()[at].0))
+    pub fn rbCollider(&self, handle: FlatHandle, at: usize) -> Option<FlatHandle> {
+        self.map(handle, |rb| {
+            rb.colliders().get(at).map(|h| utils::flat_handle(h.0))
+        })
     }
 
     /// The status of this rigid-body: fixed, dynamic, or kinematic.

@@ -81,8 +81,7 @@ impl RawDynamicRayCastVehicleController {
 
         crate::utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits(filter_flags)
-                    .unwrap_or(QueryFilterFlags::empty()),
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                 groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
                 predicate,
                 exclude_rigid_body: Some(self.controller.chassis),
@@ -98,6 +97,8 @@ impl RawDynamicRayCastVehicleController {
 
             self.controller.update_vehicle(dt, query_pipeline);
         });
+
+        bodies.write_through(self.controller.chassis);
     }
 
     /*

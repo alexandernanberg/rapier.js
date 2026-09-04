@@ -143,7 +143,10 @@ export class Collider {
     /** @internal */
     public finalizeDeserialization(bodies: RigidBodySet) {
         if (this.handle != null) {
-            this._parent = bodies.get(this.colliderSet.raw.coParent(this.handle)!);
+            // `coParent` is `undefined` for a parentless collider; passing that
+            // through `bodies.get` would alias to arena index 0.
+            const parent = this.colliderSet.raw.coParent(this.handle);
+            this._parent = parent === undefined ? null : bodies.get(parent);
         }
     }
 

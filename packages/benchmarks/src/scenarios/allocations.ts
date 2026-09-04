@@ -1,4 +1,5 @@
 import type {MemoryBench} from "../memory.js";
+import {withSeededRandom} from "../seeded_random.js";
 import {createSparseWorld} from "../worlds/sparse.js";
 
 /**
@@ -11,30 +12,6 @@ import {createSparseWorld} from "../worlds/sparse.js";
  * The `target` forms only exist on this fork's `World` queries, so each pair
  * probes for support first; `--official` runs simply report the allocating rows.
  */
-/**
- * Deterministic stand-in for `Math.random`, installed while the scene and the
- * queries are built. How much a query allocates depends on how often it hits, so
- * a scene that differs run to run makes the numbers wander by ~50% — far more
- * than any regression worth catching.
- */
-function withSeededRandom<T>(seed: number, build: () => T): T {
-    const original = Math.random;
-    let state = seed;
-    Math.random = () => {
-        // xorshift32
-        state ^= state << 13;
-        state ^= state >>> 17;
-        state ^= state << 5;
-        return ((state >>> 0) % 1_000_000) / 1_000_000;
-    };
-
-    try {
-        return build();
-    } finally {
-        Math.random = original;
-    }
-}
-
 export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): MemoryBench[] {
     const bodyCount = quick ? 1000 : 5000;
     const queryCount = quick ? 250 : 1000;

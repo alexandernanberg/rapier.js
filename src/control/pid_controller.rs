@@ -21,17 +21,12 @@ pub struct RawPidController {
 impl RawPidController {
     #[wasm_bindgen(constructor)]
     pub fn new(kp: f32, ki: f32, kd: f32, axes_mask: u8) -> Self {
-        let controller = PidController::new(
-            kp,
-            ki,
-            kd,
-            AxesMask::from_bits(axes_mask).unwrap_or(AxesMask::all()),
-        );
+        let controller = PidController::new(kp, ki, kd, AxesMask::from_bits_truncate(axes_mask));
         Self { controller }
     }
 
     pub fn set_kp(&mut self, kp: f32, axes: u8) {
-        let axes = AxesMask::from_bits(axes).unwrap_or(AxesMask::all());
+        let axes = AxesMask::from_bits_truncate(axes);
         if axes.contains(AxesMask::LIN_X) {
             self.controller.pd.lin_kp.x = kp;
         }
@@ -63,7 +58,7 @@ impl RawPidController {
     }
 
     pub fn set_ki(&mut self, ki: f32, axes: u8) {
-        let axes = AxesMask::from_bits(axes).unwrap_or(AxesMask::all());
+        let axes = AxesMask::from_bits_truncate(axes);
         if axes.contains(AxesMask::LIN_X) {
             self.controller.lin_ki.x = ki;
         }
@@ -95,7 +90,7 @@ impl RawPidController {
     }
 
     pub fn set_kd(&mut self, kd: f32, axes: u8) {
-        let axes = AxesMask::from_bits(axes).unwrap_or(AxesMask::all());
+        let axes = AxesMask::from_bits_truncate(axes);
         if axes.contains(AxesMask::LIN_X) {
             self.controller.pd.lin_kd.x = kd;
         }
@@ -127,9 +122,7 @@ impl RawPidController {
     }
 
     pub fn set_axes_mask(&mut self, axes_mask: u8) {
-        if let Some(mask) = AxesMask::from_bits(axes_mask) {
-            self.controller.pd.axes = mask;
-        }
+        self.controller.pd.axes = AxesMask::from_bits_truncate(axes_mask);
     }
 
     pub fn reset_integrals(&mut self) {
@@ -157,6 +150,7 @@ impl RawPidController {
             target_linvel.0,
         );
         rb.set_linvel(rb.linvel() + correction, true);
+        bodies.write_through(rb_handle);
     }
 
     #[cfg(feature = "dim2")]
@@ -181,6 +175,7 @@ impl RawPidController {
             target_angvel,
         );
         rb.set_angvel(rb.angvel() + correction, true);
+        bodies.write_through(rb_handle);
     }
 
     #[cfg(feature = "dim3")]
@@ -205,6 +200,7 @@ impl RawPidController {
             target_angvel.0,
         );
         rb.set_angvel(rb.angvel() + correction, true);
+        bodies.write_through(rb_handle);
     }
 
     pub fn linear_correction(

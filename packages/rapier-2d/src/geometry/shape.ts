@@ -550,7 +550,7 @@ export class HalfSpace extends Shape {
         let n = VectorOps.intoRaw(this.normal);
         let result = RawShape.halfspace(n);
         n.free();
-        return result;
+        return expectRawShape(result, "invalid halfspace: `normal` must be a non-zero vector");
     }
 }
 
@@ -997,7 +997,7 @@ export class TriMesh extends Shape {
     /**
      * The triangle mesh flags.
      */
-    flags!: TriMeshFlags;
+    flags?: TriMeshFlags;
 
     /**
      * Creates a new triangle mesh shape.
@@ -1009,12 +1009,12 @@ export class TriMesh extends Shape {
         super();
         this.vertices = vertices;
         this.indices = indices;
-        this.flags = flags!;
+        this.flags = flags;
     }
 
     public intoRaw(): RawShape {
         return expectRawShape(
-            RawShape.trimesh(this.vertices, this.indices, this.flags),
+            RawShape.trimesh(this.vertices, this.indices, this.flags ?? 0),
             "invalid triangle mesh: `vertices` must hold 2 coordinates per vertex, and " +
                 "`indices` 3 in-range vertex indices per triangle",
         );

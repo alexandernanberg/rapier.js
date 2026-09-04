@@ -2592,12 +2592,6 @@ export class RawIntegrationParameters {
     /**
      * @param {number} value
      */
-    set contact_natural_frequency(value) {
-        wasm.rawintegrationparameters_set_contact_natural_frequency(this.__wbg_ptr, value);
-    }
-    /**
-     * @param {number} value
-     */
     set dt(value) {
         wasm.rawintegrationparameters_set_dt(this.__wbg_ptr, value);
     }
@@ -4002,11 +3996,18 @@ export class RawRigidBodySet {
      *         This index is **not** the same as the unique identifier of the collider.
      * @param {number} handle
      * @param {number} at
-     * @returns {number}
+     * @returns {number | undefined}
      */
     rbCollider(handle, at) {
-        const ret = wasm.rawrigidbodyset_rbCollider(this.__wbg_ptr, handle, at);
-        return ret;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawrigidbodyset_rbCollider(retptr, this.__wbg_ptr, handle, at);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * @param {number} handle
@@ -4967,12 +4968,12 @@ export class RawShape {
     }
     /**
      * @param {RawVector} normal
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static halfspace(normal) {
         _assertClass(normal, RawVector);
         const ret = wasm.rawshape_halfspace(normal.__wbg_ptr);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
     /**
      * The outward normal of this shape if it is a half-space.
@@ -5687,6 +5688,9 @@ function __wbg_get_imports() {
             const ret = typeof(obj) === 'number' ? obj : undefined;
             getDataViewMemory0().setFloat64(arg0 + 8 * 1, isLikeNone(ret) ? 0 : ret, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, !isLikeNone(ret), true);
+        },
+        __wbg___wbindgen_rethrow_fbd2dcd7d2b9ac5f: function(arg0) {
+            throw takeObject(arg0);
         },
         __wbg___wbindgen_throw_bb96b2010945f0bc: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));

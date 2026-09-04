@@ -105,6 +105,15 @@ export class DynamicRayCastVehicleController {
     /**
      * Sets the chassis’ local _forward_ direction (`0 = x, 1 = y, 2 = z`).
      */
+    set indexForwardAxis(axis: number) {
+        this.raw.set_index_forward_axis(axis);
+    }
+
+    /**
+     * Sets the chassis’ local _forward_ direction (`0 = x, 1 = y, 2 = z`).
+     *
+     * @deprecated Assign to {@link indexForwardAxis} instead.
+     */
     set setIndexForwardAxis(axis: number) {
         this.raw.set_index_forward_axis(axis);
     }
@@ -482,6 +491,8 @@ export class DynamicRayCastVehicleController {
      *  The collider hit by the ray-cast for the i-th wheel.
      */
     public wheelGroundObject(i: number): Collider | null {
-        return this.colliders.get(this.raw.wheel_ground_object(i)!);
+        // `undefined` when the wheel is airborne (or `i` is out of range).
+        const handle = this.raw.wheel_ground_object(i);
+        return handle === undefined ? null : this.colliders.get(handle);
     }
 }

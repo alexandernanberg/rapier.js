@@ -165,6 +165,16 @@ export class World {
     public static fromRaw(raw: RawDeserializedWorld): World | null {
         if (!raw) return null;
 
+        // Every `take*` moves its field out of `raw`; the emptied shell still has
+        // to be freed.
+        try {
+            return World.fromRawParts(raw);
+        } finally {
+            raw.free();
+        }
+    }
+
+    private static fromRawParts(raw: RawDeserializedWorld): World {
         return new World(
             VectorOps.fromRaw(raw.takeGravity()!)!,
             raw.takeIntegrationParameters(),
@@ -208,7 +218,11 @@ export class World {
      */
     public static restoreSnapshot(data: Uint8Array): World | null {
         let deser = new SerializationPipeline();
-        return deser.deserializeAll(data);
+        try {
+            return deser.deserializeAll(data);
+        } finally {
+            deser.free();
+        }
     }
 
     /**

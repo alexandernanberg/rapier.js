@@ -8,5 +8,5 @@ export async function init(input?: InitInput) {
     if (!input) {
         input = new URL("rapier_wasm_3d_bg.wasm", import.meta.url);
     }
-    await wasmInit(input);
+    await wasmInit({module_or_path: input});
 }

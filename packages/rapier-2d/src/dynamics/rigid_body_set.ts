@@ -148,8 +148,9 @@ export class RigidBodySet {
         multibodyJoints: MultibodyJointSet,
     ) {
         // Unmap the entities that will be removed automatically because of the rigid-body removals.
-        for (let i = 0; i < this.raw.rbNumColliders(handle); i += 1) {
-            colliders.unmap(this.raw.rbCollider(handle, i));
+        const numColliders = this.raw.rbNumColliders(handle);
+        for (let i = 0; i < numColliders; i += 1) {
+            colliders.unmap(this.raw.rbCollider(handle, i)!);
         }
 
         impulseJoints.forEachJointHandleAttachedToRigidBody(handle, (handle) =>

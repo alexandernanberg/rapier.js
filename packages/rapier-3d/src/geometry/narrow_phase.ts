@@ -73,19 +73,24 @@ export class NarrowPhase {
             const flipped = rawPair.collider1() != collider1;
             this.tempManifold.bodies = bodies;
 
-            let i;
-            for (i = 0; i < rawPair.numContactManifolds(); ++i) {
-                this.tempManifold.raw = rawPair.contactManifold(i)!;
-                if (!!this.tempManifold.raw) {
-                    f(this.tempManifold, flipped);
+            // SAFETY: The RawContactManifold and RawContactPair store raw pointers
+            //         that are invalidated at the next timestep, so they must be
+            //         freed here even if the callback throws.
+            try {
+                const numManifolds = rawPair.numContactManifolds();
+                for (let i = 0; i < numManifolds; ++i) {
+                    this.tempManifold.raw = rawPair.contactManifold(i)!;
+                    try {
+                        if (!!this.tempManifold.raw) {
+                            f(this.tempManifold, flipped);
+                        }
+                    } finally {
+                        this.tempManifold.free();
+                    }
                 }
-
-                // SAFETY: The RawContactManifold stores a raw pointer that will be invalidated
-                //         at the next timestep. So we must be sure to free the pair here
-                //         to avoid unsoundness in the Rust code.
-                this.tempManifold.free();
+            } finally {
+                rawPair.free();
             }
-            rawPair.free();
         }
     }
 

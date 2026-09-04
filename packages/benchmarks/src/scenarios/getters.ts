@@ -32,9 +32,10 @@ export function benchGetters(RAPIER: any, is3D: boolean, quick: boolean): void {
     // Check if zero-alloc pattern is supported (our fork only)
     const supportsTargetParam = (() => {
         try {
+            // The official package ignores the argument and allocates; only a
+            // returned `target` proves the zero-allocation path is real.
             const target = is3D ? {x: 0, y: 0, z: 0} : {x: 0, y: 0};
-            bodies[0].translation(target);
-            return target.x !== undefined;
+            return bodies[0].translation(target) === target;
         } catch {
             return false;
         }

@@ -707,8 +707,9 @@ impl RawShape {
         Self(SharedShape::ball(radius))
     }
 
-    pub fn halfspace(normal: &RawVector) -> Self {
-        Self(SharedShape::halfspace(normal.0.normalize()))
+    pub fn halfspace(normal: &RawVector) -> Option<Self> {
+        // A zero normal would normalize to NaN and poison every query against it.
+        Some(Self(SharedShape::halfspace(normal.0.try_normalize()?)))
     }
 
     pub fn capsule(halfHeight: f32, radius: f32) -> Self {
@@ -771,7 +772,7 @@ impl RawShape {
     }
 
     pub fn trimesh(vertices: Vec<f32>, indices: Vec<u32>, flags: u32) -> Option<RawShape> {
-        let flags = TriMeshFlags::from_bits(flags as u16).unwrap_or_default();
+        let flags = TriMeshFlags::from_bits_truncate(flags as u16);
         let vertices = to_points(&vertices)?;
         let indices = to_indices::<3>(&indices)?;
         SharedShape::trimesh_with_flags(vertices, indices, flags)
@@ -817,8 +818,7 @@ impl RawShape {
             return None;
         }
 
-        let flags =
-            rapier::parry::shape::HeightFieldFlags::from_bits(flags as u8).unwrap_or_default();
+        let flags = rapier::parry::shape::HeightFieldFlags::from_bits_truncate(flags as u8);
         let heights = Array2::new(nrows, ncols, heights);
         Some(Self(SharedShape::heightfield_with_flags(
             heights, scale.0, flags,

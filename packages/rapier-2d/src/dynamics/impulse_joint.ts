@@ -521,6 +521,13 @@ export class JointData {
         rawA1.free();
         rawA2.free();
 
-        return result!;
+        if (result === undefined) {
+            // The WASM constructors return `None` for an axis that cannot be
+            // normalized (or an invalid axes mask); surface that here rather
+            // than letting `createJoint` fail with an opaque wasm-bindgen error.
+            throw new Error("Invalid joint description: the joint axis must be a non-zero vector.");
+        }
+
+        return result;
     }
 }

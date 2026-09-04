@@ -617,7 +617,7 @@ export class HalfSpace extends Shape {
         let n = VectorOps.intoRaw(this.normal);
         let result = RawShape.halfspace(n);
         n.free();
-        return result;
+        return expectRawShape(result, "invalid halfspace: `normal` must be a non-zero vector");
     }
 }
 
