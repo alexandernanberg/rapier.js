@@ -23,6 +23,8 @@ export class Graphics {
     viewport!: Viewport;
     instanceGroups!: Array<Array<PIXI.Graphics>>;
     lines?: PIXI.Container;
+    /** Reused across frames so debug rendering allocates nothing per frame. */
+    debugBuffers?: RAPIER.DebugRenderBuffers;
 
     private constructor() {
         this.coll2gfx = new Map();
@@ -113,7 +115,13 @@ export class Graphics {
         }
 
         if (debugRender) {
-            let buffers = world.debugRender();
+            // Reusing one buffer pair keeps the lines out of the per-frame garbage:
+            // `debugRender` copies into it instead of allocating a new pair.
+            let buffers = (this.debugBuffers = world.debugRender(
+                undefined,
+                undefined,
+                this.debugBuffers,
+            ));
             let vtx = buffers.vertices;
             let cls = buffers.colors;
 

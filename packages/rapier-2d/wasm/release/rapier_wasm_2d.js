@@ -1224,75 +1224,6 @@ export class RawColliderShapeCastHit {
 }
 if (Symbol.dispose) RawColliderShapeCastHit.prototype[Symbol.dispose] = RawColliderShapeCastHit.prototype.free;
 
-export class RawContactForceEvent {
-    static __wrap(ptr) {
-        const obj = Object.create(RawContactForceEvent.prototype);
-        obj.__wbg_ptr = ptr;
-        RawContactForceEventFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawContactForceEventFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawcontactforceevent_free(ptr, 0);
-    }
-    /**
-     * The first collider involved in the contact.
-     * @returns {number}
-     */
-    collider1() {
-        const ret = wasm.rawcontactforceevent_collider1(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * The second collider involved in the contact.
-     * @returns {number}
-     */
-    collider2() {
-        const ret = wasm.rawcontactforceevent_collider2(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * The world-space (unit) direction of the force with strongest magnitude,
-     * written to the scratch buffer.
-     */
-    max_force_direction() {
-        wasm.rawcontactforceevent_max_force_direction(this.__wbg_ptr);
-    }
-    /**
-     * The magnitude of the largest force at a contact point of this contact pair.
-     * @returns {number}
-     */
-    max_force_magnitude() {
-        const ret = wasm.rawcontactforceevent_max_force_magnitude(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * The sum of all the forces between the two colliders, written to the scratch buffer.
-     */
-    total_force() {
-        wasm.rawcontactforceevent_total_force(this.__wbg_ptr);
-    }
-    /**
-     * The sum of the magnitudes of each force between the two colliders.
-     *
-     * Note that this is **not** the same as the magnitude of `self.total_force`.
-     * Here we are summing the magnitude of all the forces, instead of taking
-     * the magnitude of their sum.
-     * @returns {number}
-     */
-    total_force_magnitude() {
-        const ret = wasm.rawcontactforceevent_total_force_magnitude(this.__wbg_ptr);
-        return ret;
-    }
-}
-if (Symbol.dispose) RawContactForceEvent.prototype[Symbol.dispose] = RawContactForceEvent.prototype.free;
-
 export class RawContactManifold {
     static __wrap(ptr) {
         const obj = Object.create(RawContactManifold.prototype);
@@ -1797,11 +1728,13 @@ export class RawDebugRenderPipeline {
         wasm.__wbg_rawdebugrenderpipeline_free(ptr, 0);
     }
     /**
-     * @returns {Float32Array}
+     * Returns the color buffer pointer and length packed into a single `f64`,
+     * the same way as [`Self::verticesInfo`].
+     * @returns {number}
      */
-    colors() {
-        const ret = wasm.rawdebugrenderpipeline_colors(this.__wbg_ptr);
-        return takeObject(ret);
+    colorsInfo() {
+        const ret = wasm.rawdebugrenderpipeline_colorsInfo(this.__wbg_ptr);
+        return ret;
     }
     constructor() {
         const ret = wasm.rawdebugrenderpipeline_new();
@@ -1831,11 +1764,22 @@ export class RawDebugRenderPipeline {
         }
     }
     /**
-     * @returns {Float32Array}
+     * Returns the vertex buffer pointer and length packed into a single `f64`.
+     * Low 32 bits = byte offset in WASM memory, high 32 bits = f32 element count.
+     *
+     * Packed the same way as the transform, query-result and scratch buffers, so
+     * the JS side decodes them all with one helper. Handing the buffer back as a
+     * `js_sys::Float32Array` instead meant allocating a JS array from Rust and
+     * copying the whole thing into it on every frame; JS now reads the lines
+     * straight out of a view onto this `Vec`.
+     *
+     * The pointer is only stable until the next `render()`, which may grow (and
+     * therefore move) the buffer, so callers re-read it after every render.
+     * @returns {number}
      */
-    vertices() {
-        const ret = wasm.rawdebugrenderpipeline_vertices(this.__wbg_ptr);
-        return takeObject(ret);
+    verticesInfo() {
+        const ret = wasm.rawdebugrenderpipeline_verticesInfo(this.__wbg_ptr);
+        return ret;
     }
 }
 if (Symbol.dispose) RawDebugRenderPipeline.prototype[Symbol.dispose] = RawDebugRenderPipeline.prototype.free;
@@ -1945,46 +1889,43 @@ export class RawEventQueue {
         wasm.raweventqueue_clear(this.__wbg_ptr);
     }
     /**
-     * Applies the given javascript closure on each collision event of this collector, then clear
-     * the internal collision event buffer.
+     * Moves every pending collision event into this queue's collision buffer and
+     * returns that buffer's pointer and length packed into a single `f64`.
      *
-     * # Parameters
-     * - `f(handle1, handle2, started)`:  JavaScript closure applied to each collision event. The
-     * closure should take three arguments: two integers representing the handles of the colliders
-     * involved in the collision, and a boolean indicating if the collision started (true) or stopped
-     * (false).
-     * @param {Function} f
+     * Each event takes `COLLISION_EVENT_STRIDE` slots: collider 1's arena index
+     * and generation, collider 2's, and `1` if the collision started or `0` if it
+     * stopped — the first four as raw `u32` bit patterns, the flag as a float.
+     *
+     * Calling the JS handler from here instead meant one WASM→JS call per event,
+     * each boxing three values; JS now makes that call itself while walking a
+     * view onto the buffer, so the drain costs one boundary crossing in total.
+     *
+     * The buffer may be reallocated by this call, so the returned pointer is only
+     * valid until the next drain.
+     * @returns {number}
      */
-    drainCollisionEvents(f) {
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.raweventqueue_drainCollisionEvents(retptr, this.__wbg_ptr, addBorrowedObject(f));
-            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-            if (r1) {
-                throw takeObject(r0);
-            }
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-            heap[stack_pointer++] = undefined;
-        }
+    drainCollisionEvents() {
+        const ret = wasm.raweventqueue_drainCollisionEvents(this.__wbg_ptr);
+        return ret;
     }
     /**
-     * @param {Function} f
+     * Moves every pending contact-force event into this queue's contact-force
+     * buffer and returns that buffer's pointer and length packed into a single
+     * `f64`, the same way as [`Self::drainCollisionEvents`].
+     *
+     * Each event takes `CONTACT_FORCE_EVENT_STRIDE` slots: the two collider
+     * handles (split as above), the total force, the total force magnitude, the
+     * max force direction and the max force magnitude.
+     *
+     * Handing each event to JS as a `RawContactForceEvent` instead meant boxing
+     * one WASM object per event — allocated, passed across, read back through
+     * four more calls, then freed. The whole drain is now one crossing and no
+     * allocation.
+     * @returns {number}
      */
-    drainContactForceEvents(f) {
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.raweventqueue_drainContactForceEvents(retptr, this.__wbg_ptr, addBorrowedObject(f));
-            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-            if (r1) {
-                throw takeObject(r0);
-            }
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-            heap[stack_pointer++] = undefined;
-        }
+    drainContactForceEvents() {
+        const ret = wasm.raweventqueue_drainContactForceEvents(this.__wbg_ptr);
+        return ret;
     }
     /**
      * Creates a new event collector.
@@ -2734,6 +2675,10 @@ export class RawIntegrationParameters {
 }
 if (Symbol.dispose) RawIntegrationParameters.prototype[Symbol.dispose] = RawIntegrationParameters.prototype.free;
 
+/**
+ * The island manager, plus the buffer its active-body handles are published
+ * into. Field `1` is that buffer; see [`RawIslandManager::activeBodyHandles`].
+ */
 export class RawIslandManager {
     static __wrap(ptr) {
         const obj = Object.create(RawIslandManager.prototype);
@@ -2752,24 +2697,31 @@ export class RawIslandManager {
         wasm.__wbg_rawislandmanager_free(ptr, 0);
     }
     /**
-     * Applies the given JavaScript function to the integer handle of each active rigid-body
-     * managed by this island manager.
+     * Writes the integer handle of every active rigid-body into this manager's
+     * buffer and returns that buffer's pointer and length packed into a single
+     * `f64`: low 32 bits the byte offset in WASM memory, high 32 bits the `f32`
+     * element count.
      *
-     * After a short time of inactivity, a rigid-body is automatically deactivated ("asleep") by
-     * the physics engine in order to save computational power. A sleeping rigid-body never moves
-     * unless it is moved manually by the user.
+     * After a short time of inactivity, a rigid-body is automatically deactivated
+     * ("asleep") by the physics engine in order to save computational power. A
+     * sleeping rigid-body never moves unless it is moved manually by the user.
      *
-     * # Parameters
-     * - `f(handle)`: the function to apply to the integer handle of each active rigid-body managed by this
-     *   set. Called as `f(collider)`.
-     * @param {Function} f
+     * Each handle takes two slots — its arena index and its generation, as raw
+     * `u32` bit patterns, because the `f64` a handle packs them into would not
+     * survive an `f32`. JS reads them back through a `Uint32Array` view.
+     *
+     * Calling a JS function per handle instead cost one boundary crossing (and one
+     * boxed `f64`) for every active body, every frame. It also ran the callback
+     * while WASM still held a borrow of this manager; the borrow is released here
+     * before JS walks the buffer.
+     *
+     * The buffer may be reallocated by this call, so the returned pointer is only
+     * valid until the next one.
+     * @returns {number}
      */
-    forEachActiveRigidBodyHandle(f) {
-        try {
-            wasm.rawislandmanager_forEachActiveRigidBodyHandle(this.__wbg_ptr, addBorrowedObject(f));
-        } finally {
-            heap[stack_pointer++] = undefined;
-        }
+    activeBodyHandles() {
+        const ret = wasm.rawislandmanager_activeBodyHandles(this.__wbg_ptr);
+        return ret;
     }
     constructor() {
         const ret = wasm.rawislandmanager_new();
@@ -5516,6 +5468,26 @@ export class RawVector {
 if (Symbol.dispose) RawVector.prototype[Symbol.dispose] = RawVector.prototype.free;
 
 /**
+ * The stride of the collision-event buffer, so the JS side can walk it without
+ * hard-coding the layout.
+ * @returns {number}
+ */
+export function collisionEventStride() {
+    const ret = wasm.collisionEventStride();
+    return ret >>> 0;
+}
+
+/**
+ * The stride of the contact-force-event buffer. Dimension-dependent, so JS
+ * reads it from here rather than keeping its own copy of `DIM`.
+ * @returns {number}
+ */
+export function contactForceEventStride() {
+    const ret = wasm.contactForceEventStride();
+    return ret >>> 0;
+}
+
+/**
  * Logs the panic message and its source location before the module aborts.
  *
  * `wasm32-unknown-unknown` cannot unwind, so a panic anywhere in here reaches JS
@@ -5614,20 +5586,12 @@ function __wbg_get_imports() {
             const ret = getObject(arg0).call(getObject(arg1), getObject(arg2));
             return addHeapObject(ret);
         }, arguments); },
-        __wbg_call_39f824e18d9d2414: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
-            const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3), getObject(arg4));
-            return addHeapObject(ret);
-        }, arguments); },
         __wbg_call_85c2616c93afb65b: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5) {
             const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3), getObject(arg4), getObject(arg5));
             return addHeapObject(ret);
         }, arguments); },
         __wbg_error_02f7f3ad89b2d9f3: function(arg0, arg1) {
             console.error(getStringFromWasm0(arg0, arg1));
-        },
-        __wbg_length_1009454859bb3e03: function(arg0) {
-            const ret = getObject(arg0).length;
-            return ret;
         },
         __wbg_length_36bd29c6848c2144: function(arg0) {
             const ret = getObject(arg0).length;
@@ -5637,23 +5601,12 @@ function __wbg_get_imports() {
             const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
             return addHeapObject(ret);
         },
-        __wbg_new_with_length_ef112d2291d8ab95: function(arg0) {
-            const ret = new Float32Array(arg0 >>> 0);
-            return addHeapObject(ret);
-        },
         __wbg_prototypesetcall_de8e0d9553586985: function(arg0, arg1, arg2) {
             Uint8Array.prototype.set.call(getArrayU8FromWasm0(arg0, arg1), getObject(arg2));
-        },
-        __wbg_rawcontactforceevent_new: function(arg0) {
-            const ret = RawContactForceEvent.__wrap(arg0);
-            return addHeapObject(ret);
         },
         __wbg_rawshape_unwrap: function(arg0) {
             const ret = RawShape.__unwrap(getObject(arg0));
             return ret;
-        },
-        __wbg_set_577f5f7485b6744e: function(arg0, arg1, arg2) {
-            getObject(arg0).set(getArrayF32FromWasm0(arg1, arg2));
         },
         __wbindgen_cast_0000000000000001: function(arg0) {
             // Cast intrinsic for `F64 -> Externref`.
@@ -5685,9 +5638,6 @@ const RawColliderSetFinalization = (typeof FinalizationRegistry === 'undefined')
 const RawColliderShapeCastHitFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcollidershapecasthit_free(ptr, 1));
-const RawContactForceEventFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactforceevent_free(ptr, 1));
 const RawContactManifoldFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactmanifold_free(ptr, 1));

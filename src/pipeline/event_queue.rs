@@ -1,10 +1,31 @@
-use crate::scratch;
-use crate::utils;
-use crate::utils::FlatHandle;
+use crate::utils::{self, FlatHandle};
 use rapier::geometry::{CollisionEvent, ContactForceEvent};
+use rapier::math::DIM;
 use rapier::pipeline::ChannelEventCollector;
 use std::sync::mpsc::Receiver;
 use wasm_bindgen::prelude::*;
+
+/// `f32` slots one drained collision event occupies: the two collider handles,
+/// each split into its arena index and generation, plus the started flag.
+const COLLISION_EVENT_STRIDE: usize = 5;
+
+/// `f32` slots one drained contact-force event occupies: two split handles, the
+/// total force and its magnitude, and the max force direction and its magnitude.
+const CONTACT_FORCE_EVENT_STRIDE: usize = 6 + 2 * DIM;
+
+/// The stride of the collision-event buffer, so the JS side can walk it without
+/// hard-coding the layout.
+#[wasm_bindgen]
+pub fn collisionEventStride() -> u32 {
+    COLLISION_EVENT_STRIDE as u32
+}
+
+/// The stride of the contact-force-event buffer. Dimension-dependent, so JS
+/// reads it from here rather than keeping its own copy of `DIM`.
+#[wasm_bindgen]
+pub fn contactForceEventStride() -> u32 {
+    CONTACT_FORCE_EVENT_STRIDE as u32
+}
 
 /// A structure responsible for collecting events generated
 /// by the physics engine.
@@ -13,60 +34,34 @@ pub struct RawEventQueue {
     pub(crate) collector: ChannelEventCollector,
     collision_events: Receiver<CollisionEvent>,
     contact_force_events: Receiver<ContactForceEvent>,
+    /// Drained collision events, `COLLISION_EVENT_STRIDE` slots each.
+    collision_buffer: Vec<f32>,
+    /// Drained contact-force events, `CONTACT_FORCE_EVENT_STRIDE` slots each.
+    contact_force_buffer: Vec<f32>,
     pub(crate) auto_drain: bool,
 }
 
-#[wasm_bindgen]
-pub struct RawContactForceEvent(ContactForceEvent);
-
-#[wasm_bindgen]
-impl RawContactForceEvent {
-    /// The first collider involved in the contact.
-    pub fn collider1(&self) -> FlatHandle {
-        crate::utils::flat_handle(self.0.collider1.0)
-    }
-
-    /// The second collider involved in the contact.
-    pub fn collider2(&self) -> FlatHandle {
-        crate::utils::flat_handle(self.0.collider2.0)
-    }
-
-    /// The sum of all the forces between the two colliders, written to the scratch buffer.
-    pub fn total_force(&self) {
-        scratch::write_vector(self.0.total_force);
-    }
-
-    /// The sum of the magnitudes of each force between the two colliders.
-    ///
-    /// Note that this is **not** the same as the magnitude of `self.total_force`.
-    /// Here we are summing the magnitude of all the forces, instead of taking
-    /// the magnitude of their sum.
-    pub fn total_force_magnitude(&self) -> f32 {
-        self.0.total_force_magnitude
-    }
-
-    /// The world-space (unit) direction of the force with strongest magnitude,
-    /// written to the scratch buffer.
-    pub fn max_force_direction(&self) {
-        scratch::write_vector(self.0.max_force_direction);
-    }
-
-    /// The magnitude of the largest force at a contact point of this contact pair.
-    pub fn max_force_magnitude(&self) -> f32 {
-        self.0.max_force_magnitude
-    }
+/// Packs a buffer's pointer and element count into one `f64`: low 32 bits the
+/// byte offset in WASM memory, high 32 bits the `f32` element count. Same
+/// encoding as the transform, query-result and scratch buffers.
+fn pack_buffer_info(data: &[f32]) -> f64 {
+    let ptr = data.as_ptr() as u32;
+    let len = data.len() as u32;
+    f64::from_bits(ptr as u64 | ((len as u64) << 32))
 }
 
-// #[wasm_bindgen]
-// /// The proximity state of a sensor collider and another collider.
-// pub enum RawIntersection {
-//     /// The sensor is intersecting the other collider.
-//     Intersecting = 0,
-//     /// The sensor is within tolerance margin of the other collider.
-//     WithinMargin = 1,
-//     /// The sensor is disjoint from the other collider.
-//     Disjoint = 2,
-// }
+/// Appends a handle to `out` as its arena index and generation, each carried as
+/// a raw `u32` bit pattern.
+///
+/// A `FlatHandle` is an `f64` holding `index | generation << 32`, so it does not
+/// survive an `f32`. JS reads the two halves back through a `Uint32Array` view
+/// and reassembles the `f64` exactly.
+#[inline]
+fn push_handle(out: &mut Vec<f32>, handle: FlatHandle) {
+    let bits = handle.to_bits();
+    out.push(f32::from_bits(bits as u32));
+    out.push(f32::from_bits((bits >> 32) as u32));
+}
 
 #[wasm_bindgen]
 impl RawEventQueue {
@@ -87,59 +82,80 @@ impl RawEventQueue {
             collector,
             collision_events: collision_channel.1,
             contact_force_events: contact_force_channel.1,
+            collision_buffer: Vec::new(),
+            contact_force_buffer: Vec::new(),
             auto_drain: autoDrain,
         }
     }
 
-    /// Applies the given javascript closure on each collision event of this collector, then clear
-    /// the internal collision event buffer.
+    /// Moves every pending collision event into this queue's collision buffer and
+    /// returns that buffer's pointer and length packed into a single `f64`.
     ///
-    /// # Parameters
-    /// - `f(handle1, handle2, started)`:  JavaScript closure applied to each collision event. The
-    /// closure should take three arguments: two integers representing the handles of the colliders
-    /// involved in the collision, and a boolean indicating if the collision started (true) or stopped
-    /// (false).
-    pub fn drainCollisionEvents(&mut self, f: &js_sys::Function) -> Result<(), JsValue> {
-        let this = JsValue::null();
-        // A throwing callback must not silently swallow the exception, but every
-        // event is still delivered first: the queue ends up empty either way, and
-        // a `Stopped` event dropped here would never be seen again. The first
-        // error is returned once the drain is complete (returning, rather than
-        // `throw_val`, lets the wasm-bindgen shim release its borrow of `self`).
-        let mut error = None;
+    /// Each event takes `COLLISION_EVENT_STRIDE` slots: collider 1's arena index
+    /// and generation, collider 2's, and `1` if the collision started or `0` if it
+    /// stopped — the first four as raw `u32` bit patterns, the flag as a float.
+    ///
+    /// Calling the JS handler from here instead meant one WASM→JS call per event,
+    /// each boxing three values; JS now makes that call itself while walking a
+    /// view onto the buffer, so the drain costs one boundary crossing in total.
+    ///
+    /// The buffer may be reallocated by this call, so the returned pointer is only
+    /// valid until the next drain.
+    pub fn drainCollisionEvents(&mut self) -> f64 {
+        self.collision_buffer.clear();
+
         while let Ok(event) = self.collision_events.try_recv() {
             let (co1, co2, started) = match event {
                 CollisionEvent::Started(co1, co2, _) => (co1, co2, true),
                 CollisionEvent::Stopped(co1, co2, _) => (co1, co2, false),
             };
-            let h1 = utils::flat_handle(co1.0);
-            let h2 = utils::flat_handle(co2.0);
-            if let Err(e) = f.call3(
-                &this,
-                &JsValue::from(h1),
-                &JsValue::from(h2),
-                &JsValue::from_bool(started),
-            ) {
-                error.get_or_insert(e);
-            }
+
+            push_handle(&mut self.collision_buffer, utils::flat_handle(co1.0));
+            push_handle(&mut self.collision_buffer, utils::flat_handle(co2.0));
+            self.collision_buffer.push(if started { 1.0 } else { 0.0 });
         }
-        error.map_or(Ok(()), Err)
+
+        pack_buffer_info(&self.collision_buffer)
     }
 
-    pub fn drainContactForceEvents(&mut self, f: &js_sys::Function) -> Result<(), JsValue> {
-        let this = JsValue::null();
-        let mut error = None;
+    /// Moves every pending contact-force event into this queue's contact-force
+    /// buffer and returns that buffer's pointer and length packed into a single
+    /// `f64`, the same way as [`Self::drainCollisionEvents`].
+    ///
+    /// Each event takes `CONTACT_FORCE_EVENT_STRIDE` slots: the two collider
+    /// handles (split as above), the total force, the total force magnitude, the
+    /// max force direction and the max force magnitude.
+    ///
+    /// Handing each event to JS as a `RawContactForceEvent` instead meant boxing
+    /// one WASM object per event — allocated, passed across, read back through
+    /// four more calls, then freed. The whole drain is now one crossing and no
+    /// allocation.
+    pub fn drainContactForceEvents(&mut self) -> f64 {
+        self.contact_force_buffer.clear();
+
         while let Ok(event) = self.contact_force_events.try_recv() {
-            if let Err(e) = f.call1(&this, &JsValue::from(RawContactForceEvent(event))) {
-                error.get_or_insert(e);
-            }
+            let out = &mut self.contact_force_buffer;
+
+            push_handle(out, utils::flat_handle(event.collider1.0));
+            push_handle(out, utils::flat_handle(event.collider2.0));
+            out.extend_from_slice(event.total_force.as_ref());
+            out.push(event.total_force_magnitude);
+            out.extend_from_slice(event.max_force_direction.as_ref());
+            out.push(event.max_force_magnitude);
         }
-        error.map_or(Ok(()), Err)
+
+        pack_buffer_info(&self.contact_force_buffer)
     }
 
     /// Removes all events contained by this collector.
-    pub fn clear(&self) {
-        while let Ok(_) = self.collision_events.try_recv() {}
-        while let Ok(_) = self.contact_force_events.try_recv() {}
+    pub fn clear(&mut self) {
+        while self.collision_events.try_recv().is_ok() {}
+        while self.contact_force_events.try_recv().is_ok() {}
+
+        // The drain buffers hold whatever the last drain published. Dropping the
+        // contents (but not the capacity) keeps a stale event from being read back
+        // through a view that JS still holds.
+        self.collision_buffer.clear();
+        self.contact_force_buffer.clear();
     }
 }

@@ -245,6 +245,8 @@ export class Graphics {
     light: THREE.PointLight;
     lines: THREE.LineSegments;
     controls: OrbitControls;
+    /** Reused across frames so debug rendering allocates nothing per frame. */
+    debugBuffers?: RAPIER.DebugRenderBuffers;
     // Assigned by `initInstances()`, called at the end of the constructor.
     instanceGroups!: Array<Array<THREE.InstancedMesh>>;
 
@@ -378,7 +380,13 @@ export class Graphics {
         );
 
         if (debugRender) {
-            let buffers = world.debugRender();
+            // Reusing one buffer pair keeps the lines out of the per-frame garbage:
+            // `debugRender` copies into it instead of allocating a new pair.
+            let buffers = (this.debugBuffers = world.debugRender(
+                undefined,
+                undefined,
+                this.debugBuffers,
+            ));
             this.lines.visible = true;
             this.lines.geometry.setAttribute(
                 "position",

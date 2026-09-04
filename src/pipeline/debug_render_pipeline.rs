@@ -1,6 +1,5 @@
 use crate::dynamics::{RawImpulseJointSet, RawMultibodyJointSet, RawRigidBodySet};
 use crate::geometry::{RawColliderSet, RawNarrowPhase};
-use js_sys::Float32Array;
 use palette::convert::IntoColorUnclamped;
 use palette::rgb::Rgba;
 use palette::Hsla;
@@ -29,16 +28,25 @@ impl RawDebugRenderPipeline {
         }
     }
 
-    pub fn vertices(&self) -> Float32Array {
-        let output = Float32Array::new_with_length(self.vertices.len() as u32);
-        output.copy_from(&self.vertices);
-        output
+    /// Returns the vertex buffer pointer and length packed into a single `f64`.
+    /// Low 32 bits = byte offset in WASM memory, high 32 bits = f32 element count.
+    ///
+    /// Packed the same way as the transform, query-result and scratch buffers, so
+    /// the JS side decodes them all with one helper. Handing the buffer back as a
+    /// `js_sys::Float32Array` instead meant allocating a JS array from Rust and
+    /// copying the whole thing into it on every frame; JS now reads the lines
+    /// straight out of a view onto this `Vec`.
+    ///
+    /// The pointer is only stable until the next `render()`, which may grow (and
+    /// therefore move) the buffer, so callers re-read it after every render.
+    pub fn verticesInfo(&self) -> f64 {
+        pack_buffer_info(&self.vertices)
     }
 
-    pub fn colors(&self) -> Float32Array {
-        let output = Float32Array::new_with_length(self.colors.len() as u32);
-        output.copy_from(&self.colors);
-        output
+    /// Returns the color buffer pointer and length packed into a single `f64`,
+    /// the same way as [`Self::verticesInfo`].
+    pub fn colorsInfo(&self) -> f64 {
+        pack_buffer_info(&self.colors)
     }
 
     pub fn render(
@@ -79,6 +87,14 @@ impl RawDebugRenderPipeline {
             )
         })
     }
+}
+
+/// Packs a buffer's pointer and element count into one `f64`: low 32 bits the
+/// byte offset in WASM memory, high 32 bits the `f32` element count.
+fn pack_buffer_info(data: &[f32]) -> f64 {
+    let ptr = data.as_ptr() as u32;
+    let len = data.len() as u32;
+    f64::from_bits(ptr as u64 | ((len as u64) << 32))
 }
 
 struct CopyToBuffersBackend<'a> {
