@@ -432,13 +432,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public velocityAtPoint(point: Vector, target?: Vector): Vector {
-        const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(
-            this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
-            target,
-        )!;
-        rawPoint.free();
-        return result;
+        this.rawSet.rbVelocityAtPoint(this.handle, point.x, point.y);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -465,7 +460,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public effectiveInvMass(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle), target)!;
+        this.rawSet.rbEffectiveInvMass(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -831,7 +827,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public userForce(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle), target)!;
+        this.rawSet.rbUserForce(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**

@@ -6,6 +6,7 @@ import {
     RawJointType,
     RawMotorModel,
 } from "../raw";
+import {scratch} from "../scratch";
 import {RigidBody} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";
 
@@ -147,7 +148,8 @@ export class ImpulseJoint {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public anchor1(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle), target)!;
+        this.rawSet.jointAnchor1(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -159,7 +161,8 @@ export class ImpulseJoint {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public anchor2(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle), target)!;
+        this.rawSet.jointAnchor2(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**

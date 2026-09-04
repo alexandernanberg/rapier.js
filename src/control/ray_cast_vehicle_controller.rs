@@ -109,11 +109,13 @@ impl RawDynamicRayCastVehicleController {
     /*
      * Getters + setters
      */
-    pub fn wheel_chassis_connection_point_cs(&self, i: usize) -> Option<RawVector> {
+    /// Written to the scratch buffer; returns `false` for an out-of-range wheel.
+    pub fn wheel_chassis_connection_point_cs(&self, i: usize) -> bool {
         self.controller
             .wheels()
             .get(i)
-            .map(|w| w.chassis_connection_point_cs.into())
+            .map(|w| crate::scratch::write_vector(w.chassis_connection_point_cs.into()))
+            .is_some()
     }
     pub fn set_wheel_chassis_connection_point_cs(&mut self, i: usize, value: &RawVector) {
         if let Some(wheel) = self.controller.wheels_mut().get_mut(i) {
@@ -229,11 +231,13 @@ impl RawDynamicRayCastVehicleController {
         }
     }
 
-    pub fn wheel_direction_cs(&self, i: usize) -> Option<RawVector> {
+    /// Written to the scratch buffer; returns `false` for an out-of-range wheel.
+    pub fn wheel_direction_cs(&self, i: usize) -> bool {
         self.controller
             .wheels()
             .get(i)
-            .map(|w| w.direction_cs.into())
+            .map(|w| crate::scratch::write_vector(w.direction_cs.into()))
+            .is_some()
     }
     pub fn set_wheel_direction_cs(&mut self, i: usize, value: &RawVector) {
         if let Some(wheel) = self.controller.wheels_mut().get_mut(i) {
@@ -241,8 +245,13 @@ impl RawDynamicRayCastVehicleController {
         }
     }
 
-    pub fn wheel_axle_cs(&self, i: usize) -> Option<RawVector> {
-        self.controller.wheels().get(i).map(|w| w.axle_cs.into())
+    /// Written to the scratch buffer; returns `false` for an out-of-range wheel.
+    pub fn wheel_axle_cs(&self, i: usize) -> bool {
+        self.controller
+            .wheels()
+            .get(i)
+            .map(|w| crate::scratch::write_vector(w.axle_cs.into()))
+            .is_some()
     }
     pub fn set_wheel_axle_cs(&mut self, i: usize, value: &RawVector) {
         if let Some(wheel) = self.controller.wheels_mut().get_mut(i) {
@@ -294,18 +303,22 @@ impl RawDynamicRayCastVehicleController {
             .map(|w| w.wheel_suspension_force)
     }
 
-    pub fn wheel_contact_normal_ws(&self, i: usize) -> Option<RawVector> {
+    /// Written to the scratch buffer; returns `false` for an out-of-range wheel.
+    pub fn wheel_contact_normal_ws(&self, i: usize) -> bool {
         self.controller
             .wheels()
             .get(i)
-            .map(|w| w.raycast_info().contact_normal_ws.into())
+            .map(|w| crate::scratch::write_vector(w.raycast_info().contact_normal_ws.into()))
+            .is_some()
     }
 
-    pub fn wheel_contact_point_ws(&self, i: usize) -> Option<RawVector> {
+    /// Written to the scratch buffer; returns `false` for an out-of-range wheel.
+    pub fn wheel_contact_point_ws(&self, i: usize) -> bool {
         self.controller
             .wheels()
             .get(i)
-            .map(|w| w.raycast_info().contact_point_ws.into())
+            .map(|w| crate::scratch::write_vector(w.raycast_info().contact_point_ws.into()))
+            .is_some()
     }
 
     pub fn wheel_suspension_length(&self, i: usize) -> Option<Real> {
@@ -315,11 +328,13 @@ impl RawDynamicRayCastVehicleController {
             .map(|w| w.raycast_info().suspension_length)
     }
 
-    pub fn wheel_hard_point_ws(&self, i: usize) -> Option<RawVector> {
+    /// Written to the scratch buffer; returns `false` for an out-of-range wheel.
+    pub fn wheel_hard_point_ws(&self, i: usize) -> bool {
         self.controller
             .wheels()
             .get(i)
-            .map(|w| w.raycast_info().hard_point_ws.into())
+            .map(|w| crate::scratch::write_vector(w.raycast_info().hard_point_ws.into()))
+            .is_some()
     }
 
     pub fn wheel_is_in_contact(&self, i: usize) -> bool {

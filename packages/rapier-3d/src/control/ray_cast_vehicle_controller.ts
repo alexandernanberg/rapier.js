@@ -3,6 +3,7 @@ import {BroadPhase, Collider, ColliderSet, InteractionGroups, NarrowPhase} from 
 import {Vector, VectorOps} from "../math";
 import {QueryFilterFlags} from "../pipeline";
 import {RawDynamicRayCastVehicleController} from "../raw";
+import {scratch} from "../scratch";
 
 /**
  * A character controller to simulate vehicles using ray-casting for the wheels.
@@ -172,7 +173,8 @@ export class DynamicRayCastVehicleController {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public wheelChassisConnectionPointCs(i: number, target?: Vector): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_chassis_connection_point_cs(i)!, target);
+        if (!this.raw.wheel_chassis_connection_point_cs(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -340,7 +342,8 @@ export class DynamicRayCastVehicleController {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public wheelDirectionCs(i: number, target?: Vector): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_direction_cs(i)!, target);
+        if (!this.raw.wheel_direction_cs(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -362,7 +365,8 @@ export class DynamicRayCastVehicleController {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public wheelAxleCs(i: number, target?: Vector): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_axle_cs(i)!, target);
+        if (!this.raw.wheel_axle_cs(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -452,7 +456,8 @@ export class DynamicRayCastVehicleController {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public wheelContactNormal(i: number, target?: Vector): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_contact_normal_ws(i)!, target);
+        if (!this.raw.wheel_contact_normal_ws(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -461,7 +466,8 @@ export class DynamicRayCastVehicleController {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public wheelContactPoint(i: number, target?: Vector): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_contact_point_ws(i)!, target);
+        if (!this.raw.wheel_contact_point_ws(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -477,7 +483,8 @@ export class DynamicRayCastVehicleController {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public wheelHardPoint(i: number, target?: Vector): Vector | null {
-        return VectorOps.fromRaw(this.raw.wheel_hard_point_ws(i)!, target);
+        if (!this.raw.wheel_hard_point_ws(i)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**

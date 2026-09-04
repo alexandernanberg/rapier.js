@@ -249,3 +249,11 @@ impl RawSdpMatrix3 {
         output
     }
 }
+
+/// Writes the row-major upper-triangular part of a symmetric matrix
+/// (`m11, m12, m13, m22, m23, m33`) into the scratch buffer.
+#[cfg(feature = "dim3")]
+#[inline]
+pub(crate) fn write_sdp_matrix3(m: SdpMatrix3<Real>) {
+    crate::scratch::write(&[m.m11, m.m12, m.m13, m.m22, m.m23, m.m33]);
+}

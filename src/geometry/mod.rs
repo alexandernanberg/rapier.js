@@ -5,8 +5,8 @@ pub use self::collider_set::*;
 pub use self::contact::*;
 pub use self::feature::*;
 pub use self::narrow_phase::*;
-pub use self::point::*;
-pub use self::ray::*;
+pub(crate) use self::point::*;
+pub(crate) use self::ray::*;
 pub use self::shape::*;
 pub use self::toi::*;
 

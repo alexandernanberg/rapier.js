@@ -1,27 +1,20 @@
 use crate::geometry::feature::IntoTypeValue;
-use crate::geometry::RawFeatureType;
-use crate::math::RawVector;
+use crate::scratch;
 use rapier::geometry::RayIntersection;
-use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-pub struct RawRayIntersection(pub(crate) RayIntersection);
+/// Writes a ray intersection into the scratch buffer as
+/// `timeOfImpact, normal (2 or 3), featureType, featureId`.
+///
+/// `featureType` and `featureId` are stored as raw `u32` bit patterns (see
+/// [`scratch::u32_bits`]); a missing feature id is [`scratch::NO_FEATURE_ID`].
+#[inline]
+pub(crate) fn write_ray_intersection(inter: &RayIntersection) {
+    let n = inter.normal;
+    let ty = scratch::u32_bits(inter.feature.into_type() as u32);
+    let id = scratch::u32_bits(inter.feature.into_value().unwrap_or(scratch::NO_FEATURE_ID));
 
-#[wasm_bindgen]
-impl RawRayIntersection {
-    pub fn normal(&self) -> RawVector {
-        self.0.normal.into()
-    }
-
-    pub fn time_of_impact(&self) -> f32 {
-        self.0.time_of_impact
-    }
-
-    pub fn featureType(&self) -> RawFeatureType {
-        self.0.feature.into_type()
-    }
-
-    pub fn featureId(&self) -> Option<u32> {
-        self.0.feature.into_value()
-    }
+    #[cfg(feature = "dim2")]
+    scratch::write(&[inter.time_of_impact, n.x, n.y, ty, id]);
+    #[cfg(feature = "dim3")]
+    scratch::write(&[inter.time_of_impact, n.x, n.y, n.z, ty, id]);
 }

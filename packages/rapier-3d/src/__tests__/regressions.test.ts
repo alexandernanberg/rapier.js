@@ -212,3 +212,151 @@ describe("vehicle controller", () => {
         world.free();
     });
 });
+
+/**
+ * Getters that used to hand a wasm-bindgen object across the boundary now write
+ * into the scratch buffer. Values and `null` cases have to be unchanged.
+ */
+describe("scratch-buffer getters", () => {
+    test("collider ray casts match the world-level query and miss as null", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const vertices = new Float32Array([-1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, 1]);
+        const indices = new Uint32Array([0, 1, 2, 0, 2, 3]);
+        const collider = world.createCollider(RAPIER.ColliderDesc.trimesh(vertices, indices));
+        const ball = world.createCollider(RAPIER.ColliderDesc.ball(1).setTranslation(10, 0, 0));
+        world.step();
+
+        // The world-level query reports through a separate (f64) result buffer,
+        // so it is an independent reference for the collider-level encoding.
+        for (const ray of [
+            new RAPIER.Ray({x: 0.5, y: 1, z: -0.2}, {x: 0, y: -1, z: 0}),
+            new RAPIER.Ray({x: -0.5, y: 1, z: 0.2}, {x: 0, y: -1, z: 0}),
+            new RAPIER.Ray({x: 10, y: 5, z: 0}, {x: 0, y: -1, z: 0}),
+        ]) {
+            const reference = world.castRayAndGetNormal(ray, 10, true)!;
+            expect(reference).not.toBeNull();
+            const hit = reference.collider.castRayAndGetNormal(ray, 10, true)!;
+            expect(hit).not.toBeNull();
+            expect(hit.timeOfImpact).toBeCloseTo(reference.timeOfImpact, 5);
+            expect(hit.normal.x).toBeCloseTo(reference.normal.x, 5);
+            expect(hit.normal.y).toBeCloseTo(reference.normal.y, 5);
+            expect(hit.normal.z).toBeCloseTo(reference.normal.z, 5);
+            expect(hit.featureType).toBe(reference.featureType);
+            expect(hit.featureId).toBe(reference.featureId);
+        }
+
+        const down = new RAPIER.Ray({x: 0, y: 1, z: 0}, {x: 0, y: -1, z: 0});
+        const missRay = new RAPIER.Ray({x: 5, y: 1, z: 5}, {x: 0, y: -1, z: 0});
+        expect(collider.castRayAndGetNormal(missRay, 10, true)).toBeNull();
+        expect(ball.castRayAndGetNormal(down, 10, true)).toBeNull();
+        expect(collider.castRay(down, 10, true)).toBeCloseTo(1, 5);
+        expect(collider.castRay(missRay, 10, true)).toBeLessThan(0);
+        expect(collider.intersectsRay(down, 10)).toBe(true);
+        expect(collider.intersectsRay(missRay, 10)).toBe(false);
+        world.free();
+    });
+
+    test("collider point queries", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const collider = world.createCollider(RAPIER.ColliderDesc.ball(1));
+
+        expect(collider.containsPoint({x: 0.5, y: 0, z: 0})).toBe(true);
+        expect(collider.containsPoint({x: 2, y: 0, z: 0})).toBe(false);
+
+        const outside = collider.projectPoint({x: 3, y: 0, z: 0}, true);
+        expect(outside.isInside).toBe(false);
+        expect(outside.point.x).toBeCloseTo(1, 5);
+
+        const inside = collider.projectPoint({x: 0.5, y: 0, z: 0}, false);
+        expect(inside.isInside).toBe(true);
+        expect(inside.point.x).toBeCloseTo(1, 5);
+        world.free();
+    });
+
+    test("shape-level ray and point queries", () => {
+        const ball = new RAPIER.Ball(1);
+        const pos = {x: 0, y: 0, z: 0};
+        const rot = {x: 0, y: 0, z: 0, w: 1};
+
+        const hit = ball.castRayAndGetNormal(
+            new RAPIER.Ray({x: 0, y: 5, z: 0}, {x: 0, y: -1, z: 0}),
+            pos,
+            rot,
+            10,
+            true,
+        )!;
+        expect(hit.timeOfImpact).toBeCloseTo(4, 5);
+        expect(hit.normal.y).toBeCloseTo(1, 5);
+        expect(
+            ball.castRayAndGetNormal(
+                new RAPIER.Ray({x: 5, y: 5, z: 0}, {x: 0, y: -1, z: 0}),
+                pos,
+                rot,
+                10,
+                true,
+            ),
+        ).toBeNull();
+
+        const proj = ball.projectPoint(pos, rot, {x: 0, y: 3, z: 0}, true);
+        expect(proj.point.y).toBeCloseTo(1, 5);
+        expect(proj.isInside).toBe(false);
+    });
+
+    test("shape-specific collider getters return null for other shapes", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const cuboid = world.createCollider(RAPIER.ColliderDesc.cuboid(1, 2, 3));
+        const ball = world.createCollider(RAPIER.ColliderDesc.ball(1));
+        const heights = new Float32Array([0, 0, 0, 0]);
+        const field = world.createCollider(
+            RAPIER.ColliderDesc.heightfield(1, 1, heights, {x: 4, y: 1, z: 6}),
+        );
+
+        expect(cuboid.halfExtents()).toEqual({x: 1, y: 2, z: 3});
+        expect(ball.halfExtents()).toBeNull();
+        expect(field.heightfieldScale()).toEqual({x: 4, y: 1, z: 6});
+        expect(ball.heightfieldScale()).toBeNull();
+        world.free();
+    });
+
+    test("inertia matrices read six symmetric elements", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        world.createCollider(RAPIER.ColliderDesc.cuboid(1, 2, 3).setDensity(1), body);
+        world.step();
+
+        const inertia = body.effectiveAngularInertia();
+        expect(inertia.elements.length).toBe(6);
+        expect(inertia.m11).toBeGreaterThan(0);
+        expect(inertia.m22).toBeGreaterThan(0);
+        expect(inertia.m33).toBeGreaterThan(0);
+        expect(inertia.m32).toBe(inertia.m23);
+
+        const inv = body.effectiveWorldInvInertia();
+        expect(inv.m11 * inertia.m11).toBeCloseTo(1, 4);
+        expect(inv.m22 * inertia.m22).toBeCloseTo(1, 4);
+
+        // A target must be a distinct copy, not a view into the scratch buffer.
+        const target = new RAPIER.SdpMatrix3(new Float32Array(6));
+        expect(body.effectiveAngularInertia(target)).toBe(target);
+        body.effectiveWorldInvInertia();
+        expect(target.m11).toBeCloseTo(inertia.m11, 5);
+        world.free();
+    });
+
+    test("vehicle wheel vectors", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const chassis = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        const vehicle = world.createVehicleController(chassis);
+        vehicle.addWheel({x: 1, y: -0.25, z: 1}, {x: 0, y: -1, z: 0}, {x: 1, y: 0, z: 0}, 0.5, 0.3);
+
+        expect(vehicle.wheelChassisConnectionPointCs(0)).toEqual({x: 1, y: -0.25, z: 1});
+        expect(vehicle.wheelDirectionCs(0)).toEqual({x: 0, y: -1, z: 0});
+        expect(vehicle.wheelAxleCs(0)).toEqual({x: 1, y: 0, z: 0});
+        expect(vehicle.wheelAxleCs(3)).toBeNull();
+        const target = {x: 0, y: 0, z: 0};
+        expect(vehicle.wheelDirectionCs(0, target)).toBe(target);
+
+        world.removeVehicleController(vehicle);
+        world.free();
+    });
+});

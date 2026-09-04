@@ -194,7 +194,7 @@ function genHeightfieldGeometry(collider: RAPIER.Collider) {
     let heights = collider.heightfieldHeights();
     let nrows = collider.heightfieldNRows();
     let ncols = collider.heightfieldNCols();
-    let scale = collider.heightfieldScale();
+    let scale = collider.heightfieldScale()!;
 
     let vertices = [];
     let indices = [];
@@ -607,7 +607,7 @@ export class Graphics {
 
         switch (collider.shapeType()) {
             case RAPIER.ShapeType.Cuboid:
-                let hext = collider.halfExtents();
+                let hext = collider.halfExtents()!;
                 instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceDesc.instanceId];
                 instanceDesc.groupId = BOX_INSTANCE_INDEX;
                 instanceDesc.scale = new THREE.Vector3(hext.x, hext.y, hext.z);

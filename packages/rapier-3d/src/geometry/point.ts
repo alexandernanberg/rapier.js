@@ -1,5 +1,4 @@
 import {Vector, VectorOps} from "../math";
-import {RawPointProjection} from "../raw";
 import {Collider} from "./collider";
 import {FeatureType} from "./feature";
 
@@ -22,24 +21,17 @@ export class PointProjection {
     }
 
     /**
-     * Reads a point projection from its raw representation.
+     * Reads a point projection out of the scratch buffer, as written by the WASM
+     * `projectPoint` calls: `point, isInside`.
      *
-     * @param raw - The raw projection. It is always freed before returning.
+     * @param buf - The scratch buffer.
      * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public static fromRaw(
-        raw: RawPointProjection,
-        target?: PointProjection,
-    ): PointProjection | null {
-        if (!raw) return null;
+    public static fromBuffer(buf: Float32Array, target?: PointProjection): PointProjection {
+        const isInside = buf[3] !== 0;
+        if (!target) return new PointProjection(VectorOps.new(buf[0], buf[1], buf[2]), isInside);
 
-        const point = VectorOps.fromRaw(raw.point(), target?.point)!;
-        const isInside = raw.isInside();
-        raw.free();
-
-        if (!target) return new PointProjection(point, isInside);
-
-        target.point = point;
+        target.point = VectorOps.set(target.point, buf[0], buf[1], buf[2]);
         target.isInside = isInside;
         return target;
     }

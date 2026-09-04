@@ -1,8 +1,8 @@
 use crate::dynamics::{RawRigidBodySet, RawRigidBodyType};
 use crate::geometry::RawColliderSet;
-use crate::math::RawVector;
 #[cfg(feature = "dim3")]
-use crate::math::{RawRotation, RawSdpMatrix3};
+use crate::math::RawRotation;
+use crate::math::RawVector;
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::MassProperties;
@@ -478,9 +478,22 @@ impl RawRigidBodySet {
         });
     }
 
-    /// The velocity of the given world-space point on this rigid-body.
-    pub fn rbVelocityAtPoint(&self, handle: FlatHandle, point: &RawVector) -> RawVector {
-        self.map(handle, |rb| rb.velocity_at_point(point.0).into())
+    #[cfg(feature = "dim2")]
+    /// The velocity of the given world-space point on this rigid-body, written to the scratch buffer.
+    pub fn rbVelocityAtPoint(&self, handle: FlatHandle, px: f32, py: f32) {
+        let point = Vector::new(px, py);
+        self.map(handle, |rb| {
+            scratch::write_vector(rb.velocity_at_point(point));
+        })
+    }
+
+    #[cfg(feature = "dim3")]
+    /// The velocity of the given world-space point on this rigid-body, written to the scratch buffer.
+    pub fn rbVelocityAtPoint(&self, handle: FlatHandle, px: f32, py: f32, pz: f32) {
+        let point = Vector::new(px, py, pz);
+        self.map(handle, |rb| {
+            scratch::write_vector(rb.velocity_at_point(point));
+        })
     }
 
     pub fn rbLockTranslations(&mut self, handle: FlatHandle, locked: bool, wake_up: bool) {
@@ -561,8 +574,10 @@ impl RawRigidBodySet {
     }
 
     /// The inverse mass taking into account translation locking.
-    pub fn rbEffectiveInvMass(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |rb| rb.mass_properties().effective_inv_mass.into())
+    pub fn rbEffectiveInvMass(&self, handle: FlatHandle) {
+        self.map(handle, |rb| {
+            scratch::write_vector(rb.mass_properties().effective_inv_mass);
+        })
     }
 
     /// The center of mass of a rigid-body expressed in its local-space, written to the scratch buffer.
@@ -618,24 +633,21 @@ impl RawRigidBodySet {
     ///
     /// Components set to zero are assumed to be infinite along the corresponding principal axis.
     #[cfg(feature = "dim3")]
-    pub fn rbInvPrincipalInertia(&self, handle: FlatHandle) -> RawVector {
+    pub fn rbInvPrincipalInertia(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
-            rb.mass_properties()
-                .local_mprops
-                .inv_principal_inertia
-                .into()
+            scratch::write_vector(rb.mass_properties().local_mprops.inv_principal_inertia);
         })
     }
 
     #[cfg(feature = "dim3")]
     /// The principal vectors of the local angular inertia tensor of the rigid-body.
-    pub fn rbPrincipalInertiaLocalFrame(&self, handle: FlatHandle) -> RawRotation {
+    pub fn rbPrincipalInertiaLocalFrame(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
-            RawRotation::from(
+            scratch::write_rotation(
                 rb.mass_properties()
                     .local_mprops
                     .principal_inertia_local_frame,
-            )
+            );
         })
     }
 
@@ -649,9 +661,9 @@ impl RawRigidBodySet {
 
     /// The angular inertia along the principal inertia axes of the rigid-body.
     #[cfg(feature = "dim3")]
-    pub fn rbPrincipalInertia(&self, handle: FlatHandle) -> RawVector {
+    pub fn rbPrincipalInertia(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
-            rb.mass_properties().local_mprops.principal_inertia().into()
+            scratch::write_vector(rb.mass_properties().local_mprops.principal_inertia());
         })
     }
 
@@ -667,9 +679,9 @@ impl RawRigidBodySet {
     /// The world-space inverse angular inertia tensor of the rigid-body,
     /// taking into account rotation locking.
     #[cfg(feature = "dim3")]
-    pub fn rbEffectiveWorldInvInertia(&self, handle: FlatHandle) -> RawSdpMatrix3 {
+    pub fn rbEffectiveWorldInvInertia(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
-            rb.mass_properties().effective_world_inv_inertia.into()
+            crate::math::write_sdp_matrix3(rb.mass_properties().effective_world_inv_inertia);
         })
     }
 
@@ -685,9 +697,9 @@ impl RawRigidBodySet {
     /// The effective world-space angular inertia (that takes the potential rotation locking into account) of
     /// this rigid-body.
     #[cfg(feature = "dim3")]
-    pub fn rbEffectiveAngularInertia(&self, handle: FlatHandle) -> RawSdpMatrix3 {
+    pub fn rbEffectiveAngularInertia(&self, handle: FlatHandle) {
         self.map(handle, |rb| {
-            rb.mass_properties().effective_angular_inertia().into()
+            crate::math::write_sdp_matrix3(rb.mass_properties().effective_angular_inertia());
         })
     }
 
@@ -992,8 +1004,8 @@ impl RawRigidBodySet {
 
     /// Retrieves the constant force(s) the user added to this rigid-body.
     /// Returns zero if the rigid-body is not dynamic.
-    pub fn rbUserForce(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |rb| rb.user_force().into())
+    pub fn rbUserForce(&self, handle: FlatHandle) {
+        self.map(handle, |rb| scratch::write_vector(rb.user_force()))
     }
 
     /// Retrieves the constant torque(s) the user added to this rigid-body.
@@ -1006,7 +1018,7 @@ impl RawRigidBodySet {
     /// Retrieves the constant torque(s) the user added to this rigid-body.
     /// Returns zero if the rigid-body is not dynamic.
     #[cfg(feature = "dim3")]
-    pub fn rbUserTorque(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |rb| rb.user_torque().into())
+    pub fn rbUserTorque(&self, handle: FlatHandle) {
+        self.map(handle, |rb| scratch::write_vector(rb.user_torque()))
     }
 }

@@ -2,8 +2,8 @@
 use crate::geometry::shape::normalized_convex_polyhedron_mesh;
 use crate::geometry::shape::SharedShapeUtility;
 use crate::geometry::{
-    RawColliderSet, RawColliderShapeCastHit, RawPointProjection, RawRayIntersection, RawShape,
-    RawShapeCastHit, RawShapeContact, RawShapeType,
+    write_point_projection, write_ray_intersection, RawColliderSet, RawColliderShapeCastHit,
+    RawShape, RawShapeCastHit, RawShapeContact, RawShapeType,
 };
 use crate::math::{RawRotation, RawVector};
 use crate::scratch;
@@ -249,17 +249,18 @@ impl RawColliderSet {
     }
 
     /// The half-extents of this collider if it is has a cuboid shape.
-    pub fn coHalfExtents(&self, handle: FlatHandle) -> Option<RawVector> {
+    /// The half-extents of a cuboid (or round cuboid) collider, written to the
+    /// scratch buffer. Returns `false` (and writes nothing) for any other shape.
+    pub fn coHalfExtents(&self, handle: FlatHandle) -> bool {
         self.map(handle, |co| {
-            co.shape()
-                .as_cuboid()
-                .map(|c| c.half_extents.into())
-                .or_else(|| {
-                    co.shape()
-                        .as_round_cuboid()
-                        .map(|c| c.inner_shape.half_extents.into())
-                })
+            co.shape().as_cuboid().map(|c| c.half_extents).or_else(|| {
+                co.shape()
+                    .as_round_cuboid()
+                    .map(|c| c.inner_shape.half_extents)
+            })
         })
+        .map(|half_extents| scratch::write_vector(half_extents))
+        .is_some()
     }
 
     /// Set the half-extents of this collider if it has a cuboid shape.
@@ -642,10 +643,16 @@ impl RawColliderSet {
     }
 
     /// The scaling factor applied of this heightfield if it is one.
-    pub fn coHeightfieldScale(&self, handle: FlatHandle) -> Option<RawVector> {
+    /// The scale of a heightfield collider, written to the scratch buffer.
+    /// Returns `false` (and writes nothing) for any other shape.
+    pub fn coHeightfieldScale(&self, handle: FlatHandle) -> bool {
         self.map(handle, |co| match co.shape().shape_type() {
-            ShapeType::HeightField => co.shape().as_heightfield().map(|h| RawVector(h.scale())),
-            _ => None,
+            ShapeType::HeightField => co
+                .shape()
+                .as_heightfield()
+                .map(|h| scratch::write_vector(h.scale()))
+                .is_some(),
+            _ => false,
         })
     }
 
@@ -746,9 +753,19 @@ impl RawColliderSet {
         self.map(handle, |co| co.contact_force_event_threshold())
     }
 
-    pub fn coContainsPoint(&self, handle: FlatHandle, point: &RawVector) -> bool {
+    #[cfg(feature = "dim2")]
+    pub fn coContainsPoint(&self, handle: FlatHandle, px: f32, py: f32) -> bool {
+        let point = Vector::new(px, py);
         self.map(handle, |co| {
-            co.shared_shape().containsPoint(co.position(), point.0)
+            co.shared_shape().containsPoint(co.position(), point)
+        })
+    }
+
+    #[cfg(feature = "dim3")]
+    pub fn coContainsPoint(&self, handle: FlatHandle, px: f32, py: f32, pz: f32) -> bool {
+        let point = Vector::new(px, py, pz);
+        self.map(handle, |co| {
+            co.shared_shape().containsPoint(co.position(), point)
         })
     }
 
@@ -878,66 +895,159 @@ impl RawColliderSet {
         })
     }
 
-    pub fn coProjectPoint(
-        &self,
-        handle: FlatHandle,
-        point: &RawVector,
-        solid: bool,
-    ) -> RawPointProjection {
+    #[cfg(feature = "dim2")]
+    /// Projects a point on this collider, writing `point, isInside` to the scratch buffer.
+    pub fn coProjectPoint(&self, handle: FlatHandle, px: f32, py: f32, solid: bool) {
+        let point = Vector::new(px, py);
         self.map(handle, |co| {
-            co.shared_shape()
-                .projectPoint(co.position(), point.0, solid)
+            write_point_projection(&co.shared_shape().projectPoint(co.position(), point, solid))
         })
     }
 
+    #[cfg(feature = "dim3")]
+    /// Projects a point on this collider, writing `point, isInside` to the scratch buffer.
+    pub fn coProjectPoint(&self, handle: FlatHandle, px: f32, py: f32, pz: f32, solid: bool) {
+        let point = Vector::new(px, py, pz);
+        self.map(handle, |co| {
+            write_point_projection(&co.shared_shape().projectPoint(co.position(), point, solid))
+        })
+    }
+
+    #[cfg(feature = "dim2")]
     pub fn coIntersectsRay(
         &self,
         handle: FlatHandle,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        ox: f32,
+        oy: f32,
+        dx: f32,
+        dy: f32,
         maxToi: f32,
     ) -> bool {
+        let (orig, dir) = (Vector::new(ox, oy), Vector::new(dx, dy));
         self.map(handle, |co| {
             co.shared_shape()
-                .intersectsRay(co.position(), rayOrig.0, rayDir.0, maxToi)
+                .intersectsRay(co.position(), orig, dir, maxToi)
         })
     }
 
+    #[cfg(feature = "dim3")]
+    pub fn coIntersectsRay(
+        &self,
+        handle: FlatHandle,
+        ox: f32,
+        oy: f32,
+        oz: f32,
+        dx: f32,
+        dy: f32,
+        dz: f32,
+        maxToi: f32,
+    ) -> bool {
+        let (orig, dir) = (Vector::new(ox, oy, oz), Vector::new(dx, dy, dz));
+        self.map(handle, |co| {
+            co.shared_shape()
+                .intersectsRay(co.position(), orig, dir, maxToi)
+        })
+    }
+
+    #[cfg(feature = "dim2")]
+    /// Casts a ray on this collider. Returns the time of impact, or a negative
+    /// value if there is no hit.
     pub fn coCastRay(
         &self,
         handle: FlatHandle,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        ox: f32,
+        oy: f32,
+        dx: f32,
+        dy: f32,
         maxToi: f32,
         solid: bool,
     ) -> f32 {
+        let (orig, dir) = (Vector::new(ox, oy), Vector::new(dx, dy));
         self.map(handle, |co| {
-            co.shared_shape().castRay(
-                co.position(),
-                rayOrig.0.into(),
-                rayDir.0.into(),
-                maxToi,
-                solid,
-            )
+            co.shared_shape()
+                .castRay(co.position(), orig, dir, maxToi, solid)
         })
     }
 
+    #[cfg(feature = "dim3")]
+    /// Casts a ray on this collider. Returns the time of impact, or a negative
+    /// value if there is no hit.
+    pub fn coCastRay(
+        &self,
+        handle: FlatHandle,
+        ox: f32,
+        oy: f32,
+        oz: f32,
+        dx: f32,
+        dy: f32,
+        dz: f32,
+        maxToi: f32,
+        solid: bool,
+    ) -> f32 {
+        let (orig, dir) = (Vector::new(ox, oy, oz), Vector::new(dx, dy, dz));
+        self.map(handle, |co| {
+            co.shared_shape()
+                .castRay(co.position(), orig, dir, maxToi, solid)
+        })
+    }
+
+    #[cfg(feature = "dim2")]
+    /// Casts a ray on this collider, writing `timeOfImpact, normal, featureType,
+    /// featureId` to the scratch buffer. Returns `false` (and writes nothing) on
+    /// a miss.
     pub fn coCastRayAndGetNormal(
         &self,
         handle: FlatHandle,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        ox: f32,
+        oy: f32,
+        dx: f32,
+        dy: f32,
         maxToi: f32,
         solid: bool,
-    ) -> Option<RawRayIntersection> {
+    ) -> bool {
+        let (orig, dir) = (Vector::new(ox, oy), Vector::new(dx, dy));
         self.map(handle, |co| {
-            co.shared_shape().castRayAndGetNormal(
-                co.position(),
-                rayOrig.0.into(),
-                rayDir.0.into(),
-                maxToi,
-                solid,
-            )
+            match co
+                .shared_shape()
+                .castRayAndGetNormal(co.position(), orig, dir, maxToi, solid)
+            {
+                Some(inter) => {
+                    write_ray_intersection(&inter);
+                    true
+                }
+                None => false,
+            }
+        })
+    }
+
+    #[cfg(feature = "dim3")]
+    /// Casts a ray on this collider, writing `timeOfImpact, normal, featureType,
+    /// featureId` to the scratch buffer. Returns `false` (and writes nothing) on
+    /// a miss.
+    pub fn coCastRayAndGetNormal(
+        &self,
+        handle: FlatHandle,
+        ox: f32,
+        oy: f32,
+        oz: f32,
+        dx: f32,
+        dy: f32,
+        dz: f32,
+        maxToi: f32,
+        solid: bool,
+    ) -> bool {
+        let (orig, dir) = (Vector::new(ox, oy, oz), Vector::new(dx, dy, dz));
+        self.map(handle, |co| {
+            match co
+                .shared_shape()
+                .castRayAndGetNormal(co.position(), orig, dir, maxToi, solid)
+            {
+                Some(inter) => {
+                    write_ray_intersection(&inter);
+                    true
+                }
+                None => false,
+            }
         })
     }
 

@@ -505,13 +505,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public velocityAtPoint(point: Vector, target?: Vector): Vector {
-        const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(
-            this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
-            target,
-        );
-        rawPoint.free();
-        return result!;
+        this.rawSet.rbVelocityAtPoint(this.handle, point.x, point.y, point.z);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -546,7 +541,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public effectiveInvMass(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle), target)!;
+        this.rawSet.rbEffectiveInvMass(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -586,7 +582,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public invPrincipalInertia(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbInvPrincipalInertia(this.handle), target)!;
+        this.rawSet.rbInvPrincipalInertia(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -595,7 +592,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public principalInertia(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbPrincipalInertia(this.handle), target)!;
+        this.rawSet.rbPrincipalInertia(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -604,7 +602,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public principalInertiaLocalFrame(target?: Rotation): Rotation {
-        return RotationOps.fromRaw(this.rawSet.rbPrincipalInertiaLocalFrame(this.handle), target)!;
+        this.rawSet.rbPrincipalInertiaLocalFrame(this.handle);
+        return RotationOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -614,7 +613,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public effectiveWorldInvInertia(target?: SdpMatrix3): SdpMatrix3 {
-        return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveWorldInvInertia(this.handle), target);
+        this.rawSet.rbEffectiveWorldInvInertia(this.handle);
+        return SdpMatrix3Ops.fromBuffer(scratch(), target);
     }
 
     /**
@@ -624,7 +624,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public effectiveAngularInertia(target?: SdpMatrix3): SdpMatrix3 {
-        return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveAngularInertia(this.handle), target);
+        this.rawSet.rbEffectiveAngularInertia(this.handle);
+        return SdpMatrix3Ops.fromBuffer(scratch(), target);
     }
 
     /**
@@ -954,7 +955,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public userForce(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle), target)!;
+        this.rawSet.rbUserForce(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -964,7 +966,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public userTorque(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserTorque(this.handle), target)!;
+        this.rawSet.rbUserTorque(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 }
 

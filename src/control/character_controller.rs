@@ -48,8 +48,9 @@ impl RawKinematicCharacterController {
         }
     }
 
-    pub fn up(&self) -> RawVector {
-        self.controller.up.into()
+    /// The up vector, written to the scratch buffer.
+    pub fn up(&self) {
+        scratch::write_vector(self.controller.up)
     }
 
     pub fn setUp(&mut self, vector: &RawVector) {

@@ -196,6 +196,7 @@ Supported methods:
 - **ContactModificationContext**: `normal()`, `solverContactPoint1()`,
   `solverContactPoint2()`, `solverContactTangentVelocity()`
 - **DynamicRayCastVehicleController** (3D): the wheel vector getters
+- **KinematicCharacterController**: `up()`
 
 Queries take `target` as their last argument, after the filter arguments. When a
 query misses, it returns `null` and leaves the target untouched.

@@ -15,6 +15,7 @@ import {unpackBufferInfo} from "./transform_buffer";
  * buffers and the broad-phase query results.
  */
 let _view: Float32Array | null = null;
+let _u32View: Uint32Array | null = null;
 let _ptr = 0;
 let _len = 0;
 let _memory: WebAssembly.Memory | null = null;
@@ -38,4 +39,20 @@ export function scratch(): Float32Array {
     }
 
     return (_view = new Float32Array(_memory!.buffer, _ptr, _len));
+}
+
+/**
+ * The same scratch buffer viewed as `u32`s, for the slots that carry integer
+ * payloads (feature types and ids) as raw bit patterns rather than as floats —
+ * a feature id above 2^24 would not survive a `f32` round trip.
+ *
+ * @internal
+ */
+export function scratchU32(): Uint32Array {
+    const view = _u32View;
+    if (view !== null && view.byteLength !== 0) return view;
+
+    // `scratch()` (re-)resolves the pointer and memory if needed.
+    const f32 = scratch();
+    return (_u32View = new Uint32Array(f32.buffer, f32.byteOffset, f32.length));
 }

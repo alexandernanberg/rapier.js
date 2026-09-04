@@ -3,7 +3,7 @@ import {CoefficientCombineRule, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
 import {RawShape, RawVHACDParameters} from "../raw";
-import {scratch} from "../scratch";
+import {scratch, scratchU32} from "../scratch";
 import {invalidateTransformBuffer, liveTransformBuffer} from "../transform_buffer";
 import {ColliderSet} from "./collider_set";
 import {ShapeContact} from "./contact";
@@ -577,8 +577,9 @@ export class Collider {
      *
      * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public halfExtents(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.colliderSet.raw.coHalfExtents(this.handle)!, target)!;
+    public halfExtents(target?: Vector): Vector | null {
+        if (!this.colliderSet.raw.coHalfExtents(this.handle)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -769,9 +770,9 @@ export class Collider {
      * If this collider has a heightfield shape, this returns the scale
      * applied to it.
      */
-    public heightfieldScale(target?: Vector): Vector {
-        let scale = this.colliderSet.raw.coHeightfieldScale(this.handle)!;
-        return VectorOps.fromRaw(scale, target)!;
+    public heightfieldScale(target?: Vector): Vector | null {
+        if (!this.colliderSet.raw.coHeightfieldScale(this.handle)) return null;
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -852,12 +853,7 @@ export class Collider {
      * @param point - The point to test.
      */
     public containsPoint(point: Vector): boolean {
-        let rawPoint = VectorOps.intoRaw(point);
-        let result = this.colliderSet.raw.coContainsPoint(this.handle, rawPoint);
-
-        rawPoint.free();
-
-        return result;
+        return this.colliderSet.raw.coContainsPoint(this.handle, point.x, point.y, point.z);
     }
 
     /**
@@ -871,20 +867,9 @@ export class Collider {
      *   boundary).
      * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public projectPoint(
-        point: Vector,
-        solid: boolean,
-        target?: PointProjection,
-    ): PointProjection | null {
-        let rawPoint = VectorOps.intoRaw(point);
-        let result = PointProjection.fromRaw(
-            this.colliderSet.raw.coProjectPoint(this.handle, rawPoint, solid),
-            target,
-        );
-
-        rawPoint.free();
-
-        return result;
+    public projectPoint(point: Vector, solid: boolean, target?: PointProjection): PointProjection {
+        this.colliderSet.raw.coProjectPoint(this.handle, point.x, point.y, point.z, solid);
+        return PointProjection.fromBuffer(scratch(), target);
     }
 
     /**
@@ -895,14 +880,16 @@ export class Collider {
      *   limits the length of the ray to `ray.dir.norm() * maxToi`.
      */
     public intersectsRay(ray: Ray, maxToi: number): boolean {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = this.colliderSet.raw.coIntersectsRay(this.handle, rawOrig, rawDir, maxToi);
-
-        rawOrig.free();
-        rawDir.free();
-
-        return result;
+        return this.colliderSet.raw.coIntersectsRay(
+            this.handle,
+            ray.origin.x,
+            ray.origin.y,
+            ray.origin.z,
+            ray.dir.x,
+            ray.dir.y,
+            ray.dir.z,
+            maxToi,
+        );
     }
 
     /*
@@ -1100,14 +1087,17 @@ export class Collider {
      * @returns The time-of-impact between this collider and the ray, or `-1` if there is no intersection.
      */
     public castRay(ray: Ray, maxToi: number, solid: boolean): number {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = this.colliderSet.raw.coCastRay(this.handle, rawOrig, rawDir, maxToi, solid);
-
-        rawOrig.free();
-        rawDir.free();
-
-        return result;
+        return this.colliderSet.raw.coCastRay(
+            this.handle,
+            ray.origin.x,
+            ray.origin.y,
+            ray.origin.z,
+            ray.dir.x,
+            ray.dir.y,
+            ray.dir.z,
+            maxToi,
+            solid,
+        );
     }
 
     /**
@@ -1127,23 +1117,19 @@ export class Collider {
         solid: boolean,
         target?: RayIntersection,
     ): RayIntersection | null {
-        let rawOrig = VectorOps.intoRaw(ray.origin);
-        let rawDir = VectorOps.intoRaw(ray.dir);
-        let result = RayIntersection.fromRaw(
-            this.colliderSet.raw.coCastRayAndGetNormal(
-                this.handle,
-                rawOrig,
-                rawDir,
-                maxToi,
-                solid,
-            )!,
-            target,
+        const hit = this.colliderSet.raw.coCastRayAndGetNormal(
+            this.handle,
+            ray.origin.x,
+            ray.origin.y,
+            ray.origin.z,
+            ray.dir.x,
+            ray.dir.y,
+            ray.dir.z,
+            maxToi,
+            solid,
         );
-
-        rawOrig.free();
-        rawDir.free();
-
-        return result;
+        if (!hit) return null;
+        return RayIntersection.fromBuffer(scratch(), scratchU32(), target);
     }
 }
 
