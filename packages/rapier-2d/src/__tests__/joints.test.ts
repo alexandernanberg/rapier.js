@@ -199,7 +199,9 @@ describe("multibody joint properties", () => {
 
         joint.configureMotorModel(RAPIER.MotorModel.AccelerationBased);
         joint.setMotorMaxForce(1000);
-        joint.configureMotorVelocity(2, 1);
+        // Multibody motors honor their compliance since Rapier 0.35.2, so the
+        // velocity gain has to be stiff to actually track the target velocity.
+        joint.configureMotorVelocity(2, 500);
 
         for (let i = 0; i < 30; i++) world.step();
 
