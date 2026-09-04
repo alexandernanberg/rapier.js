@@ -4,7 +4,11 @@ import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
 import {RawShape, RawVHACDParameters} from "../raw";
 import {scratch, scratchU32} from "../scratch";
-import {invalidateTransformBuffer, liveTransformBuffer} from "../transform_buffer";
+import {
+    DEAD_TRANSFORM_BUFFER_REF,
+    liveTransformBuffer,
+    type TransformBufferRef,
+} from "../transform_buffer";
 import {ColliderSet} from "./collider_set";
 import {ShapeContact} from "./contact";
 import {InteractionGroups} from "./interaction_groups";
@@ -108,6 +112,11 @@ export class Collider {
     private _parent: RigidBody | null;
     /** @internal Offset of this collider's transform inside the shared buffer. */
     _bufferOffset: number;
+    /**
+     * @internal The set's shared buffer ref, swapped for a permanently stale one
+     * once this collider is removed (see `DEAD_TRANSFORM_BUFFER_REF`).
+     */
+    _bufferRef: TransformBufferRef;
 
     constructor(
         colliderSet: ColliderSet,
@@ -120,6 +129,7 @@ export class Collider {
         this._parent = parent;
         this._shape = shape!;
         this._bufferOffset = handleToIndex(handle) * COLLIDER_TRANSFORM_STRIDE;
+        this._bufferRef = colliderSet._bufferRef;
     }
 
     /**
@@ -127,12 +137,20 @@ export class Collider {
      * Returns the collider transform buffer view if it is currently usable.
      *
      * A view detached by WASM memory growth is re-created on the spot; `null` is
-     * only returned while the buffer contents are stale (e.g. right after a
-     * collider was created or mutated), until the next `world.step()` refills
-     * them via `ColliderSet.syncTransformBuffer()`.
+     * only returned while the buffer contents are stale (e.g. after
+     * `World.propagateModifiedBodyPositionsToColliders()`, or before the first
+     * `world.step()` of a restored world), until the next step refills them via
+     * `ColliderSet.syncTransformBuffer()`.
      */
     private liveBuffer(): Float32Array | null {
-        return liveTransformBuffer(this.colliderSet._bufferRef);
+        const ref = this._bufferRef;
+        if (ref === DEAD_TRANSFORM_BUFFER_REF) {
+            // See `RigidBody.liveBuffer`.
+            throw new Error(
+                "Invalid Collider reference. It may have been removed from the physics World.",
+            );
+        }
+        return liveTransformBuffer(ref);
     }
 
     /** @internal */
@@ -497,7 +515,6 @@ export class Collider {
      */
     public setTranslation(tra: Vector) {
         this.colliderSet.raw.coSetTranslation(this.handle, tra.x, tra.y);
-        invalidateTransformBuffer(this.colliderSet._bufferRef);
     }
 
     /**
@@ -509,7 +526,6 @@ export class Collider {
      */
     public setTranslationWrtParent(tra: Vector) {
         this.colliderSet.raw.coSetTranslationWrtParent(this.handle, tra.x, tra.y);
-        invalidateTransformBuffer(this.colliderSet._bufferRef);
     }
 
     /**
@@ -519,7 +535,6 @@ export class Collider {
      */
     public setRotation(angle: number) {
         this.colliderSet.raw.coSetRotation(this.handle, angle);
-        invalidateTransformBuffer(this.colliderSet._bufferRef);
     }
 
     /**
@@ -531,7 +546,6 @@ export class Collider {
      */
     public setRotationWrtParent(angle: number) {
         this.colliderSet.raw.coSetRotationWrtParent(this.handle, angle);
-        invalidateTransformBuffer(this.colliderSet._bufferRef);
     }
 
     /**
@@ -558,6 +572,7 @@ export class Collider {
         const rawPoint = VectorOps.intoRaw(newHalfExtents);
         this.colliderSet.raw.coSetHalfExtents(this.handle, rawPoint);
         rawPoint.free();
+        this._shape = null!;
     }
 
     /**
@@ -574,6 +589,7 @@ export class Collider {
      */
     public setRadius(newRadius: number): void {
         this.colliderSet.raw.coSetRadius(this.handle, newRadius);
+        this._shape = null!;
     }
 
     /**
@@ -590,6 +606,7 @@ export class Collider {
      */
     public setRoundRadius(newBorderRadius: number) {
         this.colliderSet.raw.coSetRoundRadius(this.handle, newBorderRadius);
+        this._shape = null!;
     }
 
     /**
@@ -606,6 +623,7 @@ export class Collider {
      */
     public setHalfHeight(newHalfheight: number) {
         this.colliderSet.raw.coSetHalfHeight(this.handle, newHalfheight);
+        this._shape = null!;
     }
 
     /**

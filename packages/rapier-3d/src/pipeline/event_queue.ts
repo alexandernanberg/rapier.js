@@ -3,6 +3,12 @@ import {Vector, VectorOps} from "../math";
 import {collisionEventStride, contactForceEventStride, RawEventQueue} from "../raw";
 import {handleFromParts, WasmBuffer} from "../wasm_buffer";
 
+// Both strides are compile-time constants on the Rust side; they are fetched
+// lazily (the module has to be initialized first) and then never again, rather
+// than crossing the boundary on every drain.
+let _collisionStride = 0;
+let _contactForceStride = 0;
+
 /**
  * Flags indicating what events are enabled for colliders.
  */
@@ -152,7 +158,7 @@ export class EventQueue {
         // reads it out of a view, so no further boundary crossing happens per event.
         this._collisions.reset(this.raw.drainCollisionEvents());
 
-        const stride = collisionEventStride();
+        const stride = (_collisionStride ||= collisionEventStride());
         const len = this._collisions.length;
         // A throwing handler must not swallow the events behind it: the queue is
         // already empty, so anything skipped here would never be seen again. Every
@@ -189,7 +195,7 @@ export class EventQueue {
     public drainContactForceEvents(f: (event: TempContactForceEvent) => void) {
         this._contactForces.reset(this.raw.drainContactForceEvents());
 
-        const stride = contactForceEventStride();
+        const stride = (_contactForceStride ||= contactForceEventStride());
         const len = this._contactForces.length;
         const event = this._event;
         let error: unknown;

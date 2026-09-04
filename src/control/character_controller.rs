@@ -210,6 +210,18 @@ impl RawKinematicCharacterController {
                     );
                 }
             });
+
+            if apply_impulses_to_dynamic_bodies {
+                // The impulses above went straight into rapier's bodies, bypassing
+                // `map_mut`. Publish the new velocities so JS does not read the
+                // pre-impulse ones out of the buffer until the next step.
+                for event in &self.events {
+                    if let Some(parent) = colliders.0.get(event.handle).and_then(|c| c.parent()) {
+                        bodies.mark_pending(parent);
+                        bodies.write_through(parent);
+                    }
+                }
+            }
         } else {
             // The collider is gone: report no movement, no contacts, not grounded,
             // rather than leaving the previous call's results in place.

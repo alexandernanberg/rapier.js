@@ -360,13 +360,9 @@ export class KinematicCharacterController {
             c.getComponents();
             const s = scratch();
             out.toi = s[0];
-            out.translationDeltaApplied = VectorOps.fromBufferAt(
-                scratch(),
-                1,
-                out.translationDeltaApplied,
-            );
+            out.translationDeltaApplied = VectorOps.fromBufferAt(s, 1, out.translationDeltaApplied);
             out.translationDeltaRemaining = VectorOps.fromBufferAt(
-                scratch(),
+                s,
                 4,
                 out.translationDeltaRemaining,
             );

@@ -1568,11 +1568,11 @@ export class RawContactModificationContext {
     /**
      * Sets the contact normal. It is expected to be a unit vector pointing from
      * the first collider towards the second one.
-     * @param {RawVector} normal
+     * @param {number} x
+     * @param {number} y
      */
-    setNormal(normal) {
-        _assertClass(normal, RawVector);
-        wasm.rawcontactmodificationcontext_setNormal(this.__wbg_ptr, normal.__wbg_ptr);
+    setNormal(x, y) {
+        wasm.rawcontactmodificationcontext_setNormal(this.__wbg_ptr, x, y);
     }
     /**
      * @param {number} restitution
@@ -1589,29 +1589,29 @@ export class RawContactModificationContext {
     }
     /**
      * @param {number} i
-     * @param {RawVector} point
+     * @param {number} x
+     * @param {number} y
      */
-    setSolverContactPoint1(i, point) {
-        _assertClass(point, RawVector);
-        wasm.rawcontactmodificationcontext_setSolverContactPoint1(this.__wbg_ptr, i, point.__wbg_ptr);
+    setSolverContactPoint1(i, x, y) {
+        wasm.rawcontactmodificationcontext_setSolverContactPoint1(this.__wbg_ptr, i, x, y);
     }
     /**
      * @param {number} i
-     * @param {RawVector} point
+     * @param {number} x
+     * @param {number} y
      */
-    setSolverContactPoint2(i, point) {
-        _assertClass(point, RawVector);
-        wasm.rawcontactmodificationcontext_setSolverContactPoint2(this.__wbg_ptr, i, point.__wbg_ptr);
+    setSolverContactPoint2(i, x, y) {
+        wasm.rawcontactmodificationcontext_setSolverContactPoint2(this.__wbg_ptr, i, x, y);
     }
     /**
      * Sets the tangent (surface) velocity of the `i`-th solver contact, which is
      * what makes a collider behave like a conveyor belt.
      * @param {number} i
-     * @param {RawVector} velocity
+     * @param {number} x
+     * @param {number} y
      */
-    setSolverContactTangentVelocity(i, velocity) {
-        _assertClass(velocity, RawVector);
-        wasm.rawcontactmodificationcontext_setSolverContactTangentVelocity(this.__wbg_ptr, i, velocity.__wbg_ptr);
+    setSolverContactTangentVelocity(i, x, y) {
+        wasm.rawcontactmodificationcontext_setSolverContactTangentVelocity(this.__wbg_ptr, i, x, y);
     }
     /**
      * @param {number} userData

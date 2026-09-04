@@ -503,7 +503,7 @@ export class World {
      * @param parent - The rigid-body this collider is attached to.
      */
     public createCollider(desc: ColliderDesc, parent?: RigidBody): Collider {
-        let parentHandle = parent ? parent.handle : undefined!;
+        let parentHandle = parent ? parent.handle : undefined;
         return this.colliders.createCollider(this.bodies, desc, parentHandle);
     }
 

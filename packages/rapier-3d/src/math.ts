@@ -228,7 +228,16 @@ export class SdpMatrix3Ops {
     public static fromBuffer(buffer: Float32Array, target?: SdpMatrix3): SdpMatrix3 {
         if (!target) return new SdpMatrix3(buffer.slice(0, 6));
 
-        target.elements.set(buffer.subarray(0, 6));
+        // Written out rather than `set(buffer.subarray(0, 6))`: the subarray is
+        // a fresh view object, which is exactly the allocation `target` exists
+        // to avoid.
+        const e = target.elements;
+        e[0] = buffer[0];
+        e[1] = buffer[1];
+        e[2] = buffer[2];
+        e[3] = buffer[3];
+        e[4] = buffer[4];
+        e[5] = buffer[5];
         return target;
     }
 }

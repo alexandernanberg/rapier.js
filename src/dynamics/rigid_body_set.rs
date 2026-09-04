@@ -110,6 +110,44 @@ impl RawRigidBodySet {
         f(body)
     }
 
+    /// Like [`Self::map_mut`], for mutations that cannot change anything the
+    /// transform buffer holds (pose and velocities): forces, damping, CCD and
+    /// dominance settings, mass properties, solver iterations.
+    ///
+    /// Routing those through `map_mut` would not be wrong, only wasteful: every
+    /// call would rewrite the slot with unchanged values and, worse, add the body
+    /// to the pending list. That list is capped at `max(64, len / 2)` entries
+    /// before it gives up and schedules a full sync, so a scene applying a force
+    /// to a hundred bodies every frame would lose the incremental sync entirely.
+    pub(crate) fn map_mut_untracked<T>(
+        &mut self,
+        handle: FlatHandle,
+        f: impl FnOnce(&mut RigidBody) -> T,
+    ) -> T {
+        let body = self.bodies.get_mut(utils::body_handle(handle)).expect(
+            "Invalid RigidBody reference. It may have been removed from the physics World.",
+        );
+        f(body)
+    }
+
+    /// Records a freshly inserted body in the transform buffer.
+    ///
+    /// The slot is written immediately, growing the buffer if this is a new
+    /// arena index. Growing may move the buffer, so the JS side re-reads
+    /// `transformBufferInfo()` after every creation instead of falling back to
+    /// per-body WASM calls until the next step — which used to make *every*
+    /// body's reads cross the boundary for the rest of the frame whenever a
+    /// single body was spawned.
+    ///
+    /// The body is still marked pending: a sync that is not a full pass has to
+    /// know about it in case it is one the island manager never reports.
+    fn publish_new_body(&mut self, handle: RigidBodyHandle) {
+        self.transforms.mark_pending(handle, self.bodies.len());
+        if let Some(body) = self.bodies.get(handle) {
+            write_body_transform(self.transforms.slot(handle.arena_index()), body);
+        }
+    }
+
     pub(crate) fn map_mut<T>(
         &mut self,
         handle: FlatHandle,
@@ -340,7 +378,10 @@ impl RawRigidBodySet {
     ) -> FlatHandle {
         let pos = Pose::from_parts(
             Vector::new(translation_x, translation_y, translation_z),
-            Rotation::from_xyzw(rotation_x, rotation_y, rotation_z, rotation_w),
+            // Same policy as `rbSetRotation`: a drifted quaternion is normalized,
+            // a zero one falls back to the identity instead of skewing the pose.
+            utils::unit_rotation(rotation_x, rotation_y, rotation_z, rotation_w)
+                .unwrap_or(Rotation::IDENTITY),
         );
 
         let mut rigid_body = RigidBodyBuilder::new(rb_type.into())
@@ -375,20 +416,19 @@ impl RawRigidBodySet {
                     principalAngularInertia_y,
                     principalAngularInertia_z,
                 ),
-                Rotation::from_xyzw(
+                utils::unit_rotation(
                     angularInertiaFrame_x,
                     angularInertiaFrame_y,
                     angularInertiaFrame_z,
                     angularInertiaFrame_w,
-                ),
+                )
+                .unwrap_or(Rotation::IDENTITY),
             );
             rigid_body.additional_mass_properties(props)
         };
 
         let handle = self.bodies.insert(rigid_body.build());
-        // The new body has no slot in the buffer yet, and it starts asleep-or-not
-        // regardless of whether the island manager will report it as active.
-        self.transforms.mark_pending(handle, self.bodies.len());
+        self.publish_new_body(handle);
         utils::flat_handle(handle.0)
     }
 
@@ -460,9 +500,7 @@ impl RawRigidBodySet {
         }
 
         let handle = self.bodies.insert(rigid_body.build());
-        // The new body has no slot in the buffer yet, and it starts asleep-or-not
-        // regardless of whether the island manager will report it as active.
-        self.transforms.mark_pending(handle, self.bodies.len());
+        self.publish_new_body(handle);
         utils::flat_handle(handle.0)
     }
 

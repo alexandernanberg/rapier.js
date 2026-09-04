@@ -3,6 +3,7 @@ import {ColliderSet} from "../geometry";
 import {RawRigidBodySet, RawRigidBodyType, wasmMemory} from "../raw";
 import {
     createTransformBufferRef,
+    DEAD_TRANSFORM_BUFFER_REF,
     invalidateTransformBuffer,
     refreshTransformBuffer,
     type TransformBufferRef,
@@ -139,9 +140,15 @@ export class RigidBodySet {
             desc.additionalSolverIterations,
         );
 
-        // Invalidate the buffer: the new body has no entry in it yet, and WASM
-        // memory may have grown.
-        invalidateTransformBuffer(this._bufferRef);
+        // The Rust side wrote the new body's slot, which may have grown (and so
+        // moved) the buffer: re-point the view rather than invalidate it, so a
+        // body spawned mid-frame does not push every other body's reads onto the
+        // WASM path until the next step. A buffer that is not live yet (nothing
+        // synced since the world was created or restored) stays that way: some
+        // of its slots have never been written.
+        if (this._bufferRef.ptr !== 0) {
+            this.syncTransformBuffer();
+        }
 
         const body = new RigidBody(this.raw, this._bufferRef, colliderSet, handle);
         body.userData = desc.userData;
@@ -183,6 +190,11 @@ export class RigidBodySet {
 
         // Remove the rigid-body.
         this.raw.remove(handle, islands.raw, colliders.raw, impulseJoints.raw, multibodyJoints.raw);
+        const body = this.map.get(handle);
+        if (body) {
+            // See `DEAD_TRANSFORM_BUFFER_REF`: the slot outlives the body.
+            body._bufferRef = DEAD_TRANSFORM_BUFFER_REF;
+        }
         this.map.delete(handle);
     }
 

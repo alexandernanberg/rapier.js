@@ -51,6 +51,20 @@ export function createTransformBufferRef(): TransformBufferRef {
 }
 
 /**
+ * A ref that is never refreshed, for the JS object of a removed body or
+ * collider to hold in place of the set's shared one.
+ *
+ * The buffer is indexed by arena index alone, so a removed entity's slot keeps
+ * its last transform and is later recycled by whatever entity takes the index.
+ * A dead object still pointing at the live ref would therefore read a stale, or
+ * worse another entity's, transform where every other accessor on it throws.
+ * The transform getters recognize this ref and throw a plain JS error instead.
+ *
+ * @internal
+ */
+export const DEAD_TRANSFORM_BUFFER_REF: TransformBufferRef = createTransformBufferRef();
+
+/**
  * Marks the buffer contents as stale, forcing reads through WASM until the next
  * `World.step()`.
  *
