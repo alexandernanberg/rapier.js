@@ -100,7 +100,7 @@ impl PhysicsHooks for RawPhysicsHooks {
         let flags = result.as_f64()?;
         // TODO: not sure exactly why we have to do `flags as u32` instead
         //       of `flags.to_bits() as u32`.
-        SolverFlags::from_bits(flags as u32)
+        Some(SolverFlags::from_bits_truncate(flags as u32))
     }
 
     fn filter_intersection_pair(&self, ctxt: &PairFilterContext) -> bool {

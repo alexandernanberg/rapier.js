@@ -1,4 +1,4 @@
-import {RawVector, RawRotation, RawSdpMatrix3} from "./raw";
+import {RawVector, RawRotation} from "./raw";
 
 export interface Vector {
     x: number;
@@ -221,13 +221,14 @@ export class SdpMatrix3 {
 }
 
 export class SdpMatrix3Ops {
-    public static fromRaw(raw: RawSdpMatrix3, target?: SdpMatrix3): SdpMatrix3 {
-        const elements = raw.elements();
-        raw.free();
+    /**
+     * Reads the six upper-triangular elements (`m11, m12, m13, m22, m23, m33`)
+     * a WASM getter wrote to the scratch buffer.
+     */
+    public static fromBuffer(buffer: Float32Array, target?: SdpMatrix3): SdpMatrix3 {
+        if (!target) return new SdpMatrix3(buffer.slice(0, 6));
 
-        if (!target) return new SdpMatrix3(elements);
-
-        target.elements.set(elements);
+        target.elements.set(buffer.subarray(0, 6));
         return target;
     }
 }

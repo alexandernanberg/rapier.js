@@ -347,13 +347,6 @@ export class RigidBody {
      */
     public setTranslation(tra: Vector, wakeUp: boolean) {
         this.rawSet.rbSetTranslation(this.handle, tra.x, tra.y, tra.z, wakeUp);
-        const buf = this.liveBuffer();
-        if (buf) {
-            const o = this._bufferOffset;
-            buf[o] = tra.x;
-            buf[o + 1] = tra.y;
-            buf[o + 2] = tra.z;
-        }
     }
 
     /**
@@ -364,13 +357,6 @@ export class RigidBody {
      */
     public setLinvel(vel: Vector, wakeUp: boolean) {
         this.rawSet.rbSetLinvel(this.handle, vel.x, vel.y, vel.z, wakeUp);
-        const buf = this.liveBuffer();
-        if (buf) {
-            const o = this._bufferOffset + 7;
-            buf[o] = vel.x;
-            buf[o + 1] = vel.y;
-            buf[o + 2] = vel.z;
-        }
     }
 
     /**
@@ -404,14 +390,6 @@ export class RigidBody {
      */
     public setRotation(rot: Rotation, wakeUp: boolean) {
         this.rawSet.rbSetRotation(this.handle, rot.x, rot.y, rot.z, rot.w, wakeUp);
-        const buf = this.liveBuffer();
-        if (buf) {
-            const o = this._bufferOffset + 3;
-            buf[o] = rot.x;
-            buf[o + 1] = rot.y;
-            buf[o + 2] = rot.z;
-            buf[o + 3] = rot.w;
-        }
     }
 
     /**
@@ -422,13 +400,6 @@ export class RigidBody {
      */
     public setAngvel(vel: Vector, wakeUp: boolean) {
         this.rawSet.rbSetAngvel(this.handle, vel.x, vel.y, vel.z, wakeUp);
-        const buf = this.liveBuffer();
-        if (buf) {
-            const o = this._bufferOffset + 10;
-            buf[o] = vel.x;
-            buf[o + 1] = vel.y;
-            buf[o + 2] = vel.z;
-        }
     }
 
     /**
@@ -484,17 +455,6 @@ export class RigidBody {
             rot.w,
             wakeUp,
         );
-        const buf = this.liveBuffer();
-        if (buf) {
-            const o = this._bufferOffset;
-            buf[o] = tra.x;
-            buf[o + 1] = tra.y;
-            buf[o + 2] = tra.z;
-            buf[o + 3] = rot.x;
-            buf[o + 4] = rot.y;
-            buf[o + 5] = rot.z;
-            buf[o + 6] = rot.w;
-        }
     }
 
     /**
@@ -545,13 +505,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public velocityAtPoint(point: Vector, target?: Vector): Vector {
-        const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(
-            this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
-            target,
-        );
-        rawPoint.free();
-        return result!;
+        this.rawSet.rbVelocityAtPoint(this.handle, point.x, point.y, point.z);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -586,7 +541,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public effectiveInvMass(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle), target)!;
+        this.rawSet.rbEffectiveInvMass(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -626,7 +582,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public invPrincipalInertia(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbInvPrincipalInertia(this.handle), target)!;
+        this.rawSet.rbInvPrincipalInertia(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -635,7 +592,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public principalInertia(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbPrincipalInertia(this.handle), target)!;
+        this.rawSet.rbPrincipalInertia(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -644,7 +602,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public principalInertiaLocalFrame(target?: Rotation): Rotation {
-        return RotationOps.fromRaw(this.rawSet.rbPrincipalInertiaLocalFrame(this.handle), target)!;
+        this.rawSet.rbPrincipalInertiaLocalFrame(this.handle);
+        return RotationOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -654,7 +613,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public effectiveWorldInvInertia(target?: SdpMatrix3): SdpMatrix3 {
-        return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveWorldInvInertia(this.handle), target);
+        this.rawSet.rbEffectiveWorldInvInertia(this.handle);
+        return SdpMatrix3Ops.fromBuffer(scratch(), target);
     }
 
     /**
@@ -664,7 +624,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public effectiveAngularInertia(target?: SdpMatrix3): SdpMatrix3 {
-        return SdpMatrix3Ops.fromRaw(this.rawSet.rbEffectiveAngularInertia(this.handle), target);
+        this.rawSet.rbEffectiveAngularInertia(this.handle);
+        return SdpMatrix3Ops.fromBuffer(scratch(), target);
     }
 
     /**
@@ -710,9 +671,12 @@ export class RigidBody {
      *
      * @param i - The index of the collider to retrieve. Must be a number in `[0, this.numColliders()[`.
      *         This index is **not** the same as the unique identifier of the collider.
+     *
+     * Returns `null` if `i` is out of range.
      */
-    public collider(i: number): Collider {
-        return this.colliderSet.get(this.rawSet.rbCollider(this.handle, i))!;
+    public collider(i: number): Collider | null {
+        const handle = this.rawSet.rbCollider(this.handle, i);
+        return handle === undefined ? null : this.colliderSet.get(handle);
     }
 
     /**
@@ -994,7 +958,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public userForce(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle), target)!;
+        this.rawSet.rbUserForce(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -1004,7 +969,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public userTorque(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserTorque(this.handle), target)!;
+        this.rawSet.rbUserTorque(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 }
 

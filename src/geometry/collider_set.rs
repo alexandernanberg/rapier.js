@@ -216,12 +216,11 @@ impl RawColliderSet {
             .restitution(restitution)
             .collision_groups(super::unpack_interaction_groups(collisionGroups))
             .solver_groups(super::unpack_interaction_groups(solverGroups))
-            .active_hooks(ActiveHooks::from_bits(activeHooks).unwrap_or(ActiveHooks::empty()))
-            .active_events(ActiveEvents::from_bits(activeEvents).unwrap_or(ActiveEvents::empty()))
-            .active_collision_types(
-                ActiveCollisionTypes::from_bits(activeCollisionTypes)
-                    .unwrap_or(ActiveCollisionTypes::empty()),
-            )
+            .active_hooks(ActiveHooks::from_bits_truncate(activeHooks))
+            .active_events(ActiveEvents::from_bits_truncate(activeEvents))
+            .active_collision_types(ActiveCollisionTypes::from_bits_truncate(
+                activeCollisionTypes,
+            ))
             .sensor(isSensor)
             .friction_combine_rule(super::combine_rule_from_u32(frictionCombineRule))
             .restitution_combine_rule(super::combine_rule_from_u32(restitutionCombineRule))
@@ -462,6 +461,8 @@ impl RawColliderSet {
         wakeUp: bool,
     ) {
         let handle = utils::collider_handle(handle);
+        // Release the arena index so a collider recycling it can be marked pending.
+        self.1.forget(handle);
         self.0
             .remove(handle, &mut islands.0, &mut bodies.bodies, wakeUp);
     }

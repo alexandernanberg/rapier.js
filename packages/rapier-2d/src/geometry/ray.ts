@@ -1,5 +1,4 @@
 import {Vector, VectorOps} from "../math";
-import {RawRayIntersection} from "../raw";
 import {Collider} from "./collider";
 import {FeatureType} from "./feature";
 
@@ -73,27 +72,32 @@ export class RayIntersection {
     }
 
     /**
-     * Reads a ray intersection from its raw representation.
+     * Reads a ray intersection out of the scratch buffer, as written by the WASM
+     * `castRayAndGetNormal` calls: `timeOfImpact, normal, featureType, featureId`.
      *
-     * @param raw - The raw intersection. It is always freed before returning.
+     * @param buf - The scratch buffer (`f32` view).
+     * @param u32 - The same buffer viewed as `u32`s, for the feature type and id.
      * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public static fromRaw(
-        raw: RawRayIntersection,
+    public static fromBuffer(
+        buf: Float32Array,
+        u32: Uint32Array,
         target?: RayIntersection,
-    ): RayIntersection | null {
-        if (!raw) return null;
+    ): RayIntersection {
+        const featureType = u32[3] as FeatureType;
+        const featureId = u32[4] === 0xffffffff ? undefined : u32[4];
 
-        const timeOfImpact = raw.time_of_impact();
-        const normal = VectorOps.fromRaw(raw.normal(), target?.normal)!;
-        const featureType = raw.featureType() as number as FeatureType;
-        const featureId = raw.featureId();
-        raw.free();
+        if (!target) {
+            return new RayIntersection(
+                buf[0],
+                VectorOps.new(buf[1], buf[2]),
+                featureType,
+                featureId,
+            );
+        }
 
-        if (!target) return new RayIntersection(timeOfImpact, normal, featureType, featureId);
-
-        target.timeOfImpact = timeOfImpact;
-        target.normal = normal;
+        target.timeOfImpact = buf[0];
+        target.normal = VectorOps.set(target.normal, buf[1], buf[2]);
         target.featureType = featureType;
         target.featureId = featureId;
         return target;

@@ -83,8 +83,8 @@ export class ContactModificationContext {
      *
      * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public normal(target?: Vector): Vector {
-        this.raw.normal();
+    public normal(target?: Vector): Vector | null {
+        if (!this.raw.normal()) return null;
         return VectorOps.fromBuffer(scratch(), target);
     }
 

@@ -35,9 +35,9 @@ pub enum RawJointType {
 #[cfg(feature = "dim2")]
 impl From<JointAxesMask> for RawJointType {
     fn from(ty: JointAxesMask) -> RawJointType {
-        let rev_axes = JointAxesMask::LIN_X | JointAxesMask::LIN_Y;
-        let pri_axes = JointAxesMask::LIN_Y | JointAxesMask::ANG_X;
-        let fix_axes = JointAxesMask::LIN_X | JointAxesMask::LIN_Y | JointAxesMask::ANG_X;
+        let rev_axes = JointAxesMask::LOCKED_REVOLUTE_AXES;
+        let pri_axes = JointAxesMask::LOCKED_PRISMATIC_AXES;
+        let fix_axes = JointAxesMask::LOCKED_FIXED_AXES;
 
         if ty == rev_axes {
             RawJointType::Revolute
@@ -55,23 +55,12 @@ impl From<JointAxesMask> for RawJointType {
 #[cfg(feature = "dim3")]
 impl From<JointAxesMask> for RawJointType {
     fn from(ty: JointAxesMask) -> RawJointType {
-        let rev_axes = JointAxesMask::LIN_X
-            | JointAxesMask::LIN_Y
-            | JointAxesMask::LIN_Z
-            | JointAxesMask::ANG_Y
-            | JointAxesMask::ANG_Z;
-        let pri_axes = JointAxesMask::LIN_Y
-            | JointAxesMask::LIN_Z
-            | JointAxesMask::ANG_X
-            | JointAxesMask::ANG_Y
-            | JointAxesMask::ANG_Z;
-        let sph_axes = JointAxesMask::ANG_X | JointAxesMask::ANG_Y | JointAxesMask::ANG_Z;
-        let fix_axes = JointAxesMask::LIN_X
-            | JointAxesMask::LIN_Y
-            | JointAxesMask::LIN_Z
-            | JointAxesMask::ANG_X
-            | JointAxesMask::ANG_Y
-            | JointAxesMask::ANG_Z;
+        // Rapier's own constants: the hand-built masks had drifted (spherical was
+        // written as the *angular* axes, so spherical joints reported as Generic).
+        let rev_axes = JointAxesMask::LOCKED_REVOLUTE_AXES;
+        let pri_axes = JointAxesMask::LOCKED_PRISMATIC_AXES;
+        let sph_axes = JointAxesMask::LOCKED_SPHERICAL_AXES;
+        let fix_axes = JointAxesMask::LOCKED_FIXED_AXES;
 
         if ty == rev_axes {
             RawJointType::Revolute

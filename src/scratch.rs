@@ -17,7 +17,7 @@
 //! copies out before calling into WASM again, so the single shared buffer is
 //! never live across two calls.
 
-use rapier::math::Vector;
+use rapier::math::{Rotation, Vector};
 use std::cell::Cell;
 use wasm_bindgen::prelude::*;
 
@@ -63,3 +63,27 @@ pub(crate) fn write_vector(v: Vector) {
     #[cfg(feature = "dim3")]
     write(&[v.x, v.y, v.z]);
 }
+
+/// Writes a rotation into the start of the scratch buffer: the angle in 2D, the
+/// quaternion components in 3D.
+#[inline]
+pub(crate) fn write_rotation(r: Rotation) {
+    #[cfg(feature = "dim2")]
+    write(&[r.angle()]);
+    #[cfg(feature = "dim3")]
+    write(&[r.x, r.y, r.z, r.w]);
+}
+
+/// Reinterprets a `u32` as the `f32` slot that carries it.
+///
+/// Feature ids and enum discriminants ride along in the scratch buffer as raw
+/// bit patterns rather than as converted floats, so a feature id above 2^24
+/// (a big heightfield cell index, say) survives the trip exactly. JS reads them
+/// back through a `Uint32Array` view onto the same memory.
+#[inline]
+pub(crate) fn u32_bits(value: u32) -> f32 {
+    f32::from_bits(value)
+}
+
+/// The bit pattern written for a feature id that does not exist.
+pub(crate) const NO_FEATURE_ID: u32 = u32::MAX;

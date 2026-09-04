@@ -57,8 +57,7 @@ impl RawDebugRenderPipeline {
         crate::utils::with_filter(filter_predicate, |predicate| {
             let mut backend = CopyToBuffersBackend {
                 filter: QueryFilter {
-                    flags: QueryFilterFlags::from_bits(filter_flags)
-                        .unwrap_or(QueryFilterFlags::empty()),
+                    flags: QueryFilterFlags::from_bits_truncate(filter_flags),
                     groups: None,
                     exclude_collider: None,
                     exclude_rigid_body: None,

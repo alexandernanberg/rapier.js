@@ -152,11 +152,6 @@ impl RawIntegrationParameters {
     }
 
     #[wasm_bindgen(setter)]
-    pub fn set_contact_natural_frequency(&mut self, value: f32) {
-        self.0.contact_softness.natural_frequency = value
-    }
-
-    #[wasm_bindgen(setter)]
     pub fn set_normalizedAllowedLinearError(&mut self, value: f32) {
         self.0.normalized_allowed_linear_error = value
     }

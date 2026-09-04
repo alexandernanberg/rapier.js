@@ -229,7 +229,7 @@ export class IntegrationParameters {
      * compatibility with the upstream bindings.
      */
     set contact_natural_frequency(value: number) {
-        this.raw.contact_natural_frequency = value;
+        this.raw.contactNaturalFrequency = value;
     }
 
     set contactNaturalFrequency(value: number) {

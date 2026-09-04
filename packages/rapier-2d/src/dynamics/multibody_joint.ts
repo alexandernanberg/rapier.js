@@ -1,5 +1,6 @@
 import {Vector, VectorOps} from "../math";
 import {RawJointAxis, RawJointType, RawMotorModel, RawMultibodyJointSet} from "../raw";
+import {scratch} from "../scratch";
 import {JointType, MotorModel} from "./impulse_joint";
 import {RigidBody} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";
@@ -85,7 +86,8 @@ export class MultibodyJoint {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public anchor1(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor1(this.handle), target)!;
+        this.rawSet.jointAnchor1(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -97,7 +99,8 @@ export class MultibodyJoint {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public anchor2(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.jointAnchor2(this.handle), target)!;
+        this.rawSet.jointAnchor2(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**

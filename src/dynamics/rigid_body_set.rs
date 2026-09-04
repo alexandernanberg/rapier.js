@@ -78,9 +78,29 @@ impl RawRigidBodySet {
     ///
     /// [`Self::map_mut`] covers every mutating accessor; this is for the few
     /// callers that reach into `bodies` directly (the PID and vehicle
-    /// controllers).
+    /// controllers). Pair it with [`Self::write_through`] once the mutation is
+    /// done so JS reads the new state before the next step.
     pub(crate) fn mark_pending(&mut self, handle: RigidBodyHandle) {
         self.transforms.mark_pending(handle, self.bodies.len());
+    }
+
+    /// Publishes a body's current pose and velocity into its buffer slot.
+    ///
+    /// Rapier applies impulses, `sleep()` and body-type changes to the velocity
+    /// immediately, and JS reads pose and velocity straight out of the buffer
+    /// whenever it is live. Without this, `linvel()` right after `applyImpulse()`
+    /// would return the pre-impulse value until the next `step()`.
+    ///
+    /// Only an existing slot is written: growing the buffer here could move it
+    /// from under a live JS view. A body without a slot yet is still pending and
+    /// gets written by the next sync.
+    #[inline]
+    pub(crate) fn write_through(&mut self, handle: RigidBodyHandle) {
+        if let Some(body) = self.bodies.get(handle) {
+            if let Some(slot) = self.transforms.existing_slot(handle.arena_index()) {
+                write_body_transform(slot, body);
+            }
+        }
     }
 
     pub(crate) fn map<T>(&self, handle: FlatHandle, f: impl FnOnce(&RigidBody) -> T) -> T {
@@ -105,7 +125,15 @@ impl RawRigidBodySet {
         let body = self.bodies.get_mut(handle).expect(
             "Invalid RigidBody reference. It may have been removed from the physics World.",
         );
-        f(body)
+        let result = f(body);
+
+        // Publish the new state right away so the JS-side buffer reads stay
+        // coherent with WASM until the next step refreshes the slot anyway.
+        if let Some(slot) = self.transforms.existing_slot(handle.arena_index()) {
+            write_body_transform(slot, body);
+        }
+
+        result
     }
 
     /// Collects the bodies whose buffered transform may have gone stale:
@@ -447,6 +475,14 @@ impl RawRigidBodySet {
         articulations: &mut RawMultibodyJointSet,
     ) {
         let handle = utils::body_handle(handle);
+        // The removed body's colliders go with it; release their arena indices
+        // (and the body's) so recycled indices can be marked pending again.
+        if let Some(body) = self.bodies.get(handle) {
+            for &collider in body.colliders() {
+                colliders.1.forget(collider);
+            }
+        }
+        self.transforms.forget(handle);
         self.bodies.remove(
             handle,
             &mut islands.0,

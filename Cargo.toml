@@ -6,6 +6,9 @@ resolver = "2"
 debug = false
 codegen-units = 1
 lto = true
+# Unwinding is a trap on wasm32 anyway; `abort` lets LLVM drop the landing pads
+# and unwind tables (the panic hook in `lib.rs` still runs before the abort).
+panic = "abort"
 strip = true # Workaround for https://github.com/bevyengine/bevy/issues/16030 (the bug only happens in 2D)
 
 [patch.crates-io]

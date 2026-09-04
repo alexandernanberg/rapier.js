@@ -99,43 +99,47 @@ impl RawEventQueue {
     /// closure should take three arguments: two integers representing the handles of the colliders
     /// involved in the collision, and a boolean indicating if the collision started (true) or stopped
     /// (false).
-    pub fn drainCollisionEvents(&mut self, f: &js_sys::Function) {
+    pub fn drainCollisionEvents(&mut self, f: &js_sys::Function) -> Result<(), JsValue> {
         let this = JsValue::null();
+        // A throwing callback must not silently swallow the exception, but every
+        // event is still delivered first: the queue ends up empty either way, and
+        // a `Stopped` event dropped here would never be seen again. The first
+        // error is returned once the drain is complete (returning, rather than
+        // `throw_val`, lets the wasm-bindgen shim release its borrow of `self`).
+        let mut error = None;
         while let Ok(event) = self.collision_events.try_recv() {
-            match event {
-                CollisionEvent::Started(co1, co2, _) => {
-                    let h1 = utils::flat_handle(co1.0);
-                    let h2 = utils::flat_handle(co2.0);
-                    let _ = f.call3(
-                        &this,
-                        &JsValue::from(h1),
-                        &JsValue::from(h2),
-                        &JsValue::from_bool(true),
-                    );
-                }
-                CollisionEvent::Stopped(co1, co2, _) => {
-                    let h1 = utils::flat_handle(co1.0);
-                    let h2 = utils::flat_handle(co2.0);
-                    let _ = f.call3(
-                        &this,
-                        &JsValue::from(h1),
-                        &JsValue::from(h2),
-                        &JsValue::from_bool(false),
-                    );
-                }
+            let (co1, co2, started) = match event {
+                CollisionEvent::Started(co1, co2, _) => (co1, co2, true),
+                CollisionEvent::Stopped(co1, co2, _) => (co1, co2, false),
+            };
+            let h1 = utils::flat_handle(co1.0);
+            let h2 = utils::flat_handle(co2.0);
+            if let Err(e) = f.call3(
+                &this,
+                &JsValue::from(h1),
+                &JsValue::from(h2),
+                &JsValue::from_bool(started),
+            ) {
+                error.get_or_insert(e);
             }
         }
+        error.map_or(Ok(()), Err)
     }
 
-    pub fn drainContactForceEvents(&mut self, f: &js_sys::Function) {
+    pub fn drainContactForceEvents(&mut self, f: &js_sys::Function) -> Result<(), JsValue> {
         let this = JsValue::null();
+        let mut error = None;
         while let Ok(event) = self.contact_force_events.try_recv() {
-            let _ = f.call1(&this, &JsValue::from(RawContactForceEvent(event)));
+            if let Err(e) = f.call1(&this, &JsValue::from(RawContactForceEvent(event))) {
+                error.get_or_insert(e);
+            }
         }
+        error.map_or(Ok(()), Err)
     }
 
     /// Removes all events contained by this collector.
     pub fn clear(&self) {
         while let Ok(_) = self.collision_events.try_recv() {}
+        while let Ok(_) = self.contact_force_events.try_recv() {}
     }
 }

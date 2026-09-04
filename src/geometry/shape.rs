@@ -1,6 +1,8 @@
-use crate::geometry::{RawPointProjection, RawRayIntersection, RawShapeCastHit, RawShapeContact};
+use crate::geometry::{
+    write_point_projection, write_ray_intersection, RawShapeCastHit, RawShapeContact,
+};
 use crate::math::{RawRotation, RawVector};
-use rapier::geometry::{Shape, SharedShape, TriMeshFlags};
+use rapier::geometry::{PointProjection, RayIntersection, Shape, SharedShape, TriMeshFlags};
 use rapier::math::{IVector, Pose, Rotation, Vector, DIM};
 use rapier::parry::query;
 use rapier::parry::query::{Ray, ShapeCastOptions};
@@ -90,7 +92,7 @@ pub trait SharedShapeUtility {
 
     fn containsPoint(&self, shapePos: &Pose, point: Vector) -> bool;
 
-    fn projectPoint(&self, shapePos: &Pose, point: Vector, solid: bool) -> RawPointProjection;
+    fn projectPoint(&self, shapePos: &Pose, point: Vector, solid: bool) -> PointProjection;
 
     fn intersectsRay(&self, shapePos: &Pose, rayOrig: Vector, rayDir: Vector, maxToi: f32) -> bool;
 
@@ -110,7 +112,7 @@ pub trait SharedShapeUtility {
         rayDir: Vector,
         maxToi: f32,
         solid: bool,
-    ) -> Option<RawRayIntersection>;
+    ) -> Option<RayIntersection>;
 }
 
 // for RawShape & Collider
@@ -166,8 +168,8 @@ impl SharedShapeUtility for SharedShape {
         self.as_ref().contains_point(shapePos, point)
     }
 
-    fn projectPoint(&self, shapePos: &Pose, point: Vector, solid: bool) -> RawPointProjection {
-        RawPointProjection(self.as_ref().project_point(shapePos, point, solid))
+    fn projectPoint(&self, shapePos: &Pose, point: Vector, solid: bool) -> PointProjection {
+        self.as_ref().project_point(shapePos, point, solid)
     }
 
     fn intersectsRay(&self, shapePos: &Pose, rayOrig: Vector, rayDir: Vector, maxToi: f32) -> bool {
@@ -195,10 +197,9 @@ impl SharedShapeUtility for SharedShape {
         rayDir: Vector,
         maxToi: f32,
         solid: bool,
-    ) -> Option<RawRayIntersection> {
+    ) -> Option<RayIntersection> {
         self.as_ref()
             .cast_ray_and_get_normal(shapePos, &Ray::new(rayOrig, rayDir), maxToi, solid)
-            .map(|inter| RawRayIntersection(inter))
     }
 }
 
@@ -707,8 +708,9 @@ impl RawShape {
         Self(SharedShape::ball(radius))
     }
 
-    pub fn halfspace(normal: &RawVector) -> Self {
-        Self(SharedShape::halfspace(normal.0.normalize()))
+    pub fn halfspace(normal: &RawVector) -> Option<Self> {
+        // A zero normal would normalize to NaN and poison every query against it.
+        Some(Self(SharedShape::halfspace(normal.0.try_normalize()?)))
     }
 
     pub fn capsule(halfHeight: f32, radius: f32) -> Self {
@@ -771,7 +773,7 @@ impl RawShape {
     }
 
     pub fn trimesh(vertices: Vec<f32>, indices: Vec<u32>, flags: u32) -> Option<RawShape> {
-        let flags = TriMeshFlags::from_bits(flags as u16).unwrap_or_default();
+        let flags = TriMeshFlags::from_bits_truncate(flags as u16);
         let vertices = to_points(&vertices)?;
         let indices = to_indices::<3>(&indices)?;
         SharedShape::trimesh_with_flags(vertices, indices, flags)
@@ -817,8 +819,7 @@ impl RawShape {
             return None;
         }
 
-        let flags =
-            rapier::parry::shape::HeightFieldFlags::from_bits(flags as u8).unwrap_or_default();
+        let flags = rapier::parry::shape::HeightFieldFlags::from_bits_truncate(flags as u8);
         let heights = Array2::new(nrows, ncols, heights);
         Some(Self(SharedShape::heightfield_with_flags(
             heights, scale.0, flags,
@@ -1079,16 +1080,17 @@ impl RawShape {
         self.0.containsPoint(&pos, point.0)
     }
 
+    /// Projects a point on this shape, writing `point, isInside` to the scratch buffer.
     pub fn projectPoint(
         &self,
         shapePos: &RawVector,
         shapeRot: &RawRotation,
         point: &RawVector,
         solid: bool,
-    ) -> RawPointProjection {
+    ) {
         let pos = Pose::from_parts(shapePos.0, shapeRot.0);
 
-        self.0.projectPoint(&pos, point.0, solid)
+        write_point_projection(&self.0.projectPoint(&pos, point.0, solid));
     }
 
     pub fn intersectsRay(
@@ -1126,10 +1128,18 @@ impl RawShape {
         rayDir: &RawVector,
         maxToi: f32,
         solid: bool,
-    ) -> Option<RawRayIntersection> {
+    ) -> bool {
         let pos = Pose::from_parts(shapePos.0, shapeRot.0);
 
-        self.0
+        match self
+            .0
             .castRayAndGetNormal(&pos, rayOrig.0, rayDir.0, maxToi, solid)
+        {
+            Some(inter) => {
+                write_ray_intersection(&inter);
+                true
+            }
+            None => false,
+        }
     }
 }

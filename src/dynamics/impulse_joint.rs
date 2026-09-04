@@ -1,5 +1,6 @@
 use crate::dynamics::{RawImpulseJointSet, RawJointAxis, RawJointType, RawMotorModel};
 use crate::math::{RawRotation, RawVector};
+use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::JointAxis;
 use rapier::math::Pose;
@@ -23,29 +24,37 @@ impl RawImpulseJointSet {
     }
 
     /// The angular part of the joint’s local frame relative to the first rigid-body it is attached to.
-    pub fn jointFrameX1(&self, handle: FlatHandle) -> RawRotation {
-        self.map(handle, |j| j.data.local_frame1.rotation.into())
+    pub fn jointFrameX1(&self, handle: FlatHandle) {
+        self.map(handle, |j| {
+            scratch::write_rotation(j.data.local_frame1.rotation)
+        })
     }
 
     /// The angular part of the joint’s local frame relative to the second rigid-body it is attached to.
-    pub fn jointFrameX2(&self, handle: FlatHandle) -> RawRotation {
-        self.map(handle, |j| j.data.local_frame2.rotation.into())
+    pub fn jointFrameX2(&self, handle: FlatHandle) {
+        self.map(handle, |j| {
+            scratch::write_rotation(j.data.local_frame2.rotation)
+        })
     }
 
     /// The position of the first anchor of this joint.
     ///
     /// The first anchor gives the position of the points application point on the
     /// local frame of the first rigid-body it is attached to.
-    pub fn jointAnchor1(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |j| j.data.local_frame1.translation.into())
+    pub fn jointAnchor1(&self, handle: FlatHandle) {
+        self.map(handle, |j| {
+            scratch::write_vector(j.data.local_frame1.translation)
+        })
     }
 
     /// The position of the second anchor of this joint.
     ///
     /// The second anchor gives the position of the points application point on the
     /// local frame of the second rigid-body it is attached to.
-    pub fn jointAnchor2(&self, handle: FlatHandle) -> RawVector {
-        self.map(handle, |j| j.data.local_frame2.translation.into())
+    pub fn jointAnchor2(&self, handle: FlatHandle) {
+        self.map(handle, |j| {
+            scratch::write_vector(j.data.local_frame2.translation)
+        })
     }
 
     /// Sets the position of the first local anchor

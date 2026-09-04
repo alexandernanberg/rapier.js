@@ -1,5 +1,6 @@
 import {Vector, VectorOps, Rotation, RotationOps} from "../math";
 import {RawColliderSet, RawShape, RawShapeType} from "../raw";
+import {scratch, scratchU32} from "../scratch";
 import {ColliderHandle} from "./collider";
 import {ShapeContact} from "./contact";
 import {PointProjection} from "./point";
@@ -322,10 +323,8 @@ export abstract class Shape {
         let rawPoint = VectorOps.intoRaw(point);
         let rawShape = this.intoRaw();
 
-        let result = PointProjection.fromRaw(
-            rawShape.projectPoint(rawPos, rawRot, rawPoint, solid)!,
-            target,
-        )!;
+        rawShape.projectPoint(rawPos, rawRot, rawPoint, solid);
+        let result = PointProjection.fromBuffer(scratch(), target);
 
         rawPos.free();
         rawRot.free();
@@ -384,17 +383,23 @@ export abstract class Shape {
         maxToi: number,
         solid: boolean,
         target?: RayIntersection,
-    ): RayIntersection {
+    ): RayIntersection | null {
         let rawPos = VectorOps.intoRaw(shapePos);
         let rawRot = RotationOps.intoRaw(shapeRot);
         let rawRayOrig = VectorOps.intoRaw(ray.origin);
         let rawRayDir = VectorOps.intoRaw(ray.dir);
         let rawShape = this.intoRaw();
 
-        let result = RayIntersection.fromRaw(
-            rawShape.castRayAndGetNormal(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid)!,
-            target,
-        )!;
+        let result = rawShape.castRayAndGetNormal(
+            rawPos,
+            rawRot,
+            rawRayOrig,
+            rawRayDir,
+            maxToi,
+            solid,
+        )
+            ? RayIntersection.fromBuffer(scratch(), scratchU32(), target)
+            : null;
 
         rawPos.free();
         rawRot.free();
@@ -550,7 +555,7 @@ export class HalfSpace extends Shape {
         let n = VectorOps.intoRaw(this.normal);
         let result = RawShape.halfspace(n);
         n.free();
-        return result;
+        return expectRawShape(result, "invalid halfspace: `normal` must be a non-zero vector");
     }
 }
 
@@ -997,7 +1002,7 @@ export class TriMesh extends Shape {
     /**
      * The triangle mesh flags.
      */
-    flags!: TriMeshFlags;
+    flags?: TriMeshFlags;
 
     /**
      * Creates a new triangle mesh shape.
@@ -1009,12 +1014,12 @@ export class TriMesh extends Shape {
         super();
         this.vertices = vertices;
         this.indices = indices;
-        this.flags = flags!;
+        this.flags = flags;
     }
 
     public intoRaw(): RawShape {
         return expectRawShape(
-            RawShape.trimesh(this.vertices, this.indices, this.flags),
+            RawShape.trimesh(this.vertices, this.indices, this.flags ?? 0),
             "invalid triangle mesh: `vertices` must hold 2 coordinates per vertex, and " +
                 "`indices` 3 in-range vertex indices per triangle",
         );

@@ -439,32 +439,41 @@ export class RawColliderSet {
         return ret === 0 ? undefined : RawColliderShapeCastHit.__wrap(ret);
     }
     /**
+     * Casts a ray on this collider. Returns the time of impact, or a negative
+     * value if there is no hit.
      * @param {number} handle
-     * @param {RawVector} rayOrig
-     * @param {RawVector} rayDir
+     * @param {number} ox
+     * @param {number} oy
+     * @param {number} oz
+     * @param {number} dx
+     * @param {number} dy
+     * @param {number} dz
      * @param {number} maxToi
      * @param {boolean} solid
      * @returns {number}
      */
-    coCastRay(handle, rayOrig, rayDir, maxToi, solid) {
-        _assertClass(rayOrig, RawVector);
-        _assertClass(rayDir, RawVector);
-        const ret = wasm.rawcolliderset_coCastRay(this.__wbg_ptr, handle, rayOrig.__wbg_ptr, rayDir.__wbg_ptr, maxToi, solid);
+    coCastRay(handle, ox, oy, oz, dx, dy, dz, maxToi, solid) {
+        const ret = wasm.rawcolliderset_coCastRay(this.__wbg_ptr, handle, ox, oy, oz, dx, dy, dz, maxToi, solid);
         return ret;
     }
     /**
+     * Casts a ray on this collider, writing `timeOfImpact, normal, featureType,
+     * featureId` to the scratch buffer. Returns `false` (and writes nothing) on
+     * a miss.
      * @param {number} handle
-     * @param {RawVector} rayOrig
-     * @param {RawVector} rayDir
+     * @param {number} ox
+     * @param {number} oy
+     * @param {number} oz
+     * @param {number} dx
+     * @param {number} dy
+     * @param {number} dz
      * @param {number} maxToi
      * @param {boolean} solid
-     * @returns {RawRayIntersection | undefined}
+     * @returns {boolean}
      */
-    coCastRayAndGetNormal(handle, rayOrig, rayDir, maxToi, solid) {
-        _assertClass(rayOrig, RawVector);
-        _assertClass(rayDir, RawVector);
-        const ret = wasm.rawcolliderset_coCastRayAndGetNormal(this.__wbg_ptr, handle, rayOrig.__wbg_ptr, rayDir.__wbg_ptr, maxToi, solid);
-        return ret === 0 ? undefined : RawRayIntersection.__wrap(ret);
+    coCastRayAndGetNormal(handle, ox, oy, oz, dx, dy, dz, maxToi, solid) {
+        const ret = wasm.rawcolliderset_coCastRayAndGetNormal(this.__wbg_ptr, handle, ox, oy, oz, dx, dy, dz, maxToi, solid);
+        return ret !== 0;
     }
     /**
      * @param {number} handle
@@ -550,12 +559,13 @@ export class RawColliderSet {
     }
     /**
      * @param {number} handle
-     * @param {RawVector} point
+     * @param {number} px
+     * @param {number} py
+     * @param {number} pz
      * @returns {boolean}
      */
-    coContainsPoint(handle, point) {
-        _assertClass(point, RawVector);
-        const ret = wasm.rawcolliderset_coContainsPoint(this.__wbg_ptr, handle, point.__wbg_ptr);
+    coContainsPoint(handle, px, py, pz) {
+        const ret = wasm.rawcolliderset_coContainsPoint(this.__wbg_ptr, handle, px, py, pz);
         return ret !== 0;
     }
     /**
@@ -585,13 +595,14 @@ export class RawColliderSet {
         return ret >>> 0;
     }
     /**
-     * The half-extents of this collider if it is has a cuboid shape.
+     * The half-extents of a cuboid (or round cuboid) collider, written to the
+     * scratch buffer. Returns `false` (and writes nothing) for any other shape.
      * @param {number} handle
-     * @returns {RawVector | undefined}
+     * @returns {boolean}
      */
     coHalfExtents(handle) {
         const ret = wasm.rawcolliderset_coHalfExtents(this.__wbg_ptr, handle);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+        return ret !== 0;
     }
     /**
      * The half height of this collider if it is a capsule, cylinder, or cone shape.
@@ -642,13 +653,14 @@ export class RawColliderSet {
         return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
-     * The scaling factor applied of this heightfield if it is one.
+     * The scale of a heightfield collider, written to the scratch buffer.
+     * Returns `false` (and writes nothing) for any other shape.
      * @param {number} handle
-     * @returns {RawVector | undefined}
+     * @returns {boolean}
      */
     coHeightfieldScale(handle) {
         const ret = wasm.rawcolliderset_coHeightfieldScale(this.__wbg_ptr, handle);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+        return ret !== 0;
     }
     /**
      * The indices of this triangle mesh, polyline, or convex polyhedron, if it is one.
@@ -673,15 +685,17 @@ export class RawColliderSet {
     }
     /**
      * @param {number} handle
-     * @param {RawVector} rayOrig
-     * @param {RawVector} rayDir
+     * @param {number} ox
+     * @param {number} oy
+     * @param {number} oz
+     * @param {number} dx
+     * @param {number} dy
+     * @param {number} dz
      * @param {number} maxToi
      * @returns {boolean}
      */
-    coIntersectsRay(handle, rayOrig, rayDir, maxToi) {
-        _assertClass(rayOrig, RawVector);
-        _assertClass(rayDir, RawVector);
-        const ret = wasm.rawcolliderset_coIntersectsRay(this.__wbg_ptr, handle, rayOrig.__wbg_ptr, rayDir.__wbg_ptr, maxToi);
+    coIntersectsRay(handle, ox, oy, oz, dx, dy, dz, maxToi) {
+        const ret = wasm.rawcolliderset_coIntersectsRay(this.__wbg_ptr, handle, ox, oy, oz, dx, dy, dz, maxToi);
         return ret !== 0;
     }
     /**
@@ -741,15 +755,15 @@ export class RawColliderSet {
         }
     }
     /**
+     * Projects a point on this collider, writing `point, isInside` to the scratch buffer.
      * @param {number} handle
-     * @param {RawVector} point
+     * @param {number} px
+     * @param {number} py
+     * @param {number} pz
      * @param {boolean} solid
-     * @returns {RawPointProjection}
      */
-    coProjectPoint(handle, point, solid) {
-        _assertClass(point, RawVector);
-        const ret = wasm.rawcolliderset_coProjectPoint(this.__wbg_ptr, handle, point.__wbg_ptr, solid);
-        return RawPointProjection.__wrap(ret);
+    coProjectPoint(handle, px, py, pz, solid) {
+        wasm.rawcolliderset_coProjectPoint(this.__wbg_ptr, handle, px, py, pz, solid);
     }
     /**
      * @param {number} handle1
@@ -2262,12 +2276,13 @@ export class RawDynamicRayCastVehicleController {
         }
     }
     /**
+     * Written to the scratch buffer; returns `false` for an out-of-range wheel.
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @returns {boolean}
      */
     wheel_axle_cs(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_axle_cs(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+        return ret !== 0;
     }
     /**
      * @param {number} i
@@ -2278,36 +2293,40 @@ export class RawDynamicRayCastVehicleController {
         return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
+     * Written to the scratch buffer; returns `false` for an out-of-range wheel.
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @returns {boolean}
      */
     wheel_chassis_connection_point_cs(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_chassis_connection_point_cs(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+        return ret !== 0;
     }
     /**
+     * Written to the scratch buffer; returns `false` for an out-of-range wheel.
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @returns {boolean}
      */
     wheel_contact_normal_ws(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_contact_normal_ws(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+        return ret !== 0;
     }
     /**
+     * Written to the scratch buffer; returns `false` for an out-of-range wheel.
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @returns {boolean}
      */
     wheel_contact_point_ws(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_contact_point_ws(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+        return ret !== 0;
     }
     /**
+     * Written to the scratch buffer; returns `false` for an out-of-range wheel.
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @returns {boolean}
      */
     wheel_direction_cs(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_direction_cs(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+        return ret !== 0;
     }
     /**
      * @param {number} i
@@ -2349,12 +2368,13 @@ export class RawDynamicRayCastVehicleController {
         }
     }
     /**
+     * Written to the scratch buffer; returns `false` for an out-of-range wheel.
      * @param {number} i
-     * @returns {RawVector | undefined}
+     * @returns {boolean}
      */
     wheel_hard_point_ws(i) {
         const ret = wasm.rawdynamicraycastvehiclecontroller_wheel_hard_point_ws(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawVector.__wrap(ret);
+        return ret !== 0;
     }
     /**
      * @param {number} i
@@ -2505,8 +2525,15 @@ export class RawEventQueue {
      */
     drainCollisionEvents(f) {
         try {
-            wasm.raweventqueue_drainCollisionEvents(this.__wbg_ptr, addBorrowedObject(f));
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.raweventqueue_drainCollisionEvents(retptr, this.__wbg_ptr, addBorrowedObject(f));
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            if (r1) {
+                throw takeObject(r0);
+            }
         } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
             heap[stack_pointer++] = undefined;
         }
     }
@@ -2515,8 +2542,15 @@ export class RawEventQueue {
      */
     drainContactForceEvents(f) {
         try {
-            wasm.raweventqueue_drainContactForceEvents(this.__wbg_ptr, addBorrowedObject(f));
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.raweventqueue_drainContactForceEvents(retptr, this.__wbg_ptr, addBorrowedObject(f));
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            if (r1) {
+                throw takeObject(r0);
+            }
         } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
             heap[stack_pointer++] = undefined;
         }
     }
@@ -2799,11 +2833,9 @@ export class RawImpulseJointSet {
      * The first anchor gives the position of the points application point on the
      * local frame of the first rigid-body it is attached to.
      * @param {number} handle
-     * @returns {RawVector}
      */
     jointAnchor1(handle) {
-        const ret = wasm.rawimpulsejointset_jointAnchor1(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawimpulsejointset_jointAnchor1(this.__wbg_ptr, handle);
     }
     /**
      * The position of the second anchor of this joint.
@@ -2811,11 +2843,9 @@ export class RawImpulseJointSet {
      * The second anchor gives the position of the points application point on the
      * local frame of the second rigid-body it is attached to.
      * @param {number} handle
-     * @returns {RawVector}
      */
     jointAnchor2(handle) {
-        const ret = wasm.rawimpulsejointset_jointAnchor2(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawimpulsejointset_jointAnchor2(this.__wbg_ptr, handle);
     }
     /**
      * The unique integer identifier of the first rigid-body this joint it attached to.
@@ -2885,20 +2915,16 @@ export class RawImpulseJointSet {
     /**
      * The angular part of the joint’s local frame relative to the first rigid-body it is attached to.
      * @param {number} handle
-     * @returns {RawRotation}
      */
     jointFrameX1(handle) {
-        const ret = wasm.rawimpulsejointset_jointFrameX1(this.__wbg_ptr, handle);
-        return RawRotation.__wrap(ret);
+        wasm.rawimpulsejointset_jointFrameX1(this.__wbg_ptr, handle);
     }
     /**
      * The angular part of the joint’s local frame relative to the second rigid-body it is attached to.
      * @param {number} handle
-     * @returns {RawRotation}
      */
     jointFrameX2(handle) {
-        const ret = wasm.rawimpulsejointset_jointFrameX2(this.__wbg_ptr, handle);
-        return RawRotation.__wrap(ret);
+        wasm.rawimpulsejointset_jointFrameX2(this.__wbg_ptr, handle);
     }
     /**
      * Are the limits for this joint enabled?
@@ -3227,12 +3253,6 @@ export class RawIntegrationParameters {
      */
     set contactRecycling(value) {
         wasm.rawintegrationparameters_set_contactRecycling(this.__wbg_ptr, value);
-    }
-    /**
-     * @param {number} value
-     */
-    set contact_natural_frequency(value) {
-        wasm.rawintegrationparameters_set_contact_natural_frequency(this.__wbg_ptr, value);
     }
     /**
      * @param {number} value
@@ -3656,11 +3676,10 @@ export class RawKinematicCharacterController {
         return ret !== 0;
     }
     /**
-     * @returns {RawVector}
+     * The up vector, written to the scratch buffer.
      */
     up() {
-        const ret = wasm.rawkinematiccharactercontroller_up(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
+        wasm.rawkinematiccharactercontroller_up(this.__wbg_ptr);
     }
 }
 if (Symbol.dispose) RawKinematicCharacterController.prototype[Symbol.dispose] = RawKinematicCharacterController.prototype.free;
@@ -3760,11 +3779,9 @@ export class RawMultibodyJointSet {
      * The first anchor gives the position of the points application point on the
      * local frame of the first rigid-body it is attached to.
      * @param {number} handle
-     * @returns {RawVector}
      */
     jointAnchor1(handle) {
-        const ret = wasm.rawmultibodyjointset_jointAnchor1(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawmultibodyjointset_jointAnchor1(this.__wbg_ptr, handle);
     }
     /**
      * The position of the second anchor of this joint.
@@ -3772,11 +3789,9 @@ export class RawMultibodyJointSet {
      * The second anchor gives the position of the points application point on the
      * local frame of the second rigid-body it is attached to.
      * @param {number} handle
-     * @returns {RawVector}
      */
     jointAnchor2(handle) {
-        const ret = wasm.rawmultibodyjointset_jointAnchor2(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawmultibodyjointset_jointAnchor2(this.__wbg_ptr, handle);
     }
     /**
      * The unique integer identifier of the first rigid-body this joint is attached to.
@@ -3864,20 +3879,16 @@ export class RawMultibodyJointSet {
     /**
      * The angular part of the joint’s local frame relative to the first rigid-body it is attached to.
      * @param {number} handle
-     * @returns {RawRotation}
      */
     jointFrameX1(handle) {
-        const ret = wasm.rawmultibodyjointset_jointFrameX1(this.__wbg_ptr, handle);
-        return RawRotation.__wrap(ret);
+        wasm.rawmultibodyjointset_jointFrameX1(this.__wbg_ptr, handle);
     }
     /**
      * The angular part of the joint’s local frame relative to the second rigid-body it is attached to.
      * @param {number} handle
-     * @returns {RawRotation}
      */
     jointFrameX2(handle) {
-        const ret = wasm.rawmultibodyjointset_jointFrameX2(this.__wbg_ptr, handle);
-        return RawRotation.__wrap(ret);
+        wasm.rawmultibodyjointset_jointFrameX2(this.__wbg_ptr, handle);
     }
     /**
      * Are the limits for this joint enabled?
@@ -4362,88 +4373,6 @@ export class RawPidController {
 }
 if (Symbol.dispose) RawPidController.prototype[Symbol.dispose] = RawPidController.prototype.free;
 
-export class RawPointProjection {
-    static __wrap(ptr) {
-        const obj = Object.create(RawPointProjection.prototype);
-        obj.__wbg_ptr = ptr;
-        RawPointProjectionFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawPointProjectionFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawpointprojection_free(ptr, 0);
-    }
-    /**
-     * @returns {boolean}
-     */
-    isInside() {
-        const ret = wasm.rawpointprojection_isInside(this.__wbg_ptr);
-        return ret !== 0;
-    }
-    /**
-     * @returns {RawVector}
-     */
-    point() {
-        const ret = wasm.rawpointprojection_point(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-}
-if (Symbol.dispose) RawPointProjection.prototype[Symbol.dispose] = RawPointProjection.prototype.free;
-
-export class RawRayIntersection {
-    static __wrap(ptr) {
-        const obj = Object.create(RawRayIntersection.prototype);
-        obj.__wbg_ptr = ptr;
-        RawRayIntersectionFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawRayIntersectionFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawrayintersection_free(ptr, 0);
-    }
-    /**
-     * @returns {number | undefined}
-     */
-    featureId() {
-        const ret = wasm.rawrayintersection_featureId(this.__wbg_ptr);
-        return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
-    }
-    /**
-     * @returns {RawFeatureType}
-     */
-    featureType() {
-        const ret = wasm.rawrayintersection_featureType(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {RawVector}
-     */
-    normal() {
-        const ret = wasm.rawrayintersection_normal(this.__wbg_ptr);
-        return RawVector.__wrap(ret);
-    }
-    /**
-     * @returns {number}
-     */
-    time_of_impact() {
-        const ret = wasm.rawrayintersection_time_of_impact(this.__wbg_ptr);
-        return ret;
-    }
-}
-if (Symbol.dispose) RawRayIntersection.prototype[Symbol.dispose] = RawRayIntersection.prototype.free;
-
 export class RawRigidBodySet {
     static __wrap(ptr) {
         const obj = Object.create(RawRigidBodySet.prototype);
@@ -4699,11 +4628,18 @@ export class RawRigidBodySet {
      *         This index is **not** the same as the unique identifier of the collider.
      * @param {number} handle
      * @param {number} at
-     * @returns {number}
+     * @returns {number | undefined}
      */
     rbCollider(handle, at) {
-        const ret = wasm.rawrigidbodyset_rbCollider(this.__wbg_ptr, handle, at);
-        return ret;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.rawrigidbodyset_rbCollider(retptr, this.__wbg_ptr, handle, at);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * @param {number} handle
@@ -4717,30 +4653,24 @@ export class RawRigidBodySet {
      * The effective world-space angular inertia (that takes the potential rotation locking into account) of
      * this rigid-body.
      * @param {number} handle
-     * @returns {RawSdpMatrix3}
      */
     rbEffectiveAngularInertia(handle) {
-        const ret = wasm.rawrigidbodyset_rbEffectiveAngularInertia(this.__wbg_ptr, handle);
-        return RawSdpMatrix3.__wrap(ret);
+        wasm.rawrigidbodyset_rbEffectiveAngularInertia(this.__wbg_ptr, handle);
     }
     /**
      * The inverse mass taking into account translation locking.
      * @param {number} handle
-     * @returns {RawVector}
      */
     rbEffectiveInvMass(handle) {
-        const ret = wasm.rawrigidbodyset_rbEffectiveInvMass(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawrigidbodyset_rbEffectiveInvMass(this.__wbg_ptr, handle);
     }
     /**
      * The world-space inverse angular inertia tensor of the rigid-body,
      * taking into account rotation locking.
      * @param {number} handle
-     * @returns {RawSdpMatrix3}
      */
     rbEffectiveWorldInvInertia(handle) {
-        const ret = wasm.rawrigidbodyset_rbEffectiveWorldInvInertia(this.__wbg_ptr, handle);
-        return RawSdpMatrix3.__wrap(ret);
+        wasm.rawrigidbodyset_rbEffectiveWorldInvInertia(this.__wbg_ptr, handle);
     }
     /**
      * @param {number} handle
@@ -4773,11 +4703,9 @@ export class RawRigidBodySet {
      *
      * Components set to zero are assumed to be infinite along the corresponding principal axis.
      * @param {number} handle
-     * @returns {RawVector}
      */
     rbInvPrincipalInertia(handle) {
-        const ret = wasm.rawrigidbodyset_rbInvPrincipalInertia(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawrigidbodyset_rbInvPrincipalInertia(this.__wbg_ptr, handle);
     }
     /**
      * Is Continuous Collision Detection enabled for this rigid-body?
@@ -4923,20 +4851,16 @@ export class RawRigidBodySet {
     /**
      * The angular inertia along the principal inertia axes of the rigid-body.
      * @param {number} handle
-     * @returns {RawVector}
      */
     rbPrincipalInertia(handle) {
-        const ret = wasm.rawrigidbodyset_rbPrincipalInertia(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawrigidbodyset_rbPrincipalInertia(this.__wbg_ptr, handle);
     }
     /**
      * The principal vectors of the local angular inertia tensor of the rigid-body.
      * @param {number} handle
-     * @returns {RawRotation}
      */
     rbPrincipalInertiaLocalFrame(handle) {
-        const ret = wasm.rawrigidbodyset_rbPrincipalInertiaLocalFrame(this.__wbg_ptr, handle);
-        return RawRotation.__wrap(ret);
+        wasm.rawrigidbodyset_rbPrincipalInertiaLocalFrame(this.__wbg_ptr, handle);
     }
     /**
      * @param {number} handle
@@ -5241,32 +5165,27 @@ export class RawRigidBodySet {
      * Retrieves the constant force(s) the user added to this rigid-body.
      * Returns zero if the rigid-body is not dynamic.
      * @param {number} handle
-     * @returns {RawVector}
      */
     rbUserForce(handle) {
-        const ret = wasm.rawrigidbodyset_rbUserForce(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawrigidbodyset_rbUserForce(this.__wbg_ptr, handle);
     }
     /**
      * Retrieves the constant torque(s) the user added to this rigid-body.
      * Returns zero if the rigid-body is not dynamic.
      * @param {number} handle
-     * @returns {RawVector}
      */
     rbUserTorque(handle) {
-        const ret = wasm.rawrigidbodyset_rbUserTorque(this.__wbg_ptr, handle);
-        return RawVector.__wrap(ret);
+        wasm.rawrigidbodyset_rbUserTorque(this.__wbg_ptr, handle);
     }
     /**
-     * The velocity of the given world-space point on this rigid-body.
+     * The velocity of the given world-space point on this rigid-body, written to the scratch buffer.
      * @param {number} handle
-     * @param {RawVector} point
-     * @returns {RawVector}
+     * @param {number} px
+     * @param {number} py
+     * @param {number} pz
      */
-    rbVelocityAtPoint(handle, point) {
-        _assertClass(point, RawVector);
-        const ret = wasm.rawrigidbodyset_rbVelocityAtPoint(this.__wbg_ptr, handle, point.__wbg_ptr);
-        return RawVector.__wrap(ret);
+    rbVelocityAtPoint(handle, px, py, pz) {
+        wasm.rawrigidbodyset_rbVelocityAtPoint(this.__wbg_ptr, handle, px, py, pz);
     }
     /**
      * Wakes this rigid-body up.
@@ -5408,12 +5327,6 @@ export class RawRotation {
 if (Symbol.dispose) RawRotation.prototype[Symbol.dispose] = RawRotation.prototype.free;
 
 export class RawSdpMatrix3 {
-    static __wrap(ptr) {
-        const obj = Object.create(RawSdpMatrix3.prototype);
-        obj.__wbg_ptr = ptr;
-        RawSdpMatrix3Finalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
@@ -5552,7 +5465,7 @@ export class RawShape {
      * @param {RawVector} rayDir
      * @param {number} maxToi
      * @param {boolean} solid
-     * @returns {RawRayIntersection | undefined}
+     * @returns {boolean}
      */
     castRayAndGetNormal(shapePos, shapeRot, rayOrig, rayDir, maxToi, solid) {
         _assertClass(shapePos, RawVector);
@@ -5560,7 +5473,7 @@ export class RawShape {
         _assertClass(rayOrig, RawVector);
         _assertClass(rayDir, RawVector);
         const ret = wasm.rawshape_castRayAndGetNormal(this.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, rayOrig.__wbg_ptr, rayDir.__wbg_ptr, maxToi, solid);
-        return ret === 0 ? undefined : RawRayIntersection.__wrap(ret);
+        return ret !== 0;
     }
     /**
      * @param {RawVector} shapePos1
@@ -5789,12 +5702,12 @@ export class RawShape {
     }
     /**
      * @param {RawVector} normal
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static halfspace(normal) {
         _assertClass(normal, RawVector);
         const ret = wasm.rawshape_halfspace(normal.__wbg_ptr);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
     /**
      * The outward normal of this shape if it is a half-space.
@@ -5943,18 +5856,17 @@ export class RawShape {
         return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
     /**
+     * Projects a point on this shape, writing `point, isInside` to the scratch buffer.
      * @param {RawVector} shapePos
      * @param {RawRotation} shapeRot
      * @param {RawVector} point
      * @param {boolean} solid
-     * @returns {RawPointProjection}
      */
     projectPoint(shapePos, shapeRot, point, solid) {
         _assertClass(shapePos, RawVector);
         _assertClass(shapeRot, RawRotation);
         _assertClass(point, RawVector);
-        const ret = wasm.rawshape_projectPoint(this.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, point.__wbg_ptr, solid);
-        return RawPointProjection.__wrap(ret);
+        wasm.rawshape_projectPoint(this.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, point.__wbg_ptr, solid);
     }
     /**
      * The radius of this shape if it is a ball, capsule, cylinder or cone.
@@ -6751,12 +6663,6 @@ const RawPhysicsPipelineFinalization = (typeof FinalizationRegistry === 'undefin
 const RawPidControllerFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawpidcontroller_free(ptr, 1));
-const RawPointProjectionFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawpointprojection_free(ptr, 1));
-const RawRayIntersectionFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawrayintersection_free(ptr, 1));
 const RawRigidBodySetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawrigidbodyset_free(ptr, 1));

@@ -43,9 +43,14 @@ export class Coarena<T> {
 
     public clear() {
         this.data = new Array<T | null>();
+        this.size = 0;
     }
 
     public get(handle: number): T | null {
+        // `undefined`/`NaN` would otherwise reinterpret as index 0 and return an
+        // unrelated entity; a missing handle (an `Option` that came back empty
+        // from WASM) has to read as "no entity".
+        if (handle !== handle || handle === undefined) return null;
         let i = handleToIndex(handle);
         if (i < this.data.length) {
             return this.data[i];

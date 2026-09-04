@@ -9,5 +9,5 @@ import wasmBase64 from "../wasm/release/rapier_wasm_2d_bg.wasm";
  */
 export async function init() {
     const wasmBytes = base64.toByteArray(wasmBase64 as unknown as string);
-    initSync(wasmBytes.buffer);
+    initSync({module: wasmBytes});
 }

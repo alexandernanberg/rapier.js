@@ -104,7 +104,7 @@ describe("incremental transform buffer sync", () => {
     test("moving a sleeping body without waking it refreshes body and collider", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         const [body] = createStack(world, 1);
-        const collider = body.collider(0);
+        const collider = body.collider(0)!;
 
         settle(world);
         expect(body.isSleeping()).toBe(true);
@@ -139,7 +139,7 @@ describe("incremental transform buffer sync", () => {
     test("a collider repositioned on a sleeping body is refreshed", () => {
         const world = new RAPIER.World({x: 0, y: -9.81, z: 0});
         const [body] = createStack(world, 1);
-        const collider = body.collider(0);
+        const collider = body.collider(0)!;
 
         settle(world);
         expect(body.isSleeping()).toBe(true);

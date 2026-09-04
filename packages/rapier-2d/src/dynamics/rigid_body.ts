@@ -128,10 +128,10 @@ export class RigidBody {
     }
 
     /**
-     * Locks or unlocks the ability of this rigid-body to translation along individual coordinate axes.
+     * Locks or unlocks the ability of this rigid-body to translate along individual coordinate axes.
      *
-     * @param enableX - If `false`, this rigid-body will no longer rotate due to torques and impulses, along the X coordinate axis.
-     * @param enableY - If `false`, this rigid-body will no longer rotate due to torques and impulses, along the Y coordinate axis.
+     * @param enableX - If `false`, this rigid-body will no longer translate due to forces and impulses, along the X coordinate axis.
+     * @param enableY - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Y coordinate axis.
      * @param wakeUp - If `true`, this rigid-body will be automatically awaken if it is currently asleep.
      */
     public setEnabledTranslations(enableX: boolean, enableY: boolean, wakeUp: boolean) {
@@ -139,15 +139,15 @@ export class RigidBody {
     }
 
     /**
-     * Locks or unlocks the ability of this rigid-body to translation along individual coordinate axes.
+     * Locks or unlocks the ability of this rigid-body to translate along individual coordinate axes.
      *
-     * @param enableX - If `false`, this rigid-body will no longer rotate due to torques and impulses, along the X coordinate axis.
-     * @param enableY - If `false`, this rigid-body will no longer rotate due to torques and impulses, along the Y coordinate axis.
+     * @param enableX - If `false`, this rigid-body will no longer translate due to forces and impulses, along the X coordinate axis.
+     * @param enableY - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Y coordinate axis.
      * @param wakeUp - If `true`, this rigid-body will be automatically awaken if it is currently asleep.
      * @deprecated use `this.setEnabledTranslations` with the same arguments instead.
      */
     public restrictTranslations(enableX: boolean, enableY: boolean, wakeUp: boolean) {
-        this.setEnabledTranslations(enableX, enableX, wakeUp);
+        this.setEnabledTranslations(enableX, enableY, wakeUp);
     }
 
     /**
@@ -288,12 +288,6 @@ export class RigidBody {
      */
     public setTranslation(tra: Vector, wakeUp: boolean) {
         this.rawSet.rbSetTranslation(this.handle, tra.x, tra.y, wakeUp);
-        const buf = this.liveBuffer();
-        if (buf) {
-            const o = this._bufferOffset;
-            buf[o] = tra.x;
-            buf[o + 1] = tra.y;
-        }
     }
 
     /**
@@ -304,12 +298,6 @@ export class RigidBody {
      */
     public setLinvel(vel: Vector, wakeUp: boolean) {
         this.rawSet.rbSetLinvel(this.handle, vel.x, vel.y, wakeUp);
-        const buf = this.liveBuffer();
-        if (buf) {
-            const o = this._bufferOffset + 3;
-            buf[o] = vel.x;
-            buf[o + 1] = vel.y;
-        }
     }
 
     /**
@@ -404,13 +392,6 @@ export class RigidBody {
      */
     public setTransform(tra: Vector, rot: Rotation, wakeUp: boolean) {
         this.rawSet.rbSetTransform(this.handle, tra.x, tra.y, rot, wakeUp);
-        const buf = this.liveBuffer();
-        if (buf) {
-            const o = this._bufferOffset;
-            buf[o] = tra.x;
-            buf[o + 1] = tra.y;
-            buf[o + 2] = rot;
-        }
     }
 
     /**
@@ -451,13 +432,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public velocityAtPoint(point: Vector, target?: Vector): Vector {
-        const rawPoint = VectorOps.intoRaw(point);
-        let result = VectorOps.fromRaw(
-            this.rawSet.rbVelocityAtPoint(this.handle, rawPoint),
-            target,
-        )!;
-        rawPoint.free();
-        return result;
+        this.rawSet.rbVelocityAtPoint(this.handle, point.x, point.y);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -484,7 +460,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public effectiveInvMass(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbEffectiveInvMass(this.handle), target)!;
+        this.rawSet.rbEffectiveInvMass(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
@@ -591,9 +568,12 @@ export class RigidBody {
      *
      * @param i - The index of the collider to retrieve. Must be a number in `[0, this.numColliders()[`.
      *         This index is **not** the same as the unique identifier of the collider.
+     *
+     * Returns `null` if `i` is out of range.
      */
-    public collider(i: number): Collider {
-        return this.colliderSet.get(this.rawSet.rbCollider(this.handle, i))!;
+    public collider(i: number): Collider | null {
+        const handle = this.rawSet.rbCollider(this.handle, i);
+        return handle === undefined ? null : this.colliderSet.get(handle);
     }
 
     /**
@@ -850,7 +830,8 @@ export class RigidBody {
      * @param target - Optional target object to write the result to (avoids allocation).
      */
     public userForce(target?: Vector): Vector {
-        return VectorOps.fromRaw(this.rawSet.rbUserForce(this.handle), target)!;
+        this.rawSet.rbUserForce(this.handle);
+        return VectorOps.fromBuffer(scratch(), target);
     }
 
     /**
