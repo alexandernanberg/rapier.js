@@ -248,7 +248,6 @@ impl RawColliderSet {
         self.map(handle, |co| RawShape(co.shared_shape().clone()))
     }
 
-    /// The half-extents of this collider if it is has a cuboid shape.
     /// The half-extents of a cuboid (or round cuboid) collider, written to the
     /// scratch buffer. Returns `false` (and writes nothing) for any other shape.
     pub fn coHalfExtents(&self, handle: FlatHandle) -> bool {
@@ -642,7 +641,6 @@ impl RawColliderSet {
         })
     }
 
-    /// The scaling factor applied of this heightfield if it is one.
     /// The scale of a heightfield collider, written to the scratch buffer.
     /// Returns `false` (and writes nothing) for any other shape.
     pub fn coHeightfieldScale(&self, handle: FlatHandle) -> bool {

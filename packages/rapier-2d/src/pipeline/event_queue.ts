@@ -142,8 +142,12 @@ export class EventQueue {
         let event = new TempContactForceEvent();
         this.raw.drainContactForceEvents((raw: RawContactForceEvent) => {
             event.raw = raw;
-            f(event);
-            event.free();
+            try {
+                f(event);
+            } finally {
+                // WASM handed the event over; it has to be freed even if `f` throws.
+                event.free();
+            }
         });
     }
 

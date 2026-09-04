@@ -1,6 +1,6 @@
 ---
-"@alexandernanberg/rapier2d": patch
-"@alexandernanberg/rapier3d": patch
+"@alexandernanberg/rapier2d": minor
+"@alexandernanberg/rapier3d": minor
 ---
 
 Fix a batch of correctness bugs found in an audit of the bindings, most of them
@@ -29,8 +29,10 @@ buffer.
   collider with `ActiveEvents.CONTACT_FORCE_EVENTS` grew the queue forever
   unless `drainContactForceEvents` was called every step.
 - A user callback that throws inside `drainCollisionEvents` /
-  `drainContactForceEvents` now surfaces the exception (after the queue has
-  been drained) instead of being swallowed.
+  `drainContactForceEvents` now surfaces the exception instead of being
+  swallowed. The remaining events are still delivered first, the queue stays
+  usable afterwards, and a contact-force event is freed even when the callback
+  throws.
 - `JointData.intoRaw()` leaked the axis vector of generic joints, and a joint
   whose axis cannot be normalized now throws a readable error instead of an
   opaque wasm-bindgen assertion. A `HalfSpace` with a zero normal is rejected
@@ -76,6 +78,8 @@ projectPoint` and the `Shape` equivalents pass their inputs as scalars and
 Typing changes that fall out of this: `Collider.halfExtents()` and
 `heightfieldScale()` are typed `Vector | null` (they always returned `null`
 for other shapes at runtime), `Shape.castRayAndGetNormal()` is typed
-`RayIntersection | null`, `Collider.projectPoint()` is no longer nullable, and
+`RayIntersection | null`, `RigidBody.collider(i)` is typed `Collider | null`
+(it returns `null` for an out-of-range index instead of trapping),
+`Collider.projectPoint()` is no longer nullable, and
 `RayIntersection.fromRaw`/`PointProjection.fromRaw` are replaced by
 `fromBuffer`.

@@ -124,7 +124,7 @@ describe("transform buffer fuzz", () => {
                             else b.wakeUp();
                             break;
                         case 4:
-                            b.collider(ri(b.numColliders())).setTranslationWrtParent(vec(1.2));
+                            b.collider(ri(b.numColliders()))!.setTranslationWrtParent(vec(1.2));
                             break;
                         case 5:
                             b.setAngvel(rf(-2, 2), wake);
@@ -144,7 +144,7 @@ describe("transform buffer fuzz", () => {
                             break;
                         case 8:
                             if (b.numColliders() > 1)
-                                world.removeCollider(b.collider(ri(b.numColliders())), true);
+                                world.removeCollider(b.collider(ri(b.numColliders()))!, true);
                             else world.createCollider(RAPIER.ColliderDesc.ball(0.35), b);
                             break;
                     }

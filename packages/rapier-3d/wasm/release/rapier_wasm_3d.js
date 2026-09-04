@@ -595,7 +595,6 @@ export class RawColliderSet {
         return ret >>> 0;
     }
     /**
-     * The half-extents of this collider if it is has a cuboid shape.
      * The half-extents of a cuboid (or round cuboid) collider, written to the
      * scratch buffer. Returns `false` (and writes nothing) for any other shape.
      * @param {number} handle
@@ -654,7 +653,6 @@ export class RawColliderSet {
         return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
-     * The scaling factor applied of this heightfield if it is one.
      * The scale of a heightfield collider, written to the scratch buffer.
      * Returns `false` (and writes nothing) for any other shape.
      * @param {number} handle
@@ -2527,8 +2525,15 @@ export class RawEventQueue {
      */
     drainCollisionEvents(f) {
         try {
-            wasm.raweventqueue_drainCollisionEvents(this.__wbg_ptr, addBorrowedObject(f));
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.raweventqueue_drainCollisionEvents(retptr, this.__wbg_ptr, addBorrowedObject(f));
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            if (r1) {
+                throw takeObject(r0);
+            }
         } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
             heap[stack_pointer++] = undefined;
         }
     }
@@ -2537,8 +2542,15 @@ export class RawEventQueue {
      */
     drainContactForceEvents(f) {
         try {
-            wasm.raweventqueue_drainContactForceEvents(this.__wbg_ptr, addBorrowedObject(f));
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.raweventqueue_drainContactForceEvents(retptr, this.__wbg_ptr, addBorrowedObject(f));
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            if (r1) {
+                throw takeObject(r0);
+            }
         } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
             heap[stack_pointer++] = undefined;
         }
     }
@@ -6514,9 +6526,6 @@ function __wbg_get_imports() {
             const ret = typeof(obj) === 'number' ? obj : undefined;
             getDataViewMemory0().setFloat64(arg0 + 8 * 1, isLikeNone(ret) ? 0 : ret, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, !isLikeNone(ret), true);
-        },
-        __wbg___wbindgen_rethrow_fbd2dcd7d2b9ac5f: function(arg0) {
-            throw takeObject(arg0);
         },
         __wbg___wbindgen_throw_bb96b2010945f0bc: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));

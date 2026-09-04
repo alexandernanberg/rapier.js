@@ -360,3 +360,83 @@ describe("scratch-buffer getters", () => {
         world.free();
     });
 });
+
+/**
+ * A user callback that throws inside a drain must surface the exception, still
+ * deliver the other events, and leave the queue usable: the WASM shim holds a
+ * borrow of the queue for the duration of the call, so the error has to come
+ * back as a return value rather than unwind through it.
+ */
+describe("event queue error propagation", () => {
+    function twoImpacts() {
+        const world = new RAPIER.World(GRAVITY);
+        // Not auto-drained, so the landing events accumulate instead of being
+        // cleared by the next step.
+        const queue = new RAPIER.EventQueue(false);
+        world.createCollider(RAPIER.ColliderDesc.cuboid(20, 0.5, 20));
+        for (const x of [-2, 2]) {
+            const body = world.createRigidBody(
+                RAPIER.RigidBodyDesc.dynamic().setTranslation(x, 1.5, 0),
+            );
+            world.createCollider(
+                RAPIER.ColliderDesc.ball(0.5)
+                    .setActiveEvents(
+                        RAPIER.ActiveEvents.COLLISION_EVENTS |
+                            RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS,
+                    )
+                    .setContactForceEventThreshold(0),
+                body,
+            );
+        }
+        // Step until both balls have landed and reported their contacts.
+        for (let i = 0; i < 40; i++) world.step(queue);
+        return {world, queue};
+    }
+
+    test("a throwing collision callback surfaces once and delivers the rest", () => {
+        const {world, queue} = twoImpacts();
+
+        let seen = 0;
+        expect(() =>
+            queue.drainCollisionEvents(() => {
+                seen++;
+                if (seen === 1) throw new Error("boom");
+            }),
+        ).toThrow("boom");
+        // One `Started` per ball at least; the first threw, the rest still arrived.
+        expect(seen).toBeGreaterThanOrEqual(2);
+
+        // The queue is empty and still usable afterwards.
+        let after = 0;
+        queue.drainCollisionEvents(() => after++);
+        expect(after).toBe(0);
+        world.step(queue);
+        queue.drainCollisionEvents(() => after++);
+        queue.clear();
+
+        world.free();
+        queue.free();
+    });
+
+    test("a throwing contact-force callback surfaces and leaves the queue usable", () => {
+        const {world, queue} = twoImpacts();
+
+        expect(() =>
+            queue.drainContactForceEvents(() => {
+                throw new Error("boom");
+            }),
+        ).toThrow("boom");
+
+        let after = 0;
+        queue.drainContactForceEvents(() => after++);
+        expect(after).toBe(0);
+        world.step(queue);
+        queue.drainContactForceEvents((event) => {
+            after++;
+            expect(event.totalForceMagnitude()).toBeGreaterThanOrEqual(0);
+        });
+
+        world.free();
+        queue.free();
+    });
+});

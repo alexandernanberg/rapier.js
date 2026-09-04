@@ -671,9 +671,12 @@ export class RigidBody {
      *
      * @param i - The index of the collider to retrieve. Must be a number in `[0, this.numColliders()[`.
      *         This index is **not** the same as the unique identifier of the collider.
+     *
+     * Returns `null` if `i` is out of range.
      */
-    public collider(i: number): Collider {
-        return this.colliderSet.get(this.rawSet.rbCollider(this.handle, i)!)!;
+    public collider(i: number): Collider | null {
+        const handle = this.rawSet.rbCollider(this.handle, i);
+        return handle === undefined ? null : this.colliderSet.get(handle);
     }
 
     /**
