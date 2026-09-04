@@ -568,9 +568,27 @@ export class RigidBody {
      *
      * @param i - The index of the collider to retrieve. Must be a number in `[0, this.numColliders()[`.
      *         This index is **not** the same as the unique identifier of the collider.
+     *
+     * @throws If `i` is out of bounds.
      */
     public collider(i: number): Collider {
-        return this.colliderSet.get(this.rawSet.rbCollider(this.handle, i)!)!;
+        const handle = this.rawSet.rbCollider(this.handle, i);
+
+        if (handle === undefined) {
+            throw new Error(
+                `Invalid collider index ${i}: this rigid-body has ${this.numColliders()} collider(s).`,
+            );
+        }
+
+        const collider = this.colliderSet.get(handle);
+
+        if (collider === null) {
+            throw new Error(
+                `Invalid Collider reference ${handle}. It may have been removed from the physics World.`,
+            );
+        }
+
+        return collider;
     }
 
     /**

@@ -210,6 +210,23 @@ impl RawKinematicCharacterController {
                     );
                 }
             });
+
+            if apply_impulses_to_dynamic_bodies {
+                // `solve_character_collision_impulses` reaches into the bodies
+                // through the query pipeline, so the buffered transforms of every
+                // body the character pushed are now stale. Publish them here (the
+                // pipeline's borrow of `bodies` ends with the closure above) so a
+                // `linvel()` read right after this call sees the impulse.
+                for i in 0..self.events.len() {
+                    let collider_handle = self.events[i].handle;
+                    let Some(parent) = colliders.0.get(collider_handle).and_then(|c| c.parent())
+                    else {
+                        continue;
+                    };
+                    bodies.mark_pending(parent);
+                    bodies.write_through(parent);
+                }
+            }
         } else {
             // The collider is gone: report no movement, no contacts, not grounded,
             // rather than leaving the previous call's results in place.

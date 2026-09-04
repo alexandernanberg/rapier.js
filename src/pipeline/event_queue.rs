@@ -99,20 +99,19 @@ impl RawEventQueue {
     /// closure should take three arguments: two integers representing the handles of the colliders
     /// involved in the collision, and a boolean indicating if the collision started (true) or stopped
     /// (false).
-    pub fn drainCollisionEvents(&mut self, f: &js_sys::Function) {
+    pub fn drainCollisionEvents(&mut self, f: &js_sys::Function) -> Result<(), JsValue> {
         let this = JsValue::null();
-        // A throwing callback must not silently swallow the exception, but the
-        // queue is drained to completion first so no event is lost or left behind
-        // to be delivered on a later frame.
+        // A throwing callback must not silently swallow the exception, but it must
+        // not cost the remaining events either: every event is still delivered, and
+        // the first error is returned once the queue is empty. Returning it (rather
+        // than throwing from here) lets this frame unwind normally, so the
+        // `&mut self` borrow guard is released and the queue stays usable.
         let mut error = None;
         while let Ok(event) = self.collision_events.try_recv() {
             let (co1, co2, started) = match event {
                 CollisionEvent::Started(co1, co2, _) => (co1, co2, true),
                 CollisionEvent::Stopped(co1, co2, _) => (co1, co2, false),
             };
-            if error.is_some() {
-                continue;
-            }
             let h1 = utils::flat_handle(co1.0);
             let h2 = utils::flat_handle(co2.0);
             if let Err(e) = f.call3(
@@ -121,27 +120,28 @@ impl RawEventQueue {
                 &JsValue::from(h2),
                 &JsValue::from_bool(started),
             ) {
-                error = Some(e);
+                error.get_or_insert(e);
             }
         }
-        if let Some(e) = error {
-            wasm_bindgen::throw_val(e);
+        match error {
+            Some(e) => Err(e),
+            None => Ok(()),
         }
     }
 
-    pub fn drainContactForceEvents(&mut self, f: &js_sys::Function) {
+    pub fn drainContactForceEvents(&mut self, f: &js_sys::Function) -> Result<(), JsValue> {
         let this = JsValue::null();
+        // Same contract as `drainCollisionEvents`: drain everything, surface the
+        // first error by returning it.
         let mut error = None;
         while let Ok(event) = self.contact_force_events.try_recv() {
-            if error.is_some() {
-                continue;
-            }
             if let Err(e) = f.call1(&this, &JsValue::from(RawContactForceEvent(event))) {
-                error = Some(e);
+                error.get_or_insert(e);
             }
         }
-        if let Some(e) = error {
-            wasm_bindgen::throw_val(e);
+        match error {
+            Some(e) => Err(e),
+            None => Ok(()),
         }
     }
 

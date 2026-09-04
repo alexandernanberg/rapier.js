@@ -291,4 +291,21 @@ describe("RigidBody", () => {
 
         world.free();
     });
+
+    // `rbCollider` returns an `Option`, and two non-null assertions used to
+    // launder an out-of-range index into a `null` returned from a method whose
+    // signature promises a `Collider`.
+    test("collider(i) throws on an out-of-range index instead of returning null", () => {
+        const world = new RAPIER.World({x: 0, y: -9.81});
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+        const collider = world.createCollider(RAPIER.ColliderDesc.ball(0.5), body);
+
+        expect(body.numColliders()).toBe(1);
+        expect(body.collider(0)).toBe(collider);
+
+        expect(() => body.collider(1)).toThrow(/Invalid collider index 1/);
+        expect(() => body.collider(-1)).toThrow();
+
+        world.free();
+    });
 });

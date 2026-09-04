@@ -157,4 +157,42 @@ describe("kinematic character controller", () => {
         world.removeCharacterController(controller);
         world.free();
     });
+
+    // `solve_character_collision_impulses` mutates the pushed bodies straight
+    // through the query pipeline rather than through `map_mut`, so their buffered
+    // velocities have to be republished explicitly — otherwise `linvel()` keeps
+    // reading the pre-impulse value until the next `step()`.
+    test("impulses applied to pushed bodies are visible before the next step", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const ground = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+        world.createCollider(RAPIER.ColliderDesc.cuboid(20, 0.5), ground);
+
+        const character = world.createRigidBody(
+            RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 1.5),
+        );
+        const characterCollider = world.createCollider(
+            RAPIER.ColliderDesc.cuboid(0.3, 0.5),
+            character,
+        );
+
+        // Sitting directly in the character's path, close enough to be reached by
+        // a single move.
+        const box = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0.9, 1.5));
+        world.createCollider(RAPIER.ColliderDesc.cuboid(0.3, 0.5), box);
+        world.step();
+
+        expect(box.linvel().x).toBeCloseTo(0, 6);
+
+        const controller = world.createCharacterController(0.01);
+        controller.setApplyImpulsesToDynamicBodies(true);
+        controller.setCharacterMass(10);
+        controller.computeColliderMovement(characterCollider, {x: 1, y: 0});
+
+        expect(controller.numComputedCollisions()).toBeGreaterThan(0);
+        // No `step()` in between: the read has to see the impulse already.
+        expect(box.linvel().x).toBeGreaterThan(0);
+
+        world.removeCharacterController(controller);
+        world.free();
+    });
 });
