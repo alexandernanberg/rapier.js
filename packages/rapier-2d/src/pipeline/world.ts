@@ -219,13 +219,25 @@ export class World {
     /**
      * Computes all the lines (and their colors) needed to render the scene.
      *
+     * The lines are built inside WASM memory. Without a `target` they are copied
+     * into a freshly allocated pair of arrays, which for a large scene is a
+     * megabyte or so of garbage every frame; pass a `DebugRenderBuffers` you keep
+     * around to copy into its storage instead and allocate nothing once it has
+     * grown to fit.
+     *
+     * To skip the copy as well, read `world.debugRenderPipeline.vertices` and
+     * `.colors` directly after this call — those are views into WASM memory, and
+     * are only valid until the next call into WASM.
+     *
      * @param filterFlags - Flags for excluding whole subsets of colliders from rendering.
      * @param filterPredicate - Any collider for which this closure returns `false` will be excluded from the
      *                          debug rendering.
+     * @param target - Buffers to write the result into, instead of allocating a new pair.
      */
     public debugRender(
         filterFlags?: QueryFilterFlags,
         filterPredicate?: (collider: Collider) => boolean,
+        target?: DebugRenderBuffers,
     ): DebugRenderBuffers {
         this.debugRenderPipeline.render(
             this.bodies,
@@ -236,10 +248,10 @@ export class World {
             filterFlags,
             filterPredicate,
         );
-        return new DebugRenderBuffers(
-            this.debugRenderPipeline.vertices,
-            this.debugRenderPipeline.colors,
-        );
+
+        const buffers = target ?? new DebugRenderBuffers();
+        buffers._copyFrom(this.debugRenderPipeline.vertices, this.debugRenderPipeline.colors);
+        return buffers;
     }
 
     /**

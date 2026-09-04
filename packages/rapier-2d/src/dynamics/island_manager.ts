@@ -1,4 +1,5 @@
 import {RawIslandManager} from "../raw";
+import {handleFromParts, WasmBuffer} from "../wasm_buffer";
 import {RigidBodyHandle} from "./rigid_body";
 
 /**
@@ -10,6 +11,8 @@ import {RigidBodyHandle} from "./rigid_body";
 export class IslandManager {
     raw: RawIslandManager;
 
+    private _active = new WasmBuffer();
+
     /**
      * Release the WASM memory occupied by this narrow-phase.
      */
@@ -18,6 +21,8 @@ export class IslandManager {
             this.raw.free();
         }
         this.raw = undefined!;
+        // The view points into the buffer that was just freed.
+        this._active.release();
     }
 
     constructor(raw?: RawIslandManager) {
@@ -32,6 +37,14 @@ export class IslandManager {
      * @param f - The closure to apply.
      */
     public forEachActiveRigidBodyHandle(f: (handle: RigidBodyHandle) => void) {
-        this.raw.forEachActiveRigidBodyHandle(f);
+        // One call publishes every active handle into WASM-side storage, and the
+        // walk below stays in JS: iterating used to cost a boundary crossing per
+        // active body, every frame.
+        this._active.reset(this.raw.activeBodyHandles());
+
+        const u32 = this._active.u32();
+        for (let i = 0; i < u32.length; i += 2) {
+            f(handleFromParts(u32[i], u32[i + 1]));
+        }
     }
 }
