@@ -3,9 +3,9 @@ import {handleFromParts, WasmBuffer} from "../wasm_buffer";
 import {RigidBodyHandle} from "./rigid_body";
 
 /**
- * The CCD solver responsible for resolving Continuous Collision Detection.
+ * The island manager, which tracks which rigid-bodies are awake.
  *
- * To avoid leaking WASM resources, this MUST be freed manually with `ccdSolver.free()`
+ * To avoid leaking WASM resources, this MUST be freed manually with `islandManager.free()`
  * once you are done using it.
  */
 export class IslandManager {
@@ -14,7 +14,7 @@ export class IslandManager {
     private _active = new WasmBuffer();
 
     /**
-     * Release the WASM memory occupied by this narrow-phase.
+     * Release the WASM memory occupied by this island manager.
      */
     public free() {
         if (!!this.raw) {
@@ -42,8 +42,14 @@ export class IslandManager {
         // active body, every frame.
         this._active.reset(this.raw.activeBodyHandles());
 
-        const u32 = this._active.u32();
-        for (let i = 0; i < u32.length; i += 2) {
+        // The callback runs between reads and may allocate in WASM (any
+        // `intoRaw`, a query, a created entity), which can grow the memory and
+        // detach the view: a detached view reads as empty, so holding one across
+        // the loop would silently end the walk early. Re-attaching is a cheap
+        // check when nothing happened.
+        const len = this._active.length;
+        for (let i = 0; i < len; i += 2) {
+            const u32 = this._active.u32();
             f(handleFromParts(u32[i], u32[i + 1]));
         }
     }

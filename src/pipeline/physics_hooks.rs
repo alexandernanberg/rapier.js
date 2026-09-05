@@ -1,4 +1,3 @@
-use crate::math::RawVector;
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::geometry::{SolverContacts, SolverFlags};
@@ -98,8 +97,9 @@ impl PhysicsHooks for RawPhysicsHooks {
             .call4(&self.this, &collider1, &collider2, &rb1, &rb2)
             .ok()?;
         let flags = result.as_f64()?;
-        // TODO: not sure exactly why we have to do `flags as u32` instead
-        //       of `flags.to_bits() as u32`.
+        // The hook returns the flags as an ordinary JS number, i.e. a small
+        // integer stored exactly in an `f64`, so a numeric cast is the right
+        // decoding; `to_bits()` would reinterpret the float's encoding instead.
         Some(SolverFlags::from_bits_truncate(flags as u32))
     }
 
@@ -200,9 +200,23 @@ impl RawContactModificationContext {
 
     /// Sets the contact normal. It is expected to be a unit vector pointing from
     /// the first collider towards the second one.
-    pub fn setNormal(&self, normal: &RawVector) {
+    ///
+    /// Components rather than a `RawVector`: this runs once per manifold per step
+    /// from a contact-modification hook, and a `RawVector` costs a WASM allocation
+    /// plus a `FinalizationRegistry` registration on the JS side each time.
+    #[cfg(feature = "dim3")]
+    pub fn setNormal(&self, x: Real, y: Real, z: Real) {
         with_context((), |c| unsafe {
-            *c.normal = normal.0;
+            *c.normal = Vector::new(x, y, z);
+        })
+    }
+
+    /// Sets the contact normal. It is expected to be a unit vector pointing from
+    /// the first collider towards the second one.
+    #[cfg(feature = "dim2")]
+    pub fn setNormal(&self, x: Real, y: Real) {
+        with_context((), |c| unsafe {
+            *c.normal = Vector::new(x, y);
         })
     }
 
@@ -282,18 +296,38 @@ impl RawContactModificationContext {
         })
     }
 
-    pub fn setSolverContactPoint1(&self, i: usize, point: &RawVector) {
+    #[cfg(feature = "dim3")]
+    pub fn setSolverContactPoint1(&self, i: usize, x: Real, y: Real, z: Real) {
         with_context((), |c| unsafe {
             if let Some(contact) = c.contacts_mut().get_mut(i) {
-                contact.anchor1 = point.0;
+                contact.anchor1 = Vector::new(x, y, z);
             }
         })
     }
 
-    pub fn setSolverContactPoint2(&self, i: usize, point: &RawVector) {
+    #[cfg(feature = "dim2")]
+    pub fn setSolverContactPoint1(&self, i: usize, x: Real, y: Real) {
         with_context((), |c| unsafe {
             if let Some(contact) = c.contacts_mut().get_mut(i) {
-                contact.anchor2 = point.0;
+                contact.anchor1 = Vector::new(x, y);
+            }
+        })
+    }
+
+    #[cfg(feature = "dim3")]
+    pub fn setSolverContactPoint2(&self, i: usize, x: Real, y: Real, z: Real) {
+        with_context((), |c| unsafe {
+            if let Some(contact) = c.contacts_mut().get_mut(i) {
+                contact.anchor2 = Vector::new(x, y, z);
+            }
+        })
+    }
+
+    #[cfg(feature = "dim2")]
+    pub fn setSolverContactPoint2(&self, i: usize, x: Real, y: Real) {
+        with_context((), |c| unsafe {
+            if let Some(contact) = c.contacts_mut().get_mut(i) {
+                contact.anchor2 = Vector::new(x, y);
             }
         })
     }
@@ -326,10 +360,22 @@ impl RawContactModificationContext {
 
     /// Sets the tangent (surface) velocity of the `i`-th solver contact, which is
     /// what makes a collider behave like a conveyor belt.
-    pub fn setSolverContactTangentVelocity(&self, i: usize, velocity: &RawVector) {
+    #[cfg(feature = "dim3")]
+    pub fn setSolverContactTangentVelocity(&self, i: usize, x: Real, y: Real, z: Real) {
         with_context((), |c| unsafe {
             if let Some(contact) = c.contacts_mut().get_mut(i) {
-                contact.tangent_velocity = velocity.0;
+                contact.tangent_velocity = Vector::new(x, y, z);
+            }
+        })
+    }
+
+    /// Sets the tangent (surface) velocity of the `i`-th solver contact, which is
+    /// what makes a collider behave like a conveyor belt.
+    #[cfg(feature = "dim2")]
+    pub fn setSolverContactTangentVelocity(&self, i: usize, x: Real, y: Real) {
+        with_context((), |c| unsafe {
+            if let Some(contact) = c.contacts_mut().get_mut(i) {
+                contact.tangent_velocity = Vector::new(x, y);
             }
         })
     }

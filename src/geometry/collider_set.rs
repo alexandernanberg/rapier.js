@@ -51,7 +51,18 @@ impl RawColliderSet {
             .0
             .get_mut(handle)
             .expect("Invalid Collider reference. It may have been removed from the physics World.");
-        f(collider)
+        let result = f(collider);
+
+        // Publish the new pose right away, the way the body set does: rapier
+        // applies `set_translation`/`set_rotation` to the world pose immediately,
+        // and JS reads that pose straight out of the buffer whenever the view is
+        // live. Only an existing slot is written, so the buffer never moves from
+        // under that view.
+        if let Some(slot) = self.1.existing_slot(handle.arena_index()) {
+            write_collider_transform(slot, collider);
+        }
+
+        result
     }
 
     pub(crate) fn map_pair_mut<T>(
@@ -67,7 +78,17 @@ impl RawColliderSet {
         self.1.mark_pending(handle2, len);
 
         let (collider1, collider2) = self.0.get_pair_mut(handle1, handle2);
-        f(collider1, collider2)
+        let result = f(collider1, collider2);
+
+        for handle in [handle1, handle2] {
+            if let Some(collider) = self.0.get(handle) {
+                if let Some(slot) = self.1.existing_slot(handle.arena_index()) {
+                    write_collider_transform(slot, collider);
+                }
+            }
+        }
+
+        result
     }
 
     /// Syncs collider world transforms into the contiguous buffer, resizing it to
@@ -206,7 +227,8 @@ impl RawColliderSet {
         #[cfg(feature = "dim3")]
         let pos = Pose::from_parts(
             Vector::new(translation_x, translation_y, translation_z),
-            Rotation::from_xyzw(rotation_x, rotation_y, rotation_z, rotation_w),
+            utils::unit_rotation(rotation_x, rotation_y, rotation_z, rotation_w)
+                .unwrap_or(Rotation::IDENTITY),
         );
 
         let mut builder = ColliderBuilder::new(shape.0.clone())
@@ -243,12 +265,13 @@ impl RawColliderSet {
                     principalAngularInertia_y,
                     principalAngularInertia_z,
                 ),
-                Rotation::from_xyzw(
+                utils::unit_rotation(
                     angularInertiaFrame_x,
                     angularInertiaFrame_y,
                     angularInertiaFrame_z,
                     angularInertiaFrame_w,
-                ),
+                )
+                .unwrap_or(Rotation::IDENTITY),
             );
             builder = builder.mass_properties(mprops);
         } else if massPropsMode == MassPropsMode::Density as u32 {
@@ -261,15 +284,29 @@ impl RawColliderSet {
         let collider = builder.build();
 
         let handle = if hasParent {
+            let parent = utils::body_handle(parent);
+            // rapier's `insert_with_parent` panics on a missing parent, which on
+            // wasm32 is a module-wide trap; a stale handle comes back as `None`
+            // for the JS side to turn into an exception instead.
+            if !bodies.bodies.contains(parent) {
+                return None;
+            }
             self.0
-                .insert_with_parent(collider, utils::body_handle(parent), &mut bodies.bodies)
+                .insert_with_parent(collider, parent, &mut bodies.bodies)
         } else {
             self.0.insert(collider)
         };
 
-        // The new collider has no slot in the buffer yet, and its parent body may
-        // well be asleep.
+        // The collider is still marked pending so a partial sync knows about it
+        // (its parent body may well be asleep), but its slot is written right
+        // away too — see `RawRigidBodySet::publish_new_body` for why. For an
+        // attached collider `insert_with_parent` has already computed the world
+        // pose from the parent's, so this is the same value `coTranslation`
+        // would report.
         self.1.mark_pending(handle, self.0.len());
+        if let Some(collider) = self.0.get(handle) {
+            write_collider_transform(self.1.slot(handle.arena_index()), collider);
+        }
 
         Some(utils::flat_handle(handle.0))
     }

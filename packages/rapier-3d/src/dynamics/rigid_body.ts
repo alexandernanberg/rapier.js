@@ -4,7 +4,11 @@ import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {SdpMatrix3, SdpMatrix3Ops} from "../math";
 import {RawRigidBodySet, RawRigidBodyType} from "../raw";
 import {scratch} from "../scratch";
-import {liveTransformBuffer, type TransformBufferRef} from "../transform_buffer";
+import {
+    DEAD_TRANSFORM_BUFFER_REF,
+    liveTransformBuffer,
+    type TransformBufferRef,
+} from "../transform_buffer";
 
 export type {TransformBufferRef};
 
@@ -97,7 +101,16 @@ export class RigidBody {
      * @internal
      */
     private liveBuffer(): Float32Array | null {
-        return liveTransformBuffer(this._bufferRef);
+        const ref = this._bufferRef;
+        if (ref === DEAD_TRANSFORM_BUFFER_REF) {
+            // Thrown here rather than left to the WASM side: a Rust panic is a
+            // trap that also leaves the set's borrow flag stuck, after which it
+            // can neither be mutated nor freed.
+            throw new Error(
+                "Invalid RigidBody reference. It may have been removed from the physics World.",
+            );
+        }
+        return liveTransformBuffer(ref);
     }
 
     /**

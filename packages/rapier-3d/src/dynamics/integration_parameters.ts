@@ -232,6 +232,10 @@ export class IntegrationParameters {
         this.raw.contactNaturalFrequency = value;
     }
 
+    get contact_natural_frequency(): number {
+        return this.raw.contactNaturalFrequency;
+    }
+
     set contactNaturalFrequency(value: number) {
         this.raw.contactNaturalFrequency = value;
     }

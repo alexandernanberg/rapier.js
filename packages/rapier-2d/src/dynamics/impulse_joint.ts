@@ -429,9 +429,8 @@ export class JointData {
     /**
      * Create a new joint descriptor that builds revolute joints.
      *
-     * A revolute joint allows three relative rotational degrees of freedom
-     * by preventing any relative translation between the anchors of the
-     * two attached rigid-bodies.
+     * A revolute joint removes all degrees of freedom between the affected
+     * bodies except for the rotation.
      *
      * @param anchor1 - Point where the joint is attached on the first rigid-body affected by this joint. Expressed in the
      *                  local-space of the rigid-body.

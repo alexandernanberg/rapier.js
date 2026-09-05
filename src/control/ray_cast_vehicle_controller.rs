@@ -76,6 +76,12 @@ impl RawDynamicRayCastVehicleController {
         filter_groups: Option<u32>,
         filter_predicate: &js_sys::Function,
     ) {
+        // rapier indexes the chassis unchecked, which on wasm32 is a module-wide
+        // trap once the body has been removed from the world.
+        if !bodies.bodies.contains(self.controller.chassis) {
+            return;
+        }
+
         // `update_vehicle` drives the chassis directly, bypassing `map_mut`.
         bodies.mark_pending(self.controller.chassis);
 

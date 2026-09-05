@@ -93,9 +93,7 @@ export class ContactModificationContext {
      * first collider towards the second one.
      */
     public setNormal(normal: Vector) {
-        const rawNormal = VectorOps.intoRaw(normal);
-        this.raw.setNormal(rawNormal);
-        rawNormal.free();
+        this.raw.setNormal(normal.x, normal.y);
     }
 
     /**
@@ -195,9 +193,7 @@ export class ContactModificationContext {
      * collider's surface.
      */
     public setSolverContactPoint1(i: number, point: Vector) {
-        const rawPoint = VectorOps.intoRaw(point);
-        this.raw.setSolverContactPoint1(i, rawPoint);
-        rawPoint.free();
+        this.raw.setSolverContactPoint1(i, point.x, point.y);
     }
 
     /**
@@ -205,9 +201,7 @@ export class ContactModificationContext {
      * collider's surface.
      */
     public setSolverContactPoint2(i: number, point: Vector) {
-        const rawPoint = VectorOps.intoRaw(point);
-        this.raw.setSolverContactPoint2(i, rawPoint);
-        rawPoint.free();
+        this.raw.setSolverContactPoint2(i, point.x, point.y);
     }
 
     /**
@@ -239,9 +233,7 @@ export class ContactModificationContext {
      * makes a collider act like a conveyor belt.
      */
     public setSolverContactTangentVelocity(i: number, velocity: Vector) {
-        const rawVelocity = VectorOps.intoRaw(velocity);
-        this.raw.setSolverContactTangentVelocity(i, rawVelocity);
-        rawVelocity.free();
+        this.raw.setSolverContactTangentVelocity(i, velocity.x, velocity.y);
     }
 }
 

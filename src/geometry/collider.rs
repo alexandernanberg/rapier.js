@@ -10,7 +10,9 @@ use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::MassProperties;
 use rapier::geometry::{ActiveCollisionTypes, ShapeType};
-use rapier::math::{IVector, Pose, Real, Rotation, Vector};
+#[cfg(feature = "dim2")]
+use rapier::math::Rotation;
+use rapier::math::{IVector, Pose, Real, Vector};
 use rapier::parry::query;
 use rapier::parry::query::ShapeCastOptions;
 use rapier::pipeline::{ActiveEvents, ActiveHooks};
@@ -170,8 +172,7 @@ impl RawColliderSet {
     /// wasn't moving before modifying its position.
     #[cfg(feature = "dim3")]
     pub fn coSetRotation(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, w: f32) {
-        let q = Rotation::from_xyzw(x, y, z, w);
-        if q.is_normalized() {
+        if let Some(q) = utils::unit_rotation(x, y, z, w) {
             self.map_mut(handle, |co| co.set_rotation(q))
         }
     }
@@ -189,8 +190,7 @@ impl RawColliderSet {
 
     #[cfg(feature = "dim3")]
     pub fn coSetRotationWrtParent(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, w: f32) {
-        let q = Rotation::from_xyzw(x, y, z, w);
-        if q.is_normalized() {
+        if let Some(q) = utils::unit_rotation(x, y, z, w) {
             // Extract the axis-angle representation for rotation_wrt_parent
             let (axis, angle) = q.to_axis_angle();
             self.map_mut(handle, |co| co.set_rotation_wrt_parent(axis * angle))
@@ -806,11 +806,9 @@ impl RawColliderSet {
         max_toi: f32,
         stop_at_penetration: bool,
     ) -> Option<RawColliderShapeCastHit> {
+        // A removed second collider is a miss, not a trap.
         let handle2 = utils::collider_handle(collider2handle);
-        let co2 = self
-            .0
-            .get(handle2)
-            .expect("Invalid Collider reference. It may have been removed from the physics World.");
+        let co2 = self.0.get(handle2)?;
 
         self.map(handle, |co| {
             query::cast_shapes(
@@ -874,10 +872,8 @@ impl RawColliderSet {
         collider2handle: FlatHandle,
         prediction: f32,
     ) -> Option<RawShapeContact> {
-        let co2 = self
-            .0
-            .get(utils::collider_handle(collider2handle))
-            .expect("Invalid Collider reference. It may have been removed from the physics World.");
+        // A removed second collider is a miss, not a trap.
+        let co2 = self.0.get(utils::collider_handle(collider2handle))?;
 
         self.map(handle, |co| {
             query::contact(

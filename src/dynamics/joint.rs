@@ -31,6 +31,25 @@ pub enum RawJointType {
     Generic,
 }
 
+impl RawJointType {
+    /// Classifies a joint from its whole configuration.
+    ///
+    /// Rope and spring joints lock no axis at all — they couple the linear axes
+    /// and constrain the distance through a limit (rope) or a motor (spring) —
+    /// so the locked-axes mapping below can only ever call them `Generic`.
+    pub(crate) fn from_generic(joint: &GenericJoint) -> Self {
+        if joint.locked_axes.is_empty() && joint.coupled_axes == JointAxesMask::LIN_AXES {
+            if joint.motor_axes.contains(JointAxesMask::LIN_X) {
+                return RawJointType::Spring;
+            }
+            if joint.limit_axes.contains(JointAxesMask::LIN_X) {
+                return RawJointType::Rope;
+            }
+        }
+        joint.locked_axes.into()
+    }
+}
+
 /// The type of this joint.
 #[cfg(feature = "dim2")]
 impl From<JointAxesMask> for RawJointType {

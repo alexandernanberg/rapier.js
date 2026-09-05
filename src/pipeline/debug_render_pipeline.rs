@@ -15,6 +15,9 @@ pub struct RawDebugRenderPipeline {
     pub(crate) raw: DebugRenderPipeline,
     vertices: Vec<f32>,
     colors: Vec<f32>,
+    /// The last HSLA colour converted and its RGBA result. rapier draws every
+    /// line of an object in the same colour, so nearly every call hits this.
+    last_color: ([f32; 4], [f32; 4]),
 }
 
 #[wasm_bindgen]
@@ -25,6 +28,7 @@ impl RawDebugRenderPipeline {
             raw: DebugRenderPipeline::default(),
             vertices: vec![],
             colors: vec![],
+            last_color: ([f32::NAN; 4], [0.0; 4]),
         }
     }
 
@@ -74,6 +78,7 @@ impl RawDebugRenderPipeline {
                 bodies: &bodies.bodies,
                 colliders: &colliders.0,
                 vertices: &mut self.vertices,
+                last_color: &mut self.last_color,
                 colors: &mut self.colors,
             };
 
@@ -103,6 +108,7 @@ struct CopyToBuffersBackend<'a> {
     colliders: &'a ColliderSet,
     vertices: &'a mut Vec<f32>,
     colors: &'a mut Vec<f32>,
+    last_color: &'a mut ([f32; 4], [f32; 4]),
 }
 
 impl<'a> DebugRenderBackend for CopyToBuffersBackend<'a> {
@@ -151,11 +157,19 @@ impl<'a> DebugRenderBackend for CopyToBuffersBackend<'a> {
         self.vertices.extend_from_slice(a.as_ref());
         self.vertices.extend_from_slice(b.as_ref());
 
-        // Convert to RGB which will be easier to handle in JS.
-        let hsl = Hsla::new(color[0], color[1], color[2], color[3]);
-        let rgb: Rgba = hsl.into_color_unclamped();
-        self.colors.extend_from_slice(&[
-            rgb.red, rgb.green, rgb.blue, rgb.alpha, rgb.red, rgb.green, rgb.blue, rgb.alpha,
-        ]);
+        // Convert to RGB which will be easier to handle in JS. The conversion is
+        // a few trig-free branches, but it runs once per line (and the testbeds
+        // draw thousands per frame), so consecutive lines in one colour reuse
+        // the previous result.
+        let (last_hsla, last_rgba) = &mut *self.last_color;
+        if *last_hsla != color {
+            let hsl = Hsla::new(color[0], color[1], color[2], color[3]);
+            let rgb: Rgba = hsl.into_color_unclamped();
+            *last_hsla = color;
+            *last_rgba = [rgb.red, rgb.green, rgb.blue, rgb.alpha];
+        }
+        let rgba = *last_rgba;
+        self.colors.extend_from_slice(&rgba);
+        self.colors.extend_from_slice(&rgba);
     }
 }

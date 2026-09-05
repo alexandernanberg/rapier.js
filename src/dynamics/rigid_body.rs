@@ -6,7 +6,9 @@ use crate::math::RawVector;
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::MassProperties;
-use rapier::math::{Rotation, Vector};
+#[cfg(feature = "dim2")]
+use rapier::math::Rotation;
+use rapier::math::Vector;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -162,8 +164,7 @@ impl RawRigidBodySet {
         w: f32,
         wakeUp: bool,
     ) {
-        let q = Rotation::from_xyzw(x, y, z, w);
-        if q.is_normalized() {
+        if let Some(q) = utils::unit_rotation(x, y, z, w) {
             self.map_mut(handle, |rb| rb.set_rotation(q, wakeUp))
         }
     }
@@ -270,8 +271,7 @@ impl RawRigidBodySet {
         z: f32,
         w: f32,
     ) {
-        let q = Rotation::from_xyzw(x, y, z, w);
-        if q.is_normalized() {
+        if let Some(q) = utils::unit_rotation(x, y, z, w) {
             self.map_mut(handle, |rb| {
                 rb.set_next_kinematic_rotation(q);
             })
@@ -314,12 +314,12 @@ impl RawRigidBodySet {
         rw: f32,
         wakeUp: bool,
     ) {
-        let q = Rotation::from_xyzw(rx, ry, rz, rw);
+        let q = utils::unit_rotation(rx, ry, rz, rw);
         self.map_mut(handle, |rb| {
-            // Wake on the translation so a rejected (non-normalized) quaternion
-            // does not also drop the requested wake-up.
+            // Wake on the translation so a rejected (zero) quaternion does not
+            // also drop the requested wake-up.
             rb.set_translation(Vector::new(tx, ty, tz), wakeUp);
-            if q.is_normalized() {
+            if let Some(q) = q {
                 rb.set_rotation(q, false);
             }
         })
@@ -364,10 +364,10 @@ impl RawRigidBodySet {
         rz: f32,
         rw: f32,
     ) {
-        let q = Rotation::from_xyzw(rx, ry, rz, rw);
+        let q = utils::unit_rotation(rx, ry, rz, rw);
         self.map_mut(handle, |rb| {
             rb.set_next_kinematic_translation(Vector::new(tx, ty, tz));
-            if q.is_normalized() {
+            if let Some(q) = q {
                 rb.set_next_kinematic_rotation(q);
             }
         })
@@ -398,13 +398,13 @@ impl RawRigidBodySet {
         handle: FlatHandle,
         colliders: &RawColliderSet,
     ) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.recompute_mass_properties_from_colliders(&colliders.0)
         })
     }
 
     pub fn rbSetAdditionalMass(&mut self, handle: FlatHandle, mass: f32, wake_up: bool) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.set_additional_mass(mass, wake_up);
         })
     }
@@ -419,7 +419,7 @@ impl RawRigidBodySet {
         angularInertiaFrame: &RawRotation,
         wake_up: bool,
     ) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             let mprops = MassProperties::with_principal_inertia_frame(
                 centerOfMass.0.into(),
                 mass,
@@ -439,7 +439,7 @@ impl RawRigidBodySet {
         principalAngularInertia: f32,
         wake_up: bool,
     ) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             let props = MassProperties::new(centerOfMass.0.into(), mass, principalAngularInertia);
             rb.set_additional_mass_properties(props, wake_up)
         })
@@ -550,15 +550,15 @@ impl RawRigidBodySet {
     }
 
     pub fn rbSetDominanceGroup(&mut self, handle: FlatHandle, group: i8) {
-        self.map_mut(handle, |rb| rb.set_dominance_group(group))
+        self.map_mut_untracked(handle, |rb| rb.set_dominance_group(group))
     }
 
     pub fn rbEnableCcd(&mut self, handle: FlatHandle, enabled: bool) {
-        self.map_mut(handle, |rb| rb.enable_ccd(enabled))
+        self.map_mut_untracked(handle, |rb| rb.enable_ccd(enabled))
     }
 
     pub fn rbSetSoftCcdPrediction(&mut self, handle: FlatHandle, prediction: f32) {
-        self.map_mut(handle, |rb| rb.set_soft_ccd_prediction(prediction))
+        self.map_mut_untracked(handle, |rb| rb.set_soft_ccd_prediction(prediction))
     }
 
     /// The mass of this rigid-body.
@@ -774,11 +774,11 @@ impl RawRigidBodySet {
     }
 
     pub fn rbSetLinearDamping(&mut self, handle: FlatHandle, factor: f32) {
-        self.map_mut(handle, |rb| rb.set_linear_damping(factor));
+        self.map_mut_untracked(handle, |rb| rb.set_linear_damping(factor));
     }
 
     pub fn rbSetAngularDamping(&mut self, handle: FlatHandle, factor: f32) {
-        self.map_mut(handle, |rb| rb.set_angular_damping(factor));
+        self.map_mut_untracked(handle, |rb| rb.set_angular_damping(factor));
     }
 
     pub fn rbSetEnabled(&mut self, handle: FlatHandle, enabled: bool) {
@@ -794,19 +794,19 @@ impl RawRigidBodySet {
     }
 
     pub fn rbSetGravityScale(&mut self, handle: FlatHandle, factor: f32, wakeUp: bool) {
-        self.map_mut(handle, |rb| rb.set_gravity_scale(factor, wakeUp));
+        self.map_mut_untracked(handle, |rb| rb.set_gravity_scale(factor, wakeUp));
     }
 
     /// Resets to zero all user-added forces added to this rigid-body.
     pub fn rbResetForces(&mut self, handle: FlatHandle, wakeUp: bool) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.reset_forces(wakeUp);
         })
     }
 
     /// Resets to zero all user-added torques added to this rigid-body.
     pub fn rbResetTorques(&mut self, handle: FlatHandle, wakeUp: bool) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.reset_torques(wakeUp);
         })
     }
@@ -818,7 +818,7 @@ impl RawRigidBodySet {
     /// - `wakeUp`: should the rigid-body be automatically woken-up?
     #[cfg(feature = "dim3")]
     pub fn rbAddForce(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, wakeUp: bool) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.add_force(Vector::new(x, y, z), wakeUp);
         })
     }
@@ -826,7 +826,7 @@ impl RawRigidBodySet {
     /// Adds a force at the center-of-mass of this rigid-body.
     #[cfg(feature = "dim2")]
     pub fn rbAddForce(&mut self, handle: FlatHandle, x: f32, y: f32, wakeUp: bool) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.add_force(Vector::new(x, y), wakeUp);
         })
     }
@@ -858,7 +858,7 @@ impl RawRigidBodySet {
     /// - `wakeUp`: should the rigid-body be automatically woken-up?
     #[cfg(feature = "dim2")]
     pub fn rbAddTorque(&mut self, handle: FlatHandle, torque: f32, wakeUp: bool) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.add_torque(torque, wakeUp);
         })
     }
@@ -870,7 +870,7 @@ impl RawRigidBodySet {
     /// - `wakeUp`: should the rigid-body be automatically woken-up?
     #[cfg(feature = "dim3")]
     pub fn rbAddTorque(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, wakeUp: bool) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.add_torque(Vector::new(x, y, z), wakeUp);
         })
     }
@@ -924,7 +924,7 @@ impl RawRigidBodySet {
         pz: f32,
         wakeUp: bool,
     ) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.add_force_at_point(
                 Vector::new(fx, fy, fz),
                 Vector::new(px, py, pz).into(),
@@ -944,7 +944,7 @@ impl RawRigidBodySet {
         py: f32,
         wakeUp: bool,
     ) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.add_force_at_point(Vector::new(fx, fy), Vector::new(px, py).into(), wakeUp);
         })
     }
@@ -997,8 +997,8 @@ impl RawRigidBodySet {
     }
 
     pub fn rbSetAdditionalSolverIterations(&mut self, handle: FlatHandle, iters: usize) {
-        self.map_mut(handle, |rb| {
-            rb.set_additional_solver_iterations(iters as usize);
+        self.map_mut_untracked(handle, |rb| {
+            rb.set_additional_solver_iterations(iters);
         })
     }
 

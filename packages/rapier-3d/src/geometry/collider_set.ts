@@ -4,6 +4,7 @@ import {RigidBodySet} from "../dynamics";
 import {RawColliderSet, wasmMemory} from "../raw";
 import {
     createTransformBufferRef,
+    DEAD_TRANSFORM_BUFFER_REF,
     invalidateTransformBuffer,
     refreshTransformBuffer,
     type TransformBufferRef,
@@ -158,13 +159,22 @@ export class ColliderSet {
 
         rawShape.free();
 
-        // Invalidate the buffer: the new collider has no entry in it yet, and
-        // WASM memory may have grown.
-        invalidateTransformBuffer(this._bufferRef);
+        if (handle === undefined) {
+            throw Error(
+                "Cannot create a collider attached to a rigid-body that is not part of the world (it may have been removed).",
+            );
+        }
+
+        // The Rust side wrote the new collider's slot, which may have grown
+        // (and so moved) the buffer: re-point the view rather than invalidate
+        // it. See `RigidBodySet.createRigidBody` for the not-yet-live case.
+        if (this._bufferRef.ptr !== 0) {
+            this.syncTransformBuffer();
+        }
 
         let parent = hasParent ? bodies.get(parentHandle!) : null;
-        let collider = new Collider(this, handle!, parent, desc.shape);
-        this.map.set(handle!, collider);
+        let collider = new Collider(this, handle, parent, desc.shape);
+        this.map.set(handle, collider);
         return collider;
     }
 
@@ -190,6 +200,11 @@ export class ColliderSet {
      * @param handle
      */
     public unmap(handle: ColliderHandle) {
+        const collider = this.map.get(handle);
+        if (collider) {
+            // See `DEAD_TRANSFORM_BUFFER_REF`: the slot outlives the collider.
+            collider._bufferRef = DEAD_TRANSFORM_BUFFER_REF;
+        }
         this.map.delete(handle);
     }
 

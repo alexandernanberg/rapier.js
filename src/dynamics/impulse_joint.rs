@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 impl RawImpulseJointSet {
     /// The type of this joint.
     pub fn jointType(&self, handle: FlatHandle) -> RawJointType {
-        self.map(handle, |j| j.data.locked_axes.into())
+        self.map(handle, |j| RawJointType::from_generic(&j.data))
     }
 
     /// The unique integer identifier of the first rigid-body this joint it attached to.
