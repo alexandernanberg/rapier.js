@@ -359,50 +359,6 @@ export class RawCCDSolver {
 }
 if (Symbol.dispose) RawCCDSolver.prototype[Symbol.dispose] = RawCCDSolver.prototype.free;
 
-export class RawCharacterCollision {
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawCharacterCollisionFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawcharactercollision_free(ptr, 0);
-    }
-    /**
-     * Writes this collision into the shared scratch buffer, in a single call.
-     *
-     * Layout: `[toi, translationDeltaApplied, translationDeltaRemaining,
-     * worldWitness1, worldWitness2, worldNormal1, worldNormal2]`. Witnesses and
-     * normals are all expressed in world-space.
-     */
-    getComponents() {
-        wasm.rawcharactercollision_getComponents(this.__wbg_ptr);
-    }
-    /**
-     * @returns {number}
-     */
-    handle() {
-        const ret = wasm.rawcharactercollision_handle(this.__wbg_ptr);
-        return ret;
-    }
-    constructor() {
-        const ret = wasm.rawcharactercollision_new();
-        this.__wbg_ptr = ret;
-        RawCharacterCollisionFinalization.register(this, this.__wbg_ptr, this);
-        return this;
-    }
-    /**
-     * @returns {number}
-     */
-    toi() {
-        const ret = wasm.rawcharactercollision_toi(this.__wbg_ptr);
-        return ret;
-    }
-}
-if (Symbol.dispose) RawCharacterCollision.prototype[Symbol.dispose] = RawCharacterCollision.prototype.free;
-
 export class RawColliderSet {
     static __wrap(ptr) {
         const obj = Object.create(RawColliderSet.prototype);
@@ -978,17 +934,26 @@ export class RawColliderSet {
         wasm.rawcolliderset_coSetMass(this.__wbg_ptr, handle, mass);
     }
     /**
+     * Sets the mass properties of this collider, passed component-wise like
+     * every other setter (a `RawVector`/`RawRotation` temporary is a WASM
+     * allocation plus a `FinalizationRegistry` registration each). The inertia
+     * frame is normalized like every other quaternion input, falling back to the
+     * identity when it has no direction to recover.
      * @param {number} handle
      * @param {number} mass
-     * @param {RawVector} centerOfMass
-     * @param {RawVector} principalAngularInertia
-     * @param {RawRotation} angularInertiaFrame
+     * @param {number} centerOfMass_x
+     * @param {number} centerOfMass_y
+     * @param {number} centerOfMass_z
+     * @param {number} principalAngularInertia_x
+     * @param {number} principalAngularInertia_y
+     * @param {number} principalAngularInertia_z
+     * @param {number} angularInertiaFrame_x
+     * @param {number} angularInertiaFrame_y
+     * @param {number} angularInertiaFrame_z
+     * @param {number} angularInertiaFrame_w
      */
-    coSetMassProperties(handle, mass, centerOfMass, principalAngularInertia, angularInertiaFrame) {
-        _assertClass(centerOfMass, RawVector);
-        _assertClass(principalAngularInertia, RawVector);
-        _assertClass(angularInertiaFrame, RawRotation);
-        wasm.rawcolliderset_coSetMassProperties(this.__wbg_ptr, handle, mass, centerOfMass.__wbg_ptr, principalAngularInertia.__wbg_ptr, angularInertiaFrame.__wbg_ptr);
+    coSetMassProperties(handle, mass, centerOfMass_x, centerOfMass_y, centerOfMass_z, principalAngularInertia_x, principalAngularInertia_y, principalAngularInertia_z, angularInertiaFrame_x, angularInertiaFrame_y, angularInertiaFrame_z, angularInertiaFrame_w) {
+        wasm.rawcolliderset_coSetMassProperties(this.__wbg_ptr, handle, mass, centerOfMass_x, centerOfMass_y, centerOfMass_z, principalAngularInertia_x, principalAngularInertia_y, principalAngularInertia_z, angularInertiaFrame_x, angularInertiaFrame_y, angularInertiaFrame_z, angularInertiaFrame_w);
     }
     /**
      * Set the radius of this collider if it is a ball, capsule, cylinder, or cone shape.
@@ -2105,12 +2070,15 @@ export class RawDynamicRayCastVehicleController {
         return ret >>> 0;
     }
     /**
+     * Sets the chassis' local forward axis; see [`Self::set_index_up_axis`].
      * @param {number} axis
      */
     set_index_forward_axis(axis) {
         wasm.rawdynamicraycastvehiclecontroller_set_index_forward_axis(this.__wbg_ptr, axis);
     }
     /**
+     * Sets the chassis' local up axis; an index outside `0..DIM` is ignored,
+     * since rapier would turn it into a zero up vector and `NaN` velocities.
      * @param {number} axis
      */
     set_index_up_axis(axis) {
@@ -2509,7 +2477,8 @@ export class RawEventQueue {
      *
      * Each event takes `CONTACT_FORCE_EVENT_STRIDE` slots: the two collider
      * handles (split as above), the total force, the total force magnitude, the
-     * max force direction and the max force magnitude.
+     * max force direction, the max force magnitude, and `1` if this is the first
+     * step the pair's force crossed its threshold or `0` if it stayed above it.
      *
      * Handing each event to JS as a `RawContactForceEvent` instead meant boxing
      * one WASM object per event — allocated, passed across, read back through
@@ -2943,20 +2912,22 @@ export class RawImpulseJointSet {
     /**
      * Sets the position of the first local anchor
      * @param {number} handle
-     * @param {RawVector} newPos
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
      */
-    jointSetAnchor1(handle, newPos) {
-        _assertClass(newPos, RawVector);
-        wasm.rawimpulsejointset_jointSetAnchor1(this.__wbg_ptr, handle, newPos.__wbg_ptr);
+    jointSetAnchor1(handle, x, y, z) {
+        wasm.rawimpulsejointset_jointSetAnchor1(this.__wbg_ptr, handle, x, y, z);
     }
     /**
      * Sets the position of the second local anchor
      * @param {number} handle
-     * @param {RawVector} newPos
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
      */
-    jointSetAnchor2(handle, newPos) {
-        _assertClass(newPos, RawVector);
-        wasm.rawimpulsejointset_jointSetAnchor2(this.__wbg_ptr, handle, newPos.__wbg_ptr);
+    jointSetAnchor2(handle, x, y, z) {
+        wasm.rawimpulsejointset_jointSetAnchor2(this.__wbg_ptr, handle, x, y, z);
     }
     /**
      * Sets whether contacts are enabled between the rigid-bodies attached by this joint.
@@ -2969,20 +2940,24 @@ export class RawImpulseJointSet {
     /**
      * Sets the angular part of the joint's local frame relative to the first rigid-body.
      * @param {number} handle
-     * @param {RawRotation} newRot
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
+     * @param {number} w
      */
-    jointSetFrameX1(handle, newRot) {
-        _assertClass(newRot, RawRotation);
-        wasm.rawimpulsejointset_jointSetFrameX1(this.__wbg_ptr, handle, newRot.__wbg_ptr);
+    jointSetFrameX1(handle, x, y, z, w) {
+        wasm.rawimpulsejointset_jointSetFrameX1(this.__wbg_ptr, handle, x, y, z, w);
     }
     /**
      * Sets the angular part of the joint's local frame relative to the second rigid-body.
      * @param {number} handle
-     * @param {RawRotation} newRot
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
+     * @param {number} w
      */
-    jointSetFrameX2(handle, newRot) {
-        _assertClass(newRot, RawRotation);
-        wasm.rawimpulsejointset_jointSetFrameX2(this.__wbg_ptr, handle, newRot.__wbg_ptr);
+    jointSetFrameX2(handle, x, y, z, w) {
+        wasm.rawimpulsejointset_jointSetFrameX2(this.__wbg_ptr, handle, x, y, z, w);
     }
     /**
      * Enables and sets the joint limits
@@ -2997,24 +2972,30 @@ export class RawImpulseJointSet {
     /**
      * Sets the full local frame (anchor + rotation) for the first rigid-body attachment.
      * @param {number} handle
-     * @param {RawVector} anchor
-     * @param {RawRotation} rot
+     * @param {number} anchor_x
+     * @param {number} anchor_y
+     * @param {number} anchor_z
+     * @param {number} rot_x
+     * @param {number} rot_y
+     * @param {number} rot_z
+     * @param {number} rot_w
      */
-    jointSetLocalFrame1(handle, anchor, rot) {
-        _assertClass(anchor, RawVector);
-        _assertClass(rot, RawRotation);
-        wasm.rawimpulsejointset_jointSetLocalFrame1(this.__wbg_ptr, handle, anchor.__wbg_ptr, rot.__wbg_ptr);
+    jointSetLocalFrame1(handle, anchor_x, anchor_y, anchor_z, rot_x, rot_y, rot_z, rot_w) {
+        wasm.rawimpulsejointset_jointSetLocalFrame1(this.__wbg_ptr, handle, anchor_x, anchor_y, anchor_z, rot_x, rot_y, rot_z, rot_w);
     }
     /**
      * Sets the full local frame (anchor + rotation) for the second rigid-body attachment.
      * @param {number} handle
-     * @param {RawVector} anchor
-     * @param {RawRotation} rot
+     * @param {number} anchor_x
+     * @param {number} anchor_y
+     * @param {number} anchor_z
+     * @param {number} rot_x
+     * @param {number} rot_y
+     * @param {number} rot_z
+     * @param {number} rot_w
      */
-    jointSetLocalFrame2(handle, anchor, rot) {
-        _assertClass(anchor, RawVector);
-        _assertClass(rot, RawRotation);
-        wasm.rawimpulsejointset_jointSetLocalFrame2(this.__wbg_ptr, handle, anchor.__wbg_ptr, rot.__wbg_ptr);
+    jointSetLocalFrame2(handle, anchor_x, anchor_y, anchor_z, rot_x, rot_y, rot_z, rot_w) {
+        wasm.rawimpulsejointset_jointSetLocalFrame2(this.__wbg_ptr, handle, anchor_x, anchor_y, anchor_z, rot_x, rot_y, rot_z, rot_w);
     }
     /**
      * Sets the maximum force (or torque, for angular axes) the motor of the
@@ -3528,13 +3509,22 @@ export class RawKinematicCharacterController {
         }
     }
     /**
+     * Writes the `i`-th collision of the last `computeColliderMovement` into the
+     * shared scratch buffer, or returns `false` if there is no such collision.
+     *
+     * Layout: `[toi, translationDeltaApplied, translationDeltaRemaining,
+     * worldWitness1, worldWitness2, worldNormal1, worldNormal2]` as floats
+     * (`1 + 6 * DIM` slots), then the hit collider's handle as its arena index
+     * and generation, two raw `u32` bit patterns JS reads back through a
+     * `Uint32Array` view. Witnesses and normals are all expressed in world-space.
+     *
+     * This used to copy the collision into a `RawCharacterCollision` first and
+     * read the handle back with a third call; the whole read is one crossing now.
      * @param {number} i
-     * @param {RawCharacterCollision} collision
      * @returns {boolean}
      */
-    computedCollision(i, collision) {
-        _assertClass(collision, RawCharacterCollision);
-        const ret = wasm.rawkinematiccharactercontroller_computedCollision(this.__wbg_ptr, i, collision.__wbg_ptr);
+    computedCollision(i) {
+        const ret = wasm.rawkinematiccharactercontroller_computedCollision(this.__wbg_ptr, i);
         return ret !== 0;
     }
     /**
@@ -3646,11 +3636,14 @@ export class RawKinematicCharacterController {
         wasm.rawkinematiccharactercontroller_setSlideEnabled(this.__wbg_ptr, enabled);
     }
     /**
-     * @param {RawVector} vector
+     * Sets the up direction, passed component-wise so JS allocates no `RawVector`
+     * (some games re-aim it every frame on curved ground).
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
      */
-    setUp(vector) {
-        _assertClass(vector, RawVector);
-        wasm.rawkinematiccharactercontroller_setUp(this.__wbg_ptr, vector.__wbg_ptr);
+    setUp(x, y, z) {
+        wasm.rawkinematiccharactercontroller_setUp(this.__wbg_ptr, x, y, z);
     }
     /**
      * @returns {boolean}
@@ -4000,6 +3993,12 @@ export class RawNarrowPhase {
         return ret === 0 ? undefined : RawContactPair.__wrap(ret);
     }
     /**
+     * Calls `f` with the handle of every collider in contact with `handle1`.
+     *
+     * Like the broad-phase enumerations, a callback that returns `false` (which
+     * is also what the JS guard answers once the user's callback has thrown)
+     * or that fails ends the walk: the remaining pairs would only be handed to
+     * a callback that no longer wants them.
      * @param {number} handle1
      * @param {Function} f
      */
@@ -4502,6 +4501,14 @@ export class RawRigidBodySet {
         return this;
     }
     /**
+     * Updates the world pose of every collider attached to a body repositioned
+     * from JS since the last step, the way the step itself would.
+     *
+     * The colliders' buffer slots are written through as well, so JS keeps
+     * reading them out of the buffer. Rapier tracks the moved bodies privately,
+     * but every body repositioned from JS went through `map_mut` and so sits in
+     * the pending list, a superset of what rapier moved. Once that list has been
+     * dropped in favour of a full sync, every collider is a candidate.
      * @param {RawColliderSet} colliders
      */
     propagateModifiedBodyPositionsToColliders(colliders) {
@@ -4921,18 +4928,29 @@ export class RawRigidBodySet {
         wasm.rawrigidbodyset_rbSetAdditionalMass(this.__wbg_ptr, handle, mass, wake_up);
     }
     /**
+     * Sets the additional mass properties of this rigid-body.
+     *
+     * The vectors and the inertia frame are passed component-wise, like every
+     * other setter: a `RawVector`/`RawRotation` temporary costs a WASM
+     * allocation plus a `FinalizationRegistry` registration each. The frame is
+     * normalized like every other quaternion input, falling back to the
+     * identity when it has no direction to recover.
      * @param {number} handle
      * @param {number} mass
-     * @param {RawVector} centerOfMass
-     * @param {RawVector} principalAngularInertia
-     * @param {RawRotation} angularInertiaFrame
+     * @param {number} centerOfMass_x
+     * @param {number} centerOfMass_y
+     * @param {number} centerOfMass_z
+     * @param {number} principalAngularInertia_x
+     * @param {number} principalAngularInertia_y
+     * @param {number} principalAngularInertia_z
+     * @param {number} angularInertiaFrame_x
+     * @param {number} angularInertiaFrame_y
+     * @param {number} angularInertiaFrame_z
+     * @param {number} angularInertiaFrame_w
      * @param {boolean} wake_up
      */
-    rbSetAdditionalMassProperties(handle, mass, centerOfMass, principalAngularInertia, angularInertiaFrame, wake_up) {
-        _assertClass(centerOfMass, RawVector);
-        _assertClass(principalAngularInertia, RawVector);
-        _assertClass(angularInertiaFrame, RawRotation);
-        wasm.rawrigidbodyset_rbSetAdditionalMassProperties(this.__wbg_ptr, handle, mass, centerOfMass.__wbg_ptr, principalAngularInertia.__wbg_ptr, angularInertiaFrame.__wbg_ptr, wake_up);
+    rbSetAdditionalMassProperties(handle, mass, centerOfMass_x, centerOfMass_y, centerOfMass_z, principalAngularInertia_x, principalAngularInertia_y, principalAngularInertia_z, angularInertiaFrame_x, angularInertiaFrame_y, angularInertiaFrame_z, angularInertiaFrame_w, wake_up) {
+        wasm.rawrigidbodyset_rbSetAdditionalMassProperties(this.__wbg_ptr, handle, mass, centerOfMass_x, centerOfMass_y, centerOfMass_z, principalAngularInertia_x, principalAngularInertia_y, principalAngularInertia_z, angularInertiaFrame_x, angularInertiaFrame_y, angularInertiaFrame_z, angularInertiaFrame_w, wake_up);
     }
     /**
      * @param {number} handle
@@ -6296,6 +6314,7 @@ export class RawVHACDParameters {
         wasm.rawvhacdparameters_set_convex_hull_approximation(this.__wbg_ptr, val);
     }
     /**
+     * Used as an iterator step, and `step_by(0)` panics unconditionally.
      * @param {number} val
      */
     set convex_hull_downsampling(val) {
@@ -6308,12 +6327,16 @@ export class RawVHACDParameters {
         wasm.rawvhacdparameters_set_max_convex_hulls(this.__wbg_ptr, val);
     }
     /**
+     * Used as an iterator step, and `step_by(0)` panics unconditionally.
      * @param {number} val
      */
     set plane_downsampling(val) {
         wasm.rawvhacdparameters_set_plane_downsampling(this.__wbg_ptr, val);
     }
     /**
+     * Parry divides by `resolution - 1` and asserts every voxel index lies
+     * below it, so anything under 2 is a trap (`0`) or a `NaN`-filled
+     * decomposition (`1`); with `panic = "abort"` a trap kills the module.
      * @param {number} val
      */
     set resolution(val) {
@@ -6639,9 +6662,6 @@ const RawBroadPhaseFinalization = (typeof FinalizationRegistry === 'undefined')
 const RawCCDSolverFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawccdsolver_free(ptr, 1));
-const RawCharacterCollisionFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcharactercollision_free(ptr, 1));
 const RawColliderSetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcolliderset_free(ptr, 1));

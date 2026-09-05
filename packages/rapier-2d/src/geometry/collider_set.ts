@@ -116,6 +116,32 @@ export class ColliderSet {
     }
 
     /**
+     * Like {@link castClosure}, for callbacks whose return value means nothing to
+     * the caller: the wrapper answers `undefined` normally and `false` once the
+     * user's callback has thrown. The Rust enumerations stop on `false`, so the
+     * remaining items are not handed to a callback that has already failed —
+     * and whatever the user's callback happens to return (`Set.delete`'s
+     * boolean, `Array.push`'s length) can never end the walk by accident.
+     *
+     * @internal
+     */
+    public castVoidClosure(
+        f: (collider: Collider) => void,
+    ): (handle: ColliderHandle) => boolean | void {
+        this._callbackFailed = false;
+        return (handle) => {
+            if (this._callbackFailed) return false;
+            try {
+                f(this.get(handle)!);
+            } catch (e) {
+                this._callbackFailed = true;
+                this._callbackError = e;
+                return false;
+            }
+        };
+    }
+
+    /**
      * Throws the exception a guarded callback raised during the query that just
      * returned, if any. Called by every query wrapper after its WASM call.
      *
@@ -175,36 +201,42 @@ export class ColliderSet {
         const tra = desc.translation;
         const com = desc.centerOfMass;
 
-        let handle = this.raw.createCollider(
-            desc.enabled,
-            rawShape,
-            tra.x,
-            tra.y,
-            desc.rotation,
-            desc.massPropsMode,
-            desc.mass,
-            com.x,
-            com.y,
-            desc.principalAngularInertia,
-            desc.density,
-            desc.friction,
-            desc.restitution,
-            desc.frictionCombineRule,
-            desc.restitutionCombineRule,
-            desc.isSensor,
-            desc.collisionGroups,
-            desc.solverGroups,
-            desc.activeCollisionTypes,
-            desc.activeHooks,
-            desc.activeEvents,
-            desc.contactForceEventThreshold,
-            desc.contactSkin,
-            hasParent,
-            hasParent ? parentHandle! : 0,
-            bodies.raw,
-        );
-
-        rawShape.free();
+        let handle: ColliderHandle | undefined;
+        try {
+            handle = this.raw.createCollider(
+                desc.enabled,
+                rawShape,
+                tra.x,
+                tra.y,
+                desc.rotation,
+                desc.massPropsMode,
+                desc.mass,
+                com.x,
+                com.y,
+                desc.principalAngularInertia,
+                desc.density,
+                desc.friction,
+                desc.restitution,
+                desc.frictionCombineRule,
+                desc.restitutionCombineRule,
+                desc.isSensor,
+                desc.collisionGroups,
+                desc.solverGroups,
+                desc.activeCollisionTypes,
+                desc.activeHooks,
+                desc.activeEvents,
+                desc.contactForceEventThreshold,
+                desc.contactSkin,
+                hasParent,
+                hasParent ? parentHandle! : 0,
+                bodies.raw,
+            );
+        } finally {
+            // A trimesh or heightfield shape is a large allocation; the call can
+            // throw (a re-entrant use of the set from inside a callback, say), and
+            // the shape must not outlive the attempt either way.
+            rawShape.free();
+        }
 
         if (handle === undefined) {
             throw Error(

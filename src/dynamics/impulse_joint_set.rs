@@ -57,6 +57,11 @@ impl RawImpulseJointSet {
         if !bodies.bodies.contains(parent1) || !bodies.bodies.contains(parent2) {
             return None;
         }
+        // Rapier takes a self-joint on trust and builds a self-loop in its joint
+        // graph; a joint constrains two bodies, so this is a bad argument.
+        if parent1 == parent2 {
+            return None;
+        }
 
         let handle = self.0.insert(parent1, parent2, params.0.clone(), wake_up);
         Some(utils::flat_handle(handle.0))

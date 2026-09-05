@@ -5,16 +5,12 @@ use crate::geometry::{
     write_contact, write_hit, write_point_projection, write_ray_intersection, RawColliderSet,
     RawShape, RawShapeType,
 };
-#[cfg(feature = "dim3")]
-use crate::math::RawRotation;
-use crate::math::{pose_from_scalars, RawVector};
+use crate::math::pose_from_scalars;
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::MassProperties;
 use rapier::geometry::{ActiveCollisionTypes, ShapeType};
-#[cfg(feature = "dim2")]
-use rapier::math::Rotation;
-use rapier::math::{IVector, Pose, Real, Vector};
+use rapier::math::{IVector, Pose, Real, Rotation, Vector};
 use rapier::parry::query;
 use rapier::parry::query::ShapeCastOptions;
 use rapier::pipeline::{ActiveEvents, ActiveHooks};
@@ -193,9 +189,17 @@ impl RawColliderSet {
     #[cfg(feature = "dim3")]
     pub fn coSetRotationWrtParent(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, w: f32) {
         if let Some(q) = utils::unit_rotation(x, y, z, w) {
-            // Extract the axis-angle representation for rotation_wrt_parent
-            let (axis, angle) = q.to_axis_angle();
-            self.map_mut(handle, |co| co.set_rotation_wrt_parent(axis * angle))
+            // Set through the full parent-relative pose: rapier's
+            // `set_rotation_wrt_parent` takes a scaled axis, and the axis-angle
+            // round trip it would force costs an `atan2`/`sqrt`/`sin`/`cos` and
+            // can hand back a sign-flipped quaternion.
+            self.map_mut(handle, |co| {
+                let translation = co
+                    .position_wrt_parent()
+                    .map(|p| p.translation)
+                    .unwrap_or(Vector::ZERO);
+                co.set_position_wrt_parent(Pose::from_parts(translation, q))
+            })
         }
     }
 
@@ -1239,37 +1243,65 @@ impl RawColliderSet {
         self.map_mut_untracked(handle, |co| co.set_mass(mass))
     }
 
+    /// Sets the mass properties of this collider, passed component-wise like
+    /// every other setter (a `RawVector`/`RawRotation` temporary is a WASM
+    /// allocation plus a `FinalizationRegistry` registration each). The inertia
+    /// frame is normalized like every other quaternion input, falling back to the
+    /// identity when it has no direction to recover.
     #[cfg(feature = "dim3")]
     pub fn coSetMassProperties(
         &mut self,
         handle: FlatHandle,
         mass: f32,
-        centerOfMass: &RawVector,
-        principalAngularInertia: &RawVector,
-        angularInertiaFrame: &RawRotation,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
+        centerOfMass_z: f32,
+        principalAngularInertia_x: f32,
+        principalAngularInertia_y: f32,
+        principalAngularInertia_z: f32,
+        angularInertiaFrame_x: f32,
+        angularInertiaFrame_y: f32,
+        angularInertiaFrame_z: f32,
+        angularInertiaFrame_w: f32,
     ) {
         self.map_mut_untracked(handle, |co| {
             let mprops = MassProperties::with_principal_inertia_frame(
-                centerOfMass.0.into(),
+                Vector::new(centerOfMass_x, centerOfMass_y, centerOfMass_z).into(),
                 mass,
-                principalAngularInertia.0,
-                angularInertiaFrame.0,
+                Vector::new(
+                    principalAngularInertia_x,
+                    principalAngularInertia_y,
+                    principalAngularInertia_z,
+                ),
+                utils::unit_rotation(
+                    angularInertiaFrame_x,
+                    angularInertiaFrame_y,
+                    angularInertiaFrame_z,
+                    angularInertiaFrame_w,
+                )
+                .unwrap_or(Rotation::IDENTITY),
             );
 
             co.set_mass_properties(mprops)
         })
     }
 
+    /// Sets the mass properties of this collider; see the 3D variant.
     #[cfg(feature = "dim2")]
     pub fn coSetMassProperties(
         &mut self,
         handle: FlatHandle,
         mass: f32,
-        centerOfMass: &RawVector,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
         principalAngularInertia: f32,
     ) {
         self.map_mut_untracked(handle, |co| {
-            let props = MassProperties::new(centerOfMass.0.into(), mass, principalAngularInertia);
+            let props = MassProperties::new(
+                Vector::new(centerOfMass_x, centerOfMass_y).into(),
+                mass,
+                principalAngularInertia,
+            );
             co.set_mass_properties(props)
         })
     }

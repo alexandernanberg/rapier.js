@@ -537,21 +537,20 @@ export class Collider {
         principalAngularInertia: Vector,
         angularInertiaLocalFrame: Rotation,
     ) {
-        let rawCom = VectorOps.intoRaw(centerOfMass);
-        let rawPrincipalInertia = VectorOps.intoRaw(principalAngularInertia);
-        let rawInertiaFrame = RotationOps.intoRaw(angularInertiaLocalFrame);
-
         this.colliderSet.raw.coSetMassProperties(
             this.handle,
             mass,
-            rawCom,
-            rawPrincipalInertia,
-            rawInertiaFrame,
+            centerOfMass.x,
+            centerOfMass.y,
+            centerOfMass.z,
+            principalAngularInertia.x,
+            principalAngularInertia.y,
+            principalAngularInertia.z,
+            angularInertiaLocalFrame.x,
+            angularInertiaLocalFrame.y,
+            angularInertiaLocalFrame.z,
+            angularInertiaLocalFrame.w,
         );
-
-        rawCom.free();
-        rawPrincipalInertia.free();
-        rawInertiaFrame.free();
     }
 
     /**

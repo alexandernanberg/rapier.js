@@ -39,6 +39,7 @@ export class TempContactForceEvent {
     private _magnitudeOffset = 0;
     private _directionOffset = 0;
     private _maxMagnitudeOffset = 0;
+    private _startedOffset = 0;
 
     /** @internal */
     public _bind(buffer: WasmBuffer, offset: number, stride: number) {
@@ -46,12 +47,14 @@ export class TempContactForceEvent {
         this._offset = offset;
 
         // Layout per event: two split handles, the total force, its magnitude,
-        // the max force direction, its magnitude — so `stride = 6 + 2 * DIM`.
-        const dim = (stride - 6) / 2;
+        // the max force direction, its magnitude, the started flag — so
+        // `stride = 7 + 2 * DIM`.
+        const dim = (stride - 7) / 2;
         this._forceOffset = offset + 4;
         this._magnitudeOffset = offset + 4 + dim;
         this._directionOffset = offset + 5 + dim;
         this._maxMagnitudeOffset = offset + 5 + 2 * dim;
+        this._startedOffset = offset + 6 + 2 * dim;
     }
 
     /**
@@ -100,6 +103,21 @@ export class TempContactForceEvent {
      */
     public maxForceMagnitude(): number {
         return this._buffer.f32()[this._maxMagnitudeOffset];
+    }
+
+    /**
+     * Is this the first step the pair's total force exceeded its threshold?
+     *
+     * `true` on the step the force crosses the pair's contact force event
+     * threshold coming from below (or from not touching), `false` while it stays
+     * above on consecutive steps. The status resets when the force drops back
+     * below the threshold or the colliders separate, so the next crossing reports
+     * `true` again. Note that this is about the *force* threshold, not contact
+     * newness: a pair can touch gently for many steps (emitting no force event)
+     * before its first `started` event.
+     */
+    public started(): boolean {
+        return this._buffer.f32()[this._startedOffset] !== 0;
     }
 }
 

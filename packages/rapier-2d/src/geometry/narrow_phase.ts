@@ -46,6 +46,10 @@ export class NarrowPhase {
     /**
      * Enumerates all the colliders intersecting the given colliders, assuming one of them
      * is a sensor.
+     *
+     * A closure that returns exactly `false` ends the enumeration early.
+     *
+     * A closure that returns exactly `false` ends the enumeration early.
      */
     public intersectionPairsWith(
         collider1: ColliderHandle,

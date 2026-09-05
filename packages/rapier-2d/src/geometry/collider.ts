@@ -516,14 +516,13 @@ export class Collider {
      * `ColliderDesc.mass`, or `ColliderDesc.massProperties` for this collider.
      */
     public setMassProperties(mass: number, centerOfMass: Vector, principalAngularInertia: number) {
-        let rawCom = VectorOps.intoRaw(centerOfMass);
         this.colliderSet.raw.coSetMassProperties(
             this.handle,
             mass,
-            rawCom,
+            centerOfMass.x,
+            centerOfMass.y,
             principalAngularInertia,
         );
-        rawCom.free();
     }
 
     /**

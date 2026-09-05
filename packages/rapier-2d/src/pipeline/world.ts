@@ -47,7 +47,6 @@ import {
     RawSerializationPipeline,
     RawDebugRenderPipeline,
 } from "../raw";
-import {invalidateTransformBuffer} from "../transform_buffer";
 import {DebugRenderBuffers, DebugRenderPipeline} from "./debug_render_pipeline";
 import {EventQueue} from "./event_queue";
 import {PhysicsHooks} from "./physics_hooks";
@@ -85,6 +84,8 @@ export class World {
      * so there is no need to call their `.free()` methods individually.
      */
     public free() {
+        // Every child guards its own second `free()`; this one has to as well.
+        if (!this.integrationParameters) return;
         this.integrationParameters.free();
         this.islands.free();
         this.broadPhase.free();
@@ -292,10 +293,9 @@ export class World {
      * If the positions need to be updated without running a simulation step this method can be called manually.
      */
     public propagateModifiedBodyPositionsToColliders() {
+        // The Rust side writes the moved colliders' new world poses straight into
+        // their buffer slots, so reads stay on the buffer.
         this.bodies.raw.propagateModifiedBodyPositionsToColliders(this.colliders.raw);
-        // Collider world positions changed without a step; force reads back onto
-        // the WASM path until the next step rebuilds the buffer.
-        invalidateTransformBuffer(this.colliders._bufferRef);
     }
 
     // TODO: This needs to trigger a broad-phase update but without emitting collision events?
@@ -1057,7 +1057,7 @@ export class World {
      * @param f - Closure that will be called on each collider that is in contact with `collider1`.
      */
     public contactPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
-        this.narrowPhase.contactPairsWith(collider1.handle, this.colliders.castClosure(f)!);
+        this.narrowPhase.contactPairsWith(collider1.handle, this.colliders.castVoidClosure(f));
         this.colliders.rethrowCallbackError();
     }
 
@@ -1066,7 +1066,7 @@ export class World {
      * is a sensor.
      */
     public intersectionPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
-        this.narrowPhase.intersectionPairsWith(collider1.handle, this.colliders.castClosure(f)!);
+        this.narrowPhase.intersectionPairsWith(collider1.handle, this.colliders.castVoidClosure(f));
         this.colliders.rethrowCallbackError();
     }
 

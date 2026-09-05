@@ -22,8 +22,9 @@ use std::cell::Cell;
 use wasm_bindgen::prelude::*;
 
 /// Long enough for the largest payload: a character collision writes
-/// `1 + 6 * DIM` floats, which is 19 in 3D.
-const SCRATCH_LEN: usize = 19;
+/// `1 + 6 * DIM` floats plus the two `u32` halves of the hit collider's handle,
+/// which is 21 in 3D.
+const SCRATCH_LEN: usize = 21;
 
 thread_local! {
     static SCRATCH: [Cell<f32>; SCRATCH_LEN] = const { [const { Cell::new(0.0) }; SCRATCH_LEN] };

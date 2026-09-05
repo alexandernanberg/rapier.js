@@ -8,6 +8,16 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct RawNarrowPhase(pub(crate) NarrowPhase);
 
+/// Whether an enumeration should go on after the callback answered `result`:
+/// an explicit `false` stops it, as does a failed call; anything else continues.
+#[inline]
+fn continue_after(result: Result<JsValue, JsValue>) -> bool {
+    match result {
+        Ok(value) => value.as_bool() != Some(false),
+        Err(_) => false,
+    }
+}
+
 #[wasm_bindgen]
 impl RawNarrowPhase {
     #[wasm_bindgen(constructor)]
@@ -15,6 +25,12 @@ impl RawNarrowPhase {
         RawNarrowPhase(NarrowPhase::new())
     }
 
+    /// Calls `f` with the handle of every collider in contact with `handle1`.
+    ///
+    /// Like the broad-phase enumerations, a callback that returns `false` (which
+    /// is also what the JS guard answers once the user's callback has thrown)
+    /// or that fails ends the walk: the remaining pairs would only be handed to
+    /// a callback that no longer wants them.
     pub fn contact_pairs_with(&self, handle1: FlatHandle, f: js_sys::Function) {
         let this = JsValue::null();
         let handle1 = utils::collider_handle(handle1);
@@ -25,7 +41,9 @@ impl RawNarrowPhase {
                 utils::flat_handle(pair.collider1.0)
             };
 
-            let _ = f.call1(&this, &JsValue::from(handle2));
+            if !continue_after(f.call1(&this, &JsValue::from(handle2))) {
+                break;
+            }
         }
     }
 
@@ -48,7 +66,9 @@ impl RawNarrowPhase {
                     utils::flat_handle(h1.0)
                 };
 
-                let _ = f.call1(&this, &JsValue::from(handle2));
+                if !continue_after(f.call1(&this, &JsValue::from(handle2))) {
+                    break;
+                }
             }
         }
     }
