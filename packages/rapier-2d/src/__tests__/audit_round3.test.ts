@@ -284,3 +284,58 @@ describe("World", () => {
         world.free();
     });
 });
+
+describe("physics hooks", () => {
+    // The pair's handles reach the hook through the scratch buffer now; a
+    // parentless collider must still show up as a `null` body, and the
+    // handles must survive the trip exactly.
+    test("filter hooks receive the pair's colliders and bodies", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const ground = world.createCollider(
+            RAPIER.ColliderDesc.cuboid(10, 0.5).setActiveHooks(
+                RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS |
+                    RAPIER.ActiveHooks.FILTER_INTERSECTION_PAIRS,
+            ),
+        );
+        const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 1));
+        const boxCollider = world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 0.5), body);
+        const sensorBody = world.createRigidBody(
+            RAPIER.RigidBodyDesc.dynamic().setTranslation(3, 0.4),
+        );
+        const sensor = world.createCollider(
+            RAPIER.ColliderDesc.ball(0.5).setSensor(true),
+            sensorBody,
+        );
+
+        const contactPairs: [number, number, number | null, number | null][] = [];
+        const intersectionPairs: [number, number, number | null, number | null][] = [];
+        const hooks: RAPIER.PhysicsHooks = {
+            filterContactPair: (c1, c2, b1, b2) => {
+                contactPairs.push([c1, c2, b1, b2]);
+                return RAPIER.SolverFlags.COMPUTE_IMPULSE;
+            },
+            filterIntersectionPair: (c1, c2, b1, b2) => {
+                intersectionPairs.push([c1, c2, b1, b2]);
+                return true;
+            },
+        };
+        for (let i = 0; i < 30; i++) world.step(undefined, hooks);
+
+        expect(contactPairs.length).toBeGreaterThan(0);
+        for (const [c1, c2, b1, b2] of contactPairs) {
+            expect([c1, c2].sort()).toEqual([ground.handle, boxCollider.handle].sort());
+            // The parentless ground reports no body; the box reports its own.
+            expect(c1 === ground.handle ? b1 : b2).toBeNull();
+            expect(c1 === ground.handle ? b2 : b1).toBe(body.handle);
+        }
+        expect(intersectionPairs.length).toBeGreaterThan(0);
+        for (const [c1, c2, b1, b2] of intersectionPairs) {
+            expect([c1, c2].sort()).toEqual([ground.handle, sensor.handle].sort());
+            expect(c1 === ground.handle ? b1 : b2).toBeNull();
+            expect(c1 === ground.handle ? b2 : b1).toBe(sensorBody.handle);
+        }
+        // The box came to rest on the ground, so the pair was not filtered out.
+        expect(body.translation().y).toBeCloseTo(1, 1);
+        world.free();
+    });
+});

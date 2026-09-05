@@ -6608,10 +6608,6 @@ function __wbg_get_imports() {
             const ret = getObject(arg0).call(getObject(arg1), getObject(arg2));
             return addHeapObject(ret);
         }, arguments); },
-        __wbg_call_85c2616c93afb65b: function() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5) {
-            const ret = getObject(arg0).call(getObject(arg1), getObject(arg2), getObject(arg3), getObject(arg4), getObject(arg5));
-            return addHeapObject(ret);
-        }, arguments); },
         __wbg_error_cebf58d0f48a420b: function(arg0, arg1) {
             console.error(getStringFromWasm0(arg0, arg1));
         },

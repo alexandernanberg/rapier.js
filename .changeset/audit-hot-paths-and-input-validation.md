@@ -44,7 +44,7 @@ Performance:
 - `setNextKinematicTranslation`/`setNextKinematicRotation`/
   `setNextKinematicTransform` no longer count toward the incremental
   transform-sync budget: driving more than a few dozen kinematic bodies per
-  frame used to push every step into a full body *and* collider re-sync.
+  frame used to push every step into a full body _and_ collider re-sync.
 - `RigidBody.setAdditionalMassProperties`, `Collider.setMassProperties`, the
   `ImpulseJoint` anchor/frame setters and
   `KinematicCharacterController.setUp` pass components instead of allocating
@@ -52,3 +52,7 @@ Performance:
   the call threw).
 - `KinematicCharacterController.computedCollision` is one WASM call instead of
   three, and the controller no longer allocates a raw collision object.
+- `PhysicsHooks.filterContactPair`/`filterIntersectionPair` receive the pair's
+  handles through the shared scratch buffer instead of four boxed JS numbers
+  per call, which removes about eight boundary crossings per candidate pair
+  per step.
