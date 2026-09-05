@@ -864,12 +864,14 @@ export class RawColliderSet {
     }
     /**
      * Set the half-extents of this collider if it has a cuboid shape.
+     * Sets the half-extents of a cuboid or round cuboid collider, passed
+     * component-wise so the JS side allocates no `RawVector` per call.
      * @param {number} handle
-     * @param {RawVector} newHalfExtents
+     * @param {number} x
+     * @param {number} y
      */
-    coSetHalfExtents(handle, newHalfExtents) {
-        _assertClass(newHalfExtents, RawVector);
-        wasm.rawcolliderset_coSetHalfExtents(this.__wbg_ptr, handle, newHalfExtents.__wbg_ptr);
+    coSetHalfExtents(handle, x, y) {
+        wasm.rawcolliderset_coSetHalfExtents(this.__wbg_ptr, handle, x, y);
     }
     /**
      * Set the half height of this collider if it is a capsule, cylinder, or cone shape.
@@ -2810,27 +2812,29 @@ export class RawKinematicCharacterController {
         return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
+     * See [`Self::do_compute_collider_movement`]; the desired translation is
+     * passed component-wise so the JS side allocates no `RawVector` per call.
      * @param {number} dt
      * @param {RawBroadPhase} broad_phase
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
      * @param {number} collider_handle
-     * @param {RawVector} desired_translation_delta
+     * @param {number} desired_translation_x
+     * @param {number} desired_translation_y
      * @param {boolean} apply_impulses_to_dynamic_bodies
      * @param {number | null | undefined} character_mass
      * @param {number} filter_flags
      * @param {number | null | undefined} filter_groups
      * @param {Function} filter_predicate
      */
-    computeColliderMovement(dt, broad_phase, narrow_phase, bodies, colliders, collider_handle, desired_translation_delta, apply_impulses_to_dynamic_bodies, character_mass, filter_flags, filter_groups, filter_predicate) {
+    computeColliderMovement(dt, broad_phase, narrow_phase, bodies, colliders, collider_handle, desired_translation_x, desired_translation_y, apply_impulses_to_dynamic_bodies, character_mass, filter_flags, filter_groups, filter_predicate) {
         try {
             _assertClass(broad_phase, RawBroadPhase);
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(desired_translation_delta, RawVector);
-            wasm.rawkinematiccharactercontroller_computeColliderMovement(this.__wbg_ptr, dt, broad_phase.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, collider_handle, desired_translation_delta.__wbg_ptr, apply_impulses_to_dynamic_bodies, isLikeNone(character_mass) ? Number.MAX_SAFE_INTEGER : Math.fround(character_mass), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, addBorrowedObject(filter_predicate));
+            wasm.rawkinematiccharactercontroller_computeColliderMovement(this.__wbg_ptr, dt, broad_phase.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, collider_handle, desired_translation_x, desired_translation_y, apply_impulses_to_dynamic_bodies, isLikeNone(character_mass) ? Number.MAX_SAFE_INTEGER : Math.fround(character_mass), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
         }
@@ -3609,30 +3613,35 @@ export class RawPidController {
         wasm.rawpidcontroller_apply_angular_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_rotation, target_angvel);
     }
     /**
+     * Applies the linear correction to the body's velocity.
+     *
+     * The targets are passed component-wise so the JS side allocates no
+     * `RawVector` per call (this runs once per controlled body per frame).
      * @param {number} dt
      * @param {RawRigidBodySet} bodies
      * @param {number} rb_handle
-     * @param {RawVector} target_translation
-     * @param {RawVector} target_linvel
+     * @param {number} target_x
+     * @param {number} target_y
+     * @param {number} target_linvel_x
+     * @param {number} target_linvel_y
      */
-    apply_linear_correction(dt, bodies, rb_handle, target_translation, target_linvel) {
+    apply_linear_correction(dt, bodies, rb_handle, target_x, target_y, target_linvel_x, target_linvel_y) {
         _assertClass(bodies, RawRigidBodySet);
-        _assertClass(target_translation, RawVector);
-        _assertClass(target_linvel, RawVector);
-        wasm.rawpidcontroller_apply_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_translation.__wbg_ptr, target_linvel.__wbg_ptr);
+        wasm.rawpidcontroller_apply_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_x, target_y, target_linvel_x, target_linvel_y);
     }
     /**
+     * Writes the linear correction into the scratch buffer.
      * @param {number} dt
      * @param {RawRigidBodySet} bodies
      * @param {number} rb_handle
-     * @param {RawVector} target_translation
-     * @param {RawVector} target_linvel
+     * @param {number} target_x
+     * @param {number} target_y
+     * @param {number} target_linvel_x
+     * @param {number} target_linvel_y
      */
-    linear_correction(dt, bodies, rb_handle, target_translation, target_linvel) {
+    linear_correction(dt, bodies, rb_handle, target_x, target_y, target_linvel_x, target_linvel_y) {
         _assertClass(bodies, RawRigidBodySet);
-        _assertClass(target_translation, RawVector);
-        _assertClass(target_linvel, RawVector);
-        wasm.rawpidcontroller_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_translation.__wbg_ptr, target_linvel.__wbg_ptr);
+        wasm.rawpidcontroller_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_x, target_y, target_linvel_x, target_linvel_y);
     }
     /**
      * @param {number} kp

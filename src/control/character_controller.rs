@@ -150,6 +150,9 @@ impl RawKinematicCharacterController {
         self.controller.snap_to_ground.is_some()
     }
 
+    /// See [`Self::do_compute_collider_movement`]; the desired translation is
+    /// passed component-wise so the JS side allocates no `RawVector` per call.
+    #[cfg(feature = "dim2")]
     pub fn computeColliderMovement(
         &mut self,
         dt: Real,
@@ -158,7 +161,103 @@ impl RawKinematicCharacterController {
         bodies: &mut RawRigidBodySet,
         colliders: &mut RawColliderSet,
         collider_handle: FlatHandle,
-        desired_translation_delta: &RawVector,
+        desired_translation_x: Real,
+        desired_translation_y: Real,
+        apply_impulses_to_dynamic_bodies: bool,
+        character_mass: Option<Real>,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_predicate: &js_sys::Function,
+    ) {
+        self.do_compute_collider_movement(
+            dt,
+            broad_phase,
+            narrow_phase,
+            bodies,
+            colliders,
+            collider_handle,
+            Vector::new(desired_translation_x, desired_translation_y),
+            apply_impulses_to_dynamic_bodies,
+            character_mass,
+            filter_flags,
+            filter_groups,
+            filter_predicate,
+        )
+    }
+
+    /// See [`Self::do_compute_collider_movement`]; the desired translation is
+    /// passed component-wise so the JS side allocates no `RawVector` per call.
+    #[cfg(feature = "dim3")]
+    pub fn computeColliderMovement(
+        &mut self,
+        dt: Real,
+        broad_phase: &RawBroadPhase,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &mut RawRigidBodySet,
+        colliders: &mut RawColliderSet,
+        collider_handle: FlatHandle,
+        desired_translation_x: Real,
+        desired_translation_y: Real,
+        desired_translation_z: Real,
+        apply_impulses_to_dynamic_bodies: bool,
+        character_mass: Option<Real>,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_predicate: &js_sys::Function,
+    ) {
+        self.do_compute_collider_movement(
+            dt,
+            broad_phase,
+            narrow_phase,
+            bodies,
+            colliders,
+            collider_handle,
+            Vector::new(
+                desired_translation_x,
+                desired_translation_y,
+                desired_translation_z,
+            ),
+            apply_impulses_to_dynamic_bodies,
+            character_mass,
+            filter_flags,
+            filter_groups,
+            filter_predicate,
+        )
+    }
+
+    /// The movement computed by the last `computeColliderMovement` call, written to
+    /// the scratch buffer.
+    pub fn computedMovement(&self) {
+        scratch::write_vector(self.result.translation);
+    }
+
+    pub fn computedGrounded(&self) -> bool {
+        self.result.grounded
+    }
+
+    pub fn numComputedCollisions(&self) -> usize {
+        self.events.len()
+    }
+
+    pub fn computedCollision(&self, i: usize, collision: &mut RawCharacterCollision) -> bool {
+        if let Some(coll) = self.events.get(i) {
+            collision.0 = *coll;
+        }
+
+        i < self.events.len()
+    }
+}
+
+impl RawKinematicCharacterController {
+    pub(crate) fn do_compute_collider_movement(
+        &mut self,
+        dt: Real,
+        broad_phase: &RawBroadPhase,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &mut RawRigidBodySet,
+        colliders: &mut RawColliderSet,
+        collider_handle: FlatHandle,
+        desired_translation_delta: Vector,
         apply_impulses_to_dynamic_bodies: bool,
         character_mass: Option<Real>,
         filter_flags: u32,
@@ -202,7 +301,7 @@ impl RawKinematicCharacterController {
                     &query_pipeline.as_ref(),
                     &*collider_shape,
                     &collider_pose,
-                    desired_translation_delta.0,
+                    desired_translation_delta,
                     |event| events.push(event),
                 );
 
@@ -268,28 +367,6 @@ impl RawKinematicCharacterController {
                 is_sliding_down_slope: false,
             };
         }
-    }
-
-    /// The movement computed by the last `computeColliderMovement` call, written to
-    /// the scratch buffer.
-    pub fn computedMovement(&self) {
-        scratch::write_vector(self.result.translation);
-    }
-
-    pub fn computedGrounded(&self) -> bool {
-        self.result.grounded
-    }
-
-    pub fn numComputedCollisions(&self) -> usize {
-        self.events.len()
-    }
-
-    pub fn computedCollision(&self, i: usize, collision: &mut RawCharacterCollision) -> bool {
-        if let Some(coll) = self.events.get(i) {
-            collision.0 = *coll;
-        }
-
-        i < self.events.len()
     }
 }
 

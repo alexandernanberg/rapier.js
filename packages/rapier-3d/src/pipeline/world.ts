@@ -728,6 +728,7 @@ export class World {
      *   whereas `false` implies that all shapes are hollow for this ray-cast.
      * @param groups - Used to filter the colliders that can or cannot be hit by the ray.
      * @param filter - The callback to filter out which collider will be hit.
+     * @param target - Optional target object to write the result to (avoids allocation).
      */
     public castRay(
         ray: Ray,
@@ -738,6 +739,7 @@ export class World {
         filterExcludeCollider?: Collider,
         filterExcludeRigidBody?: RigidBody,
         filterPredicate?: (collider: Collider) => boolean,
+        target?: RayColliderHit,
     ): RayColliderHit | null {
         return this.broadPhase.castRay(
             this.narrowPhase,
@@ -751,6 +753,7 @@ export class World {
             filterExcludeCollider?.handle,
             filterExcludeRigidBody?.handle,
             this.colliders.castClosure(filterPredicate),
+            target,
         );
     }
 

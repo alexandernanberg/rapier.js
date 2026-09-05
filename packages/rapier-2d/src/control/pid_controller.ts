@@ -83,17 +83,15 @@ export class PidController {
     }
 
     public applyLinearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector) {
-        let rawPos = VectorOps.intoRaw(targetPosition);
-        let rawVel = VectorOps.intoRaw(targetLinvel);
         this.raw.apply_linear_correction(
             this.params.dt,
             this.bodies.raw,
             body.handle,
-            rawPos,
-            rawVel,
+            targetPosition.x,
+            targetPosition.y,
+            targetLinvel.x,
+            targetLinvel.y,
         );
-        rawPos.free();
-        rawVel.free();
     }
 
     public applyAngularCorrection(body: RigidBody, targetRotation: number, targetAngVel: number) {
@@ -112,11 +110,15 @@ export class PidController {
         targetLinvel: Vector,
         target?: Vector,
     ): Vector {
-        let rawPos = VectorOps.intoRaw(targetPosition);
-        let rawVel = VectorOps.intoRaw(targetLinvel);
-        this.raw.linear_correction(this.params.dt, this.bodies.raw, body.handle, rawPos, rawVel);
-        rawPos.free();
-        rawVel.free();
+        this.raw.linear_correction(
+            this.params.dt,
+            this.bodies.raw,
+            body.handle,
+            targetPosition.x,
+            targetPosition.y,
+            targetLinvel.x,
+            targetLinvel.y,
+        );
 
         return VectorOps.fromBuffer(scratch(), target);
     }

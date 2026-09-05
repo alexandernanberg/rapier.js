@@ -263,18 +263,18 @@ impl RawColliderSet {
     }
 
     /// Set the half-extents of this collider if it has a cuboid shape.
-    pub fn coSetHalfExtents(&mut self, handle: FlatHandle, newHalfExtents: &RawVector) {
-        self.map_mut_untracked(handle, |co| match co.shape().shape_type() {
-            ShapeType::Cuboid => co
-                .shape_mut()
-                .as_cuboid_mut()
-                .map(|b| b.half_extents = newHalfExtents.0.into()),
-            ShapeType::RoundCuboid => co
-                .shape_mut()
-                .as_round_cuboid_mut()
-                .map(|b| b.inner_shape.half_extents = newHalfExtents.0.into()),
-            _ => None,
-        });
+    /// Sets the half-extents of a cuboid or round cuboid collider, passed
+    /// component-wise so the JS side allocates no `RawVector` per call.
+    #[cfg(feature = "dim2")]
+    pub fn coSetHalfExtents(&mut self, handle: FlatHandle, x: f32, y: f32) {
+        self.do_set_half_extents(handle, Vector::new(x, y));
+    }
+
+    /// Sets the half-extents of a cuboid or round cuboid collider, passed
+    /// component-wise so the JS side allocates no `RawVector` per call.
+    #[cfg(feature = "dim3")]
+    pub fn coSetHalfExtents(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32) {
+        self.do_set_half_extents(handle, Vector::new(x, y, z));
     }
 
     /// The radius of this collider if it is a ball, capsule, cylinder, or cone shape.
@@ -1151,5 +1151,21 @@ impl RawColliderSet {
             let props = MassProperties::new(centerOfMass.0.into(), mass, principalAngularInertia);
             co.set_mass_properties(props)
         })
+    }
+}
+
+impl RawColliderSet {
+    fn do_set_half_extents(&mut self, handle: FlatHandle, half_extents: Vector) {
+        self.map_mut_untracked(handle, |co| match co.shape().shape_type() {
+            ShapeType::Cuboid => co
+                .shape_mut()
+                .as_cuboid_mut()
+                .map(|b| b.half_extents = half_extents.into()),
+            ShapeType::RoundCuboid => co
+                .shape_mut()
+                .as_round_cuboid_mut()
+                .map(|b| b.inner_shape.half_extents = half_extents.into()),
+            _ => None,
+        });
     }
 }

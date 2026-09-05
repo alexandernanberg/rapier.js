@@ -145,6 +145,7 @@ export class BroadPhase {
         filterExcludeCollider?: ColliderHandle,
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
+        target?: RayColliderHit,
     ): RayColliderHit | null {
         const hit = this.raw.castRay(
             narrowPhase.raw,
@@ -167,7 +168,10 @@ export class BroadPhase {
         if (!hit) return null;
 
         const r = this.results();
-        return new RayColliderHit(colliders.get(r[0])!, r[1]);
+        if (!target) return new RayColliderHit(colliders.get(r[0])!, r[1]);
+        target.collider = colliders.get(r[0])!;
+        target.timeOfImpact = r[1];
+        return target;
     }
 
     /**

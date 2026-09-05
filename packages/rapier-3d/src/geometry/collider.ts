@@ -620,9 +620,12 @@ export class Collider {
      * @param newHalfExtents - desired half extents.
      */
     public setHalfExtents(newHalfExtents: Vector) {
-        const rawPoint = VectorOps.intoRaw(newHalfExtents);
-        this.colliderSet.raw.coSetHalfExtents(this.handle, rawPoint);
-        rawPoint.free();
+        this.colliderSet.raw.coSetHalfExtents(
+            this.handle,
+            newHalfExtents.x,
+            newHalfExtents.y,
+            newHalfExtents.z,
+        );
         this._shape = null!;
     }
 
@@ -1835,8 +1838,11 @@ export class ColliderDesc {
             if (params.convexHullApproximation !== undefined)
                 rawParams.convex_hull_approximation = params.convexHullApproximation;
 
-            rawShape = RawShape.convexDecompositionWithParams(vertices, indices, rawParams);
-            rawParams.free();
+            try {
+                rawShape = RawShape.convexDecompositionWithParams(vertices, indices, rawParams);
+            } finally {
+                rawParams.free();
+            }
         } else {
             rawShape = RawShape.convexDecomposition(vertices, indices);
         }

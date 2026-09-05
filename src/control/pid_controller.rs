@@ -1,16 +1,10 @@
 use crate::dynamics::RawRigidBodySet;
-use crate::math::RawVector;
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::control::PidController;
 use rapier::dynamics::AxesMask;
-use rapier::math::Vector;
+use rapier::math::{Rotation, Vector};
 use wasm_bindgen::prelude::*;
-
-#[cfg(feature = "dim3")]
-use crate::math::RawRotation;
-#[cfg(feature = "dim2")]
-use rapier::math::Rotation;
 
 #[wasm_bindgen]
 pub struct RawPidController {
@@ -129,28 +123,54 @@ impl RawPidController {
         self.controller.reset_integrals();
     }
 
+    /// Applies the linear correction to the body's velocity.
+    ///
+    /// The targets are passed component-wise so the JS side allocates no
+    /// `RawVector` per call (this runs once per controlled body per frame).
+    #[cfg(feature = "dim2")]
     pub fn apply_linear_correction(
         &mut self,
         dt: f32,
         bodies: &mut RawRigidBodySet,
         rb_handle: FlatHandle,
-        target_translation: &RawVector,
-        target_linvel: &RawVector,
+        target_x: f32,
+        target_y: f32,
+        target_linvel_x: f32,
+        target_linvel_y: f32,
     ) {
-        let rb_handle = utils::body_handle(rb_handle);
-        bodies.mark_pending(rb_handle);
-        let Some(rb) = bodies.bodies.get_mut(rb_handle) else {
-            return;
-        };
-
-        let correction = self.controller.linear_rigid_body_correction(
+        self.do_apply_linear_correction(
             dt,
-            rb,
-            target_translation.0.into(),
-            target_linvel.0,
-        );
-        rb.set_linvel(rb.linvel() + correction, true);
-        bodies.write_through(rb_handle);
+            bodies,
+            rb_handle,
+            Vector::new(target_x, target_y),
+            Vector::new(target_linvel_x, target_linvel_y),
+        )
+    }
+
+    /// Applies the linear correction to the body's velocity.
+    ///
+    /// The targets are passed component-wise so the JS side allocates no
+    /// `RawVector` per call (this runs once per controlled body per frame).
+    #[cfg(feature = "dim3")]
+    pub fn apply_linear_correction(
+        &mut self,
+        dt: f32,
+        bodies: &mut RawRigidBodySet,
+        rb_handle: FlatHandle,
+        target_x: f32,
+        target_y: f32,
+        target_z: f32,
+        target_linvel_x: f32,
+        target_linvel_y: f32,
+        target_linvel_z: f32,
+    ) {
+        self.do_apply_linear_correction(
+            dt,
+            bodies,
+            rb_handle,
+            Vector::new(target_x, target_y, target_z),
+            Vector::new(target_linvel_x, target_linvel_y, target_linvel_z),
+        )
     }
 
     #[cfg(feature = "dim2")]
@@ -178,14 +198,21 @@ impl RawPidController {
         bodies.write_through(rb_handle);
     }
 
+    /// Applies the angular correction to the body's velocity. The target
+    /// rotation is normalized like every other quaternion input.
     #[cfg(feature = "dim3")]
     pub fn apply_angular_correction(
         &mut self,
         dt: f32,
         bodies: &mut RawRigidBodySet,
         rb_handle: FlatHandle,
-        target_rotation: &RawRotation,
-        target_angvel: &RawVector,
+        target_rotation_x: f32,
+        target_rotation_y: f32,
+        target_rotation_z: f32,
+        target_rotation_w: f32,
+        target_angvel_x: f32,
+        target_angvel_y: f32,
+        target_angvel_z: f32,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
         bodies.mark_pending(rb_handle);
@@ -193,39 +220,65 @@ impl RawPidController {
             return;
         };
 
+        let target_rotation = utils::unit_rotation(
+            target_rotation_x,
+            target_rotation_y,
+            target_rotation_z,
+            target_rotation_w,
+        )
+        .unwrap_or(Rotation::IDENTITY);
         let correction = self.controller.angular_rigid_body_correction(
             dt,
             rb,
-            target_rotation.0,
-            target_angvel.0,
+            target_rotation,
+            Vector::new(target_angvel_x, target_angvel_y, target_angvel_z),
         );
         rb.set_angvel(rb.angvel() + correction, true);
         bodies.write_through(rb_handle);
     }
 
+    /// Writes the linear correction into the scratch buffer.
+    #[cfg(feature = "dim2")]
     pub fn linear_correction(
         &mut self,
         dt: f32,
         bodies: &RawRigidBodySet,
         rb_handle: FlatHandle,
-        target_translation: &RawVector,
-        target_linvel: &RawVector,
+        target_x: f32,
+        target_y: f32,
+        target_linvel_x: f32,
+        target_linvel_y: f32,
     ) {
-        let rb_handle = crate::utils::body_handle(rb_handle);
-        let correction = bodies
-            .bodies
-            .get(rb_handle)
-            .map(|rb| {
-                self.controller.linear_rigid_body_correction(
-                    dt,
-                    rb,
-                    target_translation.0.into(),
-                    target_linvel.0,
-                )
-            })
-            .unwrap_or(Vector::ZERO);
+        self.do_linear_correction(
+            dt,
+            bodies,
+            rb_handle,
+            Vector::new(target_x, target_y),
+            Vector::new(target_linvel_x, target_linvel_y),
+        )
+    }
 
-        scratch::write_vector(correction);
+    /// Writes the linear correction into the scratch buffer.
+    #[cfg(feature = "dim3")]
+    pub fn linear_correction(
+        &mut self,
+        dt: f32,
+        bodies: &RawRigidBodySet,
+        rb_handle: FlatHandle,
+        target_x: f32,
+        target_y: f32,
+        target_z: f32,
+        target_linvel_x: f32,
+        target_linvel_y: f32,
+        target_linvel_z: f32,
+    ) {
+        self.do_linear_correction(
+            dt,
+            bodies,
+            rb_handle,
+            Vector::new(target_x, target_y, target_z),
+            Vector::new(target_linvel_x, target_linvel_y, target_linvel_z),
+        )
     }
 
     #[cfg(feature = "dim2")]
@@ -250,16 +303,31 @@ impl RawPidController {
         )
     }
 
+    /// Writes the angular correction into the scratch buffer. The target
+    /// rotation is normalized like every other quaternion input.
     #[cfg(feature = "dim3")]
     pub fn angular_correction(
         &mut self,
         dt: f32,
         bodies: &RawRigidBodySet,
         rb_handle: FlatHandle,
-        target_rotation: &RawRotation,
-        target_angvel: &RawVector,
+        target_rotation_x: f32,
+        target_rotation_y: f32,
+        target_rotation_z: f32,
+        target_rotation_w: f32,
+        target_angvel_x: f32,
+        target_angvel_y: f32,
+        target_angvel_z: f32,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
+        let target_rotation = utils::unit_rotation(
+            target_rotation_x,
+            target_rotation_y,
+            target_rotation_z,
+            target_rotation_w,
+        )
+        .unwrap_or(Rotation::IDENTITY);
+        let target_angvel = Vector::new(target_angvel_x, target_angvel_y, target_angvel_z);
         let correction = bodies
             .bodies
             .get(rb_handle)
@@ -267,8 +335,59 @@ impl RawPidController {
                 self.controller.angular_rigid_body_correction(
                     dt,
                     rb,
-                    target_rotation.0,
-                    target_angvel.0,
+                    target_rotation,
+                    target_angvel,
+                )
+            })
+            .unwrap_or(Vector::ZERO);
+
+        scratch::write_vector(correction);
+    }
+}
+
+impl RawPidController {
+    fn do_apply_linear_correction(
+        &mut self,
+        dt: f32,
+        bodies: &mut RawRigidBodySet,
+        rb_handle: FlatHandle,
+        target_translation: Vector,
+        target_linvel: Vector,
+    ) {
+        let rb_handle = utils::body_handle(rb_handle);
+        bodies.mark_pending(rb_handle);
+        let Some(rb) = bodies.bodies.get_mut(rb_handle) else {
+            return;
+        };
+
+        let correction = self.controller.linear_rigid_body_correction(
+            dt,
+            rb,
+            target_translation.into(),
+            target_linvel,
+        );
+        rb.set_linvel(rb.linvel() + correction, true);
+        bodies.write_through(rb_handle);
+    }
+
+    fn do_linear_correction(
+        &mut self,
+        dt: f32,
+        bodies: &RawRigidBodySet,
+        rb_handle: FlatHandle,
+        target_translation: Vector,
+        target_linvel: Vector,
+    ) {
+        let rb_handle = crate::utils::body_handle(rb_handle);
+        let correction = bodies
+            .bodies
+            .get(rb_handle)
+            .map(|rb| {
+                self.controller.linear_rigid_body_correction(
+                    dt,
+                    rb,
+                    target_translation.into(),
+                    target_linvel,
                 )
             })
             .unwrap_or(Vector::ZERO);
