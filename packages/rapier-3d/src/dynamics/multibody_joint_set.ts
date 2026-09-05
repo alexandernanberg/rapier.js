@@ -89,8 +89,11 @@ export class MultibodyJointSet {
      * @param wake_up - If `true`, the rigid-bodies attached by the removed joint will be woken-up automatically.
      */
     public remove(handle: MultibodyJointHandle, wake_up: boolean) {
+        // Already removed (or a stale handle whose index was recycled): nothing
+        // to do, and the joint that owns the index now must be left alone.
+        if (!this.map.get(handle)) return;
         this.raw.remove(handle, wake_up);
-        this.map.delete(handle);
+        this.unmap(handle);
     }
 
     /**
@@ -98,7 +101,11 @@ export class MultibodyJointSet {
      * @param handle
      */
     public unmap(handle: MultibodyJointHandle) {
-        this.map.delete(handle);
+        const joint = this.map.get(handle);
+        if (joint) {
+            joint._markRemoved();
+            this.map.delete(handle);
+        }
     }
 
     /**

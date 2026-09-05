@@ -6,9 +6,14 @@ import {
     RawJointType,
     RawMotorModel,
 } from "../raw";
+import {removedRef} from "../removed";
 import {scratch} from "../scratch";
 import {RigidBody} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";
+
+const REMOVED_RAW_SET = removedRef<RawImpulseJointSet>(
+    "Invalid ImpulseJoint reference. It may have been removed from the physics World.",
+);
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -115,7 +120,17 @@ export class ImpulseJoint {
      * not been deleted from the joint set yet).
      */
     public isValid(): boolean {
-        return this.rawSet.contains(this.handle);
+        return this.rawSet !== REMOVED_RAW_SET && this.rawSet.contains(this.handle);
+    }
+
+    /**
+     * Detaches this object from the world it was removed from; see
+     * `RigidBody._markRemoved`.
+     *
+     * @internal
+     */
+    public _markRemoved() {
+        this.rawSet = REMOVED_RAW_SET;
     }
 
     /**

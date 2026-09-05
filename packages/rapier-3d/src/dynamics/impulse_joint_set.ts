@@ -76,6 +76,9 @@ export class ImpulseJointSet {
      * @param wakeUp - If `true`, the rigid-bodies attached by the removed joint will be woken-up automatically.
      */
     public remove(handle: ImpulseJointHandle, wakeUp: boolean) {
+        // Already removed (or a stale handle whose index was recycled): nothing
+        // to do, and the joint that owns the index now must be left alone.
+        if (!this.map.get(handle)) return;
         this.raw.remove(handle, wakeUp);
         this.unmap(handle);
     }
@@ -97,7 +100,11 @@ export class ImpulseJointSet {
      * @param handle
      */
     public unmap(handle: ImpulseJointHandle) {
-        this.map.delete(handle);
+        const joint = this.map.get(handle);
+        if (joint) {
+            joint._markRemoved();
+            this.map.delete(handle);
+        }
     }
 
     /**

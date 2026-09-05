@@ -158,7 +158,7 @@ describe("debug render", () => {
 });
 
 describe("handle lifetime", () => {
-    test("a stale handle resolves to the body that recycled its slot", () => {
+    test("a stale handle does not resolve to the body that recycled its slot", () => {
         const world = new RAPIER.World(GRAVITY);
         const first = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(1, 1));
         const staleHandle = first.handle;
@@ -169,10 +169,10 @@ describe("handle lifetime", () => {
         const second = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(9, 9));
         expect(second.handle).not.toBe(staleHandle);
 
-        // Coarena keys on the arena index alone and ignores the generation bits,
-        // so a stale handle silently resolves to whichever body took the slot.
-        // This pins the current behaviour rather than endorsing it.
-        expect(world.getRigidBody(staleHandle)).toBe(second);
+        // Same arena index, different generation: the lookup compares the full
+        // handle, so the stale one keeps resolving to nothing.
+        expect(world.getRigidBody(staleHandle)).toBeNull();
+        expect(world.getRigidBody(second.handle)).toBe(second);
 
         world.free();
     });

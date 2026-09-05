@@ -3,6 +3,7 @@ import {CoefficientCombineRule, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
 import {RawShape, RawVHACDParameters} from "../raw";
+import {removedRef} from "../removed";
 import {scratch, scratchU32} from "../scratch";
 import {
     DEAD_TRANSFORM_BUFFER_REF,
@@ -94,6 +95,10 @@ export enum ActiveCollisionTypes {
  * The integer identifier of a collider added to a `ColliderSet`.
  */
 export type ColliderHandle = number;
+
+const REMOVED_COLLIDER_SET = removedRef<ColliderSet>(
+    "Invalid Collider reference. It may have been removed from the physics World.",
+);
 
 /**
  * Number of f32 values per collider in the world-space transform buffer.
@@ -192,7 +197,20 @@ export class Collider {
      * not been deleted from the collider set yet).
      */
     public isValid(): boolean {
-        return this.colliderSet.raw.contains(this.handle);
+        return (
+            this.colliderSet !== REMOVED_COLLIDER_SET && this.colliderSet.raw.contains(this.handle)
+        );
+    }
+
+    /**
+     * Detaches this object from the world it was removed from; see
+     * `RigidBody._markRemoved`.
+     *
+     * @internal
+     */
+    public _markRemoved() {
+        this._bufferRef = DEAD_TRANSFORM_BUFFER_REF;
+        this.colliderSet = REMOVED_COLLIDER_SET;
     }
 
     /**

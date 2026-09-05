@@ -4,7 +4,6 @@ import {RigidBodySet} from "../dynamics";
 import {RawColliderSet, wasmMemory} from "../raw";
 import {
     createTransformBufferRef,
-    DEAD_TRANSFORM_BUFFER_REF,
     invalidateTransformBuffer,
     refreshTransformBuffer,
     type TransformBufferRef,
@@ -191,6 +190,9 @@ export class ColliderSet {
         bodies: RigidBodySet,
         wakeUp: boolean,
     ) {
+        // Already removed (or a stale handle whose index was recycled): nothing
+        // to do, and the collider that owns the index now must be left alone.
+        if (!this.map.get(handle)) return;
         this.raw.remove(handle, islands.raw, bodies.raw, wakeUp);
         this.unmap(handle);
     }
@@ -202,10 +204,11 @@ export class ColliderSet {
     public unmap(handle: ColliderHandle) {
         const collider = this.map.get(handle);
         if (collider) {
-            // See `DEAD_TRANSFORM_BUFFER_REF`: the slot outlives the collider.
-            collider._bufferRef = DEAD_TRANSFORM_BUFFER_REF;
+            // The arena slot and the raw set both outlive the collider; see
+            // `Collider._markRemoved`.
+            collider._markRemoved();
+            this.map.delete(handle);
         }
-        this.map.delete(handle);
     }
 
     /**
