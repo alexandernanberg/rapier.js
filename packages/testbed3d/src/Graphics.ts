@@ -33,7 +33,6 @@ export const ACCENT_COLOR = 5;
  */
 const SENSOR_COLOR = 6;
 
-var dummy = new THREE.Object3D();
 var kk = 0;
 
 // Scratch objects for zero-allocation getters
@@ -46,6 +45,7 @@ const _quaternion = new THREE.Quaternion();
 const _prevPosition = new THREE.Vector3();
 const _prevQuaternion = new THREE.Quaternion();
 const _matrix = new THREE.Matrix4();
+const _mouse = new THREE.Vector2();
 
 interface InstanceDesc {
     /** Key of the instance group, i.e. of the geometry the collider is drawn with. */
@@ -54,8 +54,30 @@ interface InstanceDesc {
     elementId: number;
     highlighted: boolean;
     scale: THREE.Vector3;
+    /** Frame whose transform this collider was last drawn at, see `updatePositions`. */
+    frameId: number;
     // Interpolation state, populated on the first frame the instance is drawn.
     interpolation?: Interpolation;
+}
+
+/** How a collider drawn with a mesh of its own is tracked across frames. */
+interface MeshDesc {
+    mesh: THREE.Mesh;
+    /** Frame whose transform this collider was last drawn at, see `updatePositions`. */
+    frameId: number;
+    // Interpolation state, populated on the first frame the mesh is drawn.
+    interpolation?: Interpolation;
+}
+
+/**
+ * One geometry and the instanced meshes that draw it, at most one per palette slot.
+ *
+ * A slot is filled the first time a collider asks to be drawn in that color, so a
+ * demo that uses two of them doesn't pay for the other five.
+ */
+interface InstanceGroup {
+    geometry: THREE.BufferGeometry;
+    meshes: Array<THREE.InstancedMesh | undefined>;
 }
 
 /** How one collider is drawn: which instanced geometry, and the scale to apply to it. */
@@ -74,6 +96,38 @@ interface Interpolation {
 }
 
 type RAPIER_API = typeof import("@alexandernanberg/rapier3d");
+
+/**
+ * Advances one collider's interpolation state towards the pose sitting in
+ * `_position` / `_quaternion`, and leaves the pose to draw this frame in
+ * `_prevPosition` / `_prevQuaternion`.
+ *
+ * @param state - The collider's state, or `undefined` the first frame it is drawn.
+ * @param alpha - How far into the step being interpolated this frame sits.
+ */
+function interpolate(state: Interpolation | undefined, alpha: number): Interpolation {
+    if (state === undefined) {
+        state = {
+            prevPosition: _position.clone(),
+            prevQuaternion: _quaternion.clone(),
+            snapshotPosition: _position.clone(),
+            snapshotQuaternion: _quaternion.clone(),
+        };
+    } else {
+        state.prevPosition.copy(state.snapshotPosition);
+        state.prevQuaternion.copy(state.snapshotQuaternion);
+    }
+
+    _prevPosition.copy(state.prevPosition);
+    _prevQuaternion.copy(state.prevQuaternion);
+    _prevPosition.lerp(_position, alpha);
+    _prevQuaternion.slerp(_quaternion, alpha);
+
+    state.snapshotPosition.copy(_position);
+    state.snapshotQuaternion.copy(_quaternion);
+
+    return state;
+}
 
 // NOTE: this is a very naive voxels -> mesh conversion. Proper
 //       conversions should use something like greedy meshing instead.
@@ -373,8 +427,16 @@ export class Graphics {
     raycaster: THREE.Raycaster;
     highlightedCollider: null | number;
     coll2instance: Map<number, InstanceDesc>;
-    coll2mesh: Map<number, THREE.Mesh>;
-    rb2colls: Map<number, Array<RAPIER.Collider>>;
+    coll2mesh: Map<number, MeshDesc>;
+    /**
+     * Body handle -> handles of the colliders drawn for it.
+     *
+     * Handles rather than colliders: a `Collider` handed out by one world does not
+     * survive that world being freed (a snapshot restore) or the collider being
+     * removed, and `removeRigidBody` is called after the body has already left the
+     * world.
+     */
+    rb2colls: Map<number, Array<number>>;
     colorIndex: number;
     colorPalette: Array<number>;
     scene: THREE.Scene;
@@ -385,8 +447,34 @@ export class Graphics {
     controls: OrbitControls;
     /** Reused across frames so debug rendering allocates nothing per frame. */
     debugBuffers?: RAPIER.DebugRenderBuffers;
-    /** Geometry key -> one instanced mesh per palette slot, created on first use. */
-    instanceGroups: Map<string, Array<THREE.InstancedMesh>>;
+    /** Geometry key -> the instanced meshes drawing it, one per palette slot in use. */
+    instanceGroups: Map<string, InstanceGroup>;
+    /**
+     * The attributes the debug lines are drawn from, rebuilt only when `debugRender`
+     * comes back with a differently sized buffer. Re-uploading into the attributes
+     * already on the GPU beats handing three a new one — and so a new GPU buffer —
+     * every frame.
+     */
+    private debugVertices?: THREE.BufferAttribute;
+    private debugColors?: THREE.BufferAttribute;
+    /** Bumped once per `updatePositions`, to stamp what that frame has drawn. */
+    private frameId: number;
+    /**
+     * The colliders the previous frame drew, and the ones this frame has drawn. A
+     * body that fell asleep in between stops being reported active, so the
+     * difference is what still needs the one last update that lands it exactly on
+     * its resting pose.
+     */
+    private prevActive: Array<number>;
+    private currActive: Array<number>;
+    /**
+     * Set when the next frame has to re-read every collider rather than just the
+     * ones that moved: a demo was loaded, or a snapshot restored into a world that
+     * has not stepped since.
+     */
+    private fullUpdate: boolean;
+    /** Instanced meshes written this frame, whose matrices are uploaded at the end of it. */
+    private dirtyInstances: Array<THREE.InstancedMesh>;
 
     constructor() {
         this.raycaster = new THREE.Raycaster();
@@ -395,6 +483,11 @@ export class Graphics {
         this.coll2mesh = new Map();
         this.rb2colls = new Map();
         this.instanceGroups = new Map();
+        this.frameId = 0;
+        this.prevActive = [];
+        this.currActive = [];
+        this.fullUpdate = true;
+        this.dirtyInstances = [];
         this.colorIndex = 0;
         this.colorPalette = [0xf3d9b1, 0x98c1d9, 0x053c5e, 0x1f7a8c, 0xff0000, 0xffe066, 0xc8c8c8];
         this.scene = new THREE.Scene();
@@ -448,23 +541,45 @@ export class Graphics {
     }
 
     /**
-     * The instanced meshes of one geometry, one per palette slot.
+     * The instance group of one geometry.
      *
-     * Groups are built the first time a shape needs them and thrown away on
+     * Groups are built the first time a shape needs one and thrown away on
      * `reset()`, so a demo only pays for the shapes it actually uses.
      */
-    private instancesFor(shape: InstancedShape): Array<THREE.InstancedMesh> {
+    private groupFor(shape: InstancedShape): InstanceGroup {
         let group = this.instanceGroups.get(shape.key);
 
         if (group === undefined) {
-            let geometry = shape.geometry();
-            group = this.colorPalette.map((_, i) =>
-                this.newInstancedMesh(geometry, this.material(i), INITIAL_INSTANCES),
-            );
+            group = {
+                geometry: shape.geometry(),
+                meshes: new Array(this.colorPalette.length).fill(undefined),
+            };
             this.instanceGroups.set(shape.key, group);
         }
 
         return group;
+    }
+
+    /**
+     * The instanced mesh drawing one geometry in one palette slot, built on first use.
+     *
+     * Most demos draw a shape in two or three colors, so filling all seven slots up
+     * front would leave most of the instance buffers — and the scene nodes holding
+     * them — allocated and never drawn.
+     */
+    private meshFor(group: InstanceGroup, colorIndex: number): THREE.InstancedMesh {
+        let mesh = group.meshes[colorIndex];
+
+        if (mesh === undefined) {
+            mesh = this.newInstancedMesh(
+                group.geometry,
+                this.material(colorIndex),
+                INITIAL_INSTANCES,
+            );
+            group.meshes[colorIndex] = mesh;
+        }
+
+        return mesh;
     }
 
     private newInstancedMesh(
@@ -474,6 +589,9 @@ export class Graphics {
     ) {
         let instance = new THREE.InstancedMesh(geometry, material, capacity);
         instance.userData.elementId2coll = new Map();
+        // Stamped by `markDirty`, so an instanced mesh is queued for upload once a
+        // frame however many of its instances that frame moves.
+        instance.userData.dirtyFrame = -1;
         instance.count = 0;
         instance.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         // Instances sit wherever their bodies are, which says nothing about where
@@ -493,7 +611,7 @@ export class Graphics {
      */
     private growInstances(groupId: string, colorIndex: number): THREE.InstancedMesh {
         let group = this.instanceGroups.get(groupId)!;
-        let previous = group[colorIndex];
+        let previous = group.meshes[colorIndex]!;
         let grown = this.newInstancedMesh(
             previous.geometry,
             previous.material as THREE.Material,
@@ -501,6 +619,7 @@ export class Graphics {
         );
 
         grown.userData.elementId2coll = previous.userData.elementId2coll;
+        grown.userData.dirtyFrame = previous.userData.dirtyFrame;
         grown.count = previous.count;
         grown.instanceMatrix.array.set(previous.instanceMatrix.array);
         grown.instanceMatrix.needsUpdate = true;
@@ -510,7 +629,15 @@ export class Graphics {
         // the mesh that just replaced this one.
         previous.dispose();
 
-        group[colorIndex] = grown;
+        group.meshes[colorIndex] = grown;
+
+        // `dirtyInstances` may still hold the mesh that was just replaced; its
+        // matrices went to `grown`, so the upload has to follow them.
+        let queued = this.dirtyInstances.indexOf(previous);
+        if (queued !== -1) {
+            this.dirtyInstances[queued] = grown;
+        }
+
         return grown;
     }
 
@@ -554,11 +681,8 @@ export class Graphics {
                 this.debugBuffers,
             ));
             this.lines.visible = true;
-            this.lines.geometry.setAttribute(
-                "position",
-                new THREE.BufferAttribute(buffers.vertices, 3),
-            );
-            this.lines.geometry.setAttribute("color", new THREE.BufferAttribute(buffers.colors, 4));
+            this.updateDebugAttribute("position", buffers.vertices, 3);
+            this.updateDebugAttribute("color", buffers.colors, 4);
         } else {
             this.lines.visible = false;
         }
@@ -567,8 +691,39 @@ export class Graphics {
         this.renderer.render(this.scene, this.camera);
     }
 
+    /**
+     * Points one of the debug-line attributes at the buffer `debugRender` just filled.
+     *
+     * That buffer keeps its identity for as long as the line count holds steady, so
+     * the usual frame only flags the attribute already on the GPU for re-upload; a
+     * new attribute — and with it a new GPU buffer — is built only when the number
+     * of lines actually changes.
+     */
+    private updateDebugAttribute(
+        name: "position" | "color",
+        array: Float32Array,
+        itemSize: number,
+    ) {
+        let attribute = name === "position" ? this.debugVertices : this.debugColors;
+
+        if (attribute !== undefined && attribute.array === array) {
+            attribute.needsUpdate = true;
+            return;
+        }
+
+        attribute = new THREE.BufferAttribute(array, itemSize);
+        attribute.setUsage(THREE.DynamicDrawUsage);
+        this.lines.geometry.setAttribute(name, attribute);
+
+        if (name === "position") {
+            this.debugVertices = attribute;
+        } else {
+            this.debugColors = attribute;
+        }
+    }
+
     rayAtMousePosition(pos: {x: number; y: number}) {
-        this.raycaster.setFromCamera(new THREE.Vector2(pos.x, pos.y), this.camera);
+        this.raycaster.setFromCamera(_mouse.set(pos.x, pos.y), this.camera);
         return this.raycaster.ray;
     }
 
@@ -595,7 +750,13 @@ export class Graphics {
 
             if (!!desc) {
                 desc.highlighted = false;
-                this.instanceGroups.get(desc.groupId)![this.highlightInstanceId()].count = 0;
+                let highlight = this.instanceGroups.get(desc.groupId)?.meshes[
+                    this.highlightInstanceId()
+                ];
+
+                if (highlight !== undefined) {
+                    highlight.count = 0;
+                }
             }
         }
         if (handle != null) {
@@ -610,114 +771,190 @@ export class Graphics {
         this.highlightedCollider = handle;
     }
 
+    /**
+     * Re-reads the transforms this frame has to draw, and uploads what moved.
+     *
+     * Only the colliders of awake bodies are read. A fixed body never moves and a
+     * settled scene is mostly asleep, so walking every collider every frame spent an
+     * interpolation and a matrix write on thousands of shapes standing still — and,
+     * by flagging their instanced meshes, re-uploaded every matrix in the scene to
+     * the GPU along with them.
+     *
+     * @param alpha - How far into the step being interpolated this frame sits.
+     */
     updatePositions(world: RAPIER.World, alpha: number = 1) {
-        world.forEachCollider((elt) => {
-            let gfx = this.coll2instance.get(elt.handle);
-            elt.translation(_translation);
-            elt.rotation(_rotation);
+        this.frameId += 1;
+        this.currActive.length = 0;
 
-            _position.set(_translation.x, _translation.y, _translation.z);
-            _quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
+        if (this.fullUpdate) {
+            // Transforms changed without the world stepping, so there is no active
+            // set that describes what moved.
+            this.fullUpdate = false;
+            world.forEachCollider((collider) => {
+                this.updateCollider(collider, alpha);
+                this.currActive.push(collider.handle);
+            });
+        } else {
+            world.islands.forEachActiveRigidBodyHandle((handle) => {
+                let colls = this.rb2colls.get(handle);
 
-            if (!!gfx) {
-                let group = this.instanceGroups.get(gfx.groupId)!;
-                let instance = group[gfx.instanceId];
-
-                let interp = gfx.interpolation;
-                if (interp === undefined) {
-                    interp = {
-                        prevPosition: _position.clone(),
-                        prevQuaternion: _quaternion.clone(),
-                        snapshotPosition: _position.clone(),
-                        snapshotQuaternion: _quaternion.clone(),
-                    };
-                    gfx.interpolation = interp;
-                } else {
-                    interp.prevPosition.copy(interp.snapshotPosition);
-                    interp.prevQuaternion.copy(interp.snapshotQuaternion);
+                if (colls === undefined) {
+                    return;
                 }
 
-                _prevPosition.copy(interp.prevPosition);
-                _prevQuaternion.copy(interp.prevQuaternion);
-                _prevPosition.lerp(_position, alpha);
-                _prevQuaternion.slerp(_quaternion, alpha);
+                for (let i = 0; i < colls.length; ++i) {
+                    let collider = world.getCollider(colls[i]);
 
-                dummy.scale.set(gfx.scale.x, gfx.scale.y, gfx.scale.z);
-                dummy.position.copy(_prevPosition);
-                dummy.quaternion.copy(_prevQuaternion);
-                dummy.updateMatrix();
-                instance.setMatrixAt(gfx.elementId, dummy.matrix);
-
-                let highlightInstance = group[this.highlightInstanceId()];
-                if (gfx.highlighted) {
-                    highlightInstance.count = 1;
-                    highlightInstance.setMatrixAt(0, dummy.matrix);
+                    if (collider !== null) {
+                        this.updateCollider(collider, alpha);
+                        this.currActive.push(colls[i]);
+                    }
                 }
+            });
+        }
 
-                instance.instanceMatrix.needsUpdate = true;
-                highlightInstance.instanceMatrix.needsUpdate = true;
+        // A body that fell asleep since the previous frame is no longer reported, and
+        // the last pose it was drawn at is an interpolated one, short of where it
+        // actually came to rest. One more update at `alpha = 1` puts it there.
+        for (let i = 0; i < this.prevActive.length; ++i) {
+            let handle = this.prevActive[i];
+            let drawn = this.lastDrawnFrame(handle);
 
-                interp.snapshotPosition.copy(_position);
-                interp.snapshotQuaternion.copy(_quaternion);
+            if (drawn === -1 || drawn === this.frameId) {
+                continue;
             }
 
-            let mesh = this.coll2mesh.get(elt.handle);
+            let collider = world.getCollider(handle);
 
-            if (!!mesh) {
-                if (!mesh.userData.snapshotPosition) {
-                    mesh.userData.prevPosition = _position.clone();
-                    mesh.userData.prevQuaternion = _quaternion.clone();
-                    mesh.userData.snapshotPosition = _position.clone();
-                    mesh.userData.snapshotQuaternion = _quaternion.clone();
-                } else {
-                    mesh.userData.prevPosition.copy(mesh.userData.snapshotPosition);
-                    mesh.userData.prevQuaternion.copy(mesh.userData.snapshotQuaternion);
-                }
-
-                _prevPosition.copy(mesh.userData.prevPosition);
-                _prevQuaternion.copy(mesh.userData.prevQuaternion);
-                _prevPosition.lerp(_position, alpha);
-                _prevQuaternion.slerp(_quaternion, alpha);
-
-                mesh.position.copy(_prevPosition);
-                mesh.quaternion.copy(_prevQuaternion);
-                mesh.updateMatrix();
-
-                mesh.userData.snapshotPosition.copy(_position);
-                mesh.userData.snapshotQuaternion.copy(_quaternion);
+            if (collider !== null) {
+                this.updateCollider(collider, 1);
             }
-        });
+        }
+
+        let recycled = this.prevActive;
+        this.prevActive = this.currActive;
+        this.currActive = recycled;
+
+        for (let i = 0; i < this.dirtyInstances.length; ++i) {
+            this.dirtyInstances[i].instanceMatrix.needsUpdate = true;
+        }
+
+        this.dirtyInstances.length = 0;
+    }
+
+    /**
+     * Forces the next frame to re-read every collider rather than only the ones that
+     * moved, for the cases where transforms change without the world stepping: a demo
+     * being loaded, or a snapshot restored.
+     */
+    refresh() {
+        this.fullUpdate = true;
+    }
+
+    /** The frame this collider was last drawn at, or -1 if nothing draws it. */
+    private lastDrawnFrame(handle: number): number {
+        let gfx = this.coll2instance.get(handle);
+
+        if (gfx !== undefined) {
+            return gfx.frameId;
+        }
+
+        let meshDesc = this.coll2mesh.get(handle);
+        return meshDesc !== undefined ? meshDesc.frameId : -1;
+    }
+
+    /** Queues one instanced mesh's matrices for upload, at most once per frame. */
+    private markDirty(instance: THREE.InstancedMesh) {
+        if (instance.userData.dirtyFrame === this.frameId) {
+            return;
+        }
+
+        instance.userData.dirtyFrame = this.frameId;
+        this.dirtyInstances.push(instance);
+    }
+
+    /**
+     * Writes one collider's interpolated pose into whatever draws it.
+     *
+     * @param alpha - How far into the step being interpolated this frame sits.
+     */
+    private updateCollider(collider: RAPIER.Collider, alpha: number) {
+        let gfx = this.coll2instance.get(collider.handle);
+        let meshDesc = gfx === undefined ? this.coll2mesh.get(collider.handle) : undefined;
+
+        if (gfx === undefined && meshDesc === undefined) {
+            return;
+        }
+
+        collider.translation(_translation);
+        collider.rotation(_rotation);
+        _position.set(_translation.x, _translation.y, _translation.z);
+        _quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
+
+        if (gfx !== undefined) {
+            gfx.frameId = this.frameId;
+            gfx.interpolation = interpolate(gfx.interpolation, alpha);
+            _matrix.compose(_prevPosition, _prevQuaternion, gfx.scale);
+
+            let group = this.instanceGroups.get(gfx.groupId)!;
+            let instance = group.meshes[gfx.instanceId]!;
+            instance.setMatrixAt(gfx.elementId, _matrix);
+            this.markDirty(instance);
+
+            if (gfx.highlighted) {
+                let highlight = this.meshFor(group, this.highlightInstanceId());
+                highlight.count = 1;
+                highlight.setMatrixAt(0, _matrix);
+                this.markDirty(highlight);
+            }
+
+            return;
+        }
+
+        let desc = meshDesc!;
+        desc.frameId = this.frameId;
+        desc.interpolation = interpolate(desc.interpolation, alpha);
+        desc.mesh.position.copy(_prevPosition);
+        desc.mesh.quaternion.copy(_prevQuaternion);
+        desc.mesh.updateMatrix();
     }
 
     reset() {
         // Groups are keyed by geometry, and a demo's capsule sizes or convex hulls
         // are its own, so they go with it rather than piling up across demos. The
         // next demo rebuilds the handful it needs on its first collider.
-        this.instanceGroups.forEach((groups) => {
-            groups.forEach((instance, i) => {
+        this.instanceGroups.forEach((group) => {
+            group.meshes.forEach((instance) => {
+                if (instance === undefined) {
+                    return;
+                }
+
                 this.scene.remove(instance);
                 instance.dispose();
                 (instance.material as THREE.Material).dispose();
-
-                // One geometry is shared by every color of the group.
-                if (i == 0) {
-                    instance.geometry.dispose();
-                }
             });
+
+            // One geometry is shared by every color of the group.
+            group.geometry.dispose();
         });
 
         this.instanceGroups = new Map();
 
-        this.coll2mesh.forEach((mesh) => {
-            this.scene.remove(mesh);
-            mesh.geometry.dispose();
-            (mesh.material as THREE.Material).dispose();
+        this.coll2mesh.forEach((desc) => {
+            this.scene.remove(desc.mesh);
+            desc.mesh.geometry.dispose();
+            (desc.mesh.material as THREE.Material).dispose();
         });
 
         this.coll2mesh = new Map();
         this.coll2instance = new Map();
         this.rb2colls = new Map();
         this.colorIndex = 0;
+        this.prevActive.length = 0;
+        this.currActive.length = 0;
+        this.dirtyInstances.length = 0;
+        // Nothing has been drawn yet, so the next frame has no active set to work from.
+        this.fullUpdate = true;
     }
 
     // applyModifications(RAPIER: RAPIER_API, world: RAPIER.World, modifications) {
@@ -739,45 +976,59 @@ export class Graphics {
         let colls = this.rb2colls.get(body.handle);
 
         if (colls !== undefined) {
-            colls.forEach((coll) => this.removeCollider(coll));
+            // The body's own entry goes first: the collider objects it tracked are
+            // gone by the time a demo calls this (`world.removeRigidBody` runs first),
+            // so only their handles are still usable.
             this.rb2colls.delete(body.handle);
+            colls.forEach((handle) => this.removeColliderHandle(handle));
         }
     }
 
     removeCollider(collider: RAPIER.Collider) {
+        this.removeColliderHandle(collider.handle);
+    }
+
+    private removeColliderHandle(handle: number) {
         // Shapes drawn as their own mesh (trimesh, heightfield, capsule, …) have
         // no instance, and are removed from the scene instead.
-        let mesh = this.coll2mesh.get(collider.handle);
+        let meshDesc = this.coll2mesh.get(handle);
 
-        if (mesh !== undefined) {
-            this.scene.remove(mesh);
-            mesh.geometry.dispose();
-            (mesh.material as THREE.Material).dispose();
-            this.coll2mesh.delete(collider.handle);
+        if (meshDesc !== undefined) {
+            this.scene.remove(meshDesc.mesh);
+            meshDesc.mesh.geometry.dispose();
+            (meshDesc.mesh.material as THREE.Material).dispose();
+            this.coll2mesh.delete(handle);
             return;
         }
 
-        let gfx = this.coll2instance.get(collider.handle);
+        let gfx = this.coll2instance.get(handle);
 
         if (gfx === undefined) {
             return;
         }
 
-        let instance = this.instanceGroups.get(gfx.groupId)![gfx.instanceId];
+        let instance = this.instanceGroups.get(gfx.groupId)!.meshes[gfx.instanceId]!;
+        let last = instance.count - 1;
 
-        if (instance.count > 1) {
-            let coll2 = instance.userData.elementId2coll.get(instance.count - 1);
-            instance.userData.elementId2coll.delete(instance.count - 1);
+        if (last > 0 && last !== gfx.elementId) {
+            let coll2 = instance.userData.elementId2coll.get(last);
+            instance.userData.elementId2coll.delete(last);
             instance.userData.elementId2coll.set(gfx.elementId, coll2);
 
             let gfx2 = this.coll2instance.get(coll2.handle);
             if (gfx2 !== undefined) {
                 gfx2.elementId = gfx.elementId;
             }
+
+            // The instance moved down into the freed slot carries its pose with it:
+            // it is only rewritten while its body is awake, and it may well be asleep.
+            instance.getMatrixAt(last, _matrix);
+            instance.setMatrixAt(gfx.elementId, _matrix);
+            instance.instanceMatrix.needsUpdate = true;
         }
 
         instance.count -= 1;
-        this.coll2instance.delete(collider.handle);
+        this.coll2instance.delete(handle);
     }
 
     /**
@@ -825,10 +1076,10 @@ export class Graphics {
             let colls = this.rb2colls.get(parent.handle);
 
             if (colls === undefined) {
-                this.rb2colls.set(parent.handle, [collider]);
-            } else if (!colls.some((coll) => coll.handle === collider.handle)) {
+                this.rb2colls.set(parent.handle, [collider.handle]);
+            } else if (!colls.includes(collider.handle)) {
                 // A recolored collider is added back to a body that already tracks it.
-                colls.push(collider);
+                colls.push(collider.handle);
             }
         }
 
@@ -839,8 +1090,8 @@ export class Graphics {
             return;
         }
 
-        let group = this.instancesFor(shape);
-        let instance = group[colorIndex];
+        let group = this.groupFor(shape);
+        let instance = this.meshFor(group, colorIndex);
 
         // An instanced mesh ignores writes past the capacity it was built with, so
         // it has to be replaced by a bigger one before it fills up.
@@ -854,20 +1105,27 @@ export class Graphics {
             elementId: instance.count,
             highlighted: false,
             scale: shape.scale,
+            frameId: -1,
         };
 
         instance.userData.elementId2coll.set(instance.count, collider);
         instance.count += 1;
 
-        group[this.highlightInstanceId()].count = 0;
+        let highlight = group.meshes[this.highlightInstanceId()];
 
+        if (highlight !== undefined) {
+            highlight.count = 0;
+        }
+
+        // Seeded here rather than left to the next frame: a collider added to a body
+        // that is asleep (or fixed) is never reported active, so nothing would come
+        // back to place it.
         collider.translation(_translation);
         collider.rotation(_rotation);
-        dummy.position.set(_translation.x, _translation.y, _translation.z);
-        dummy.quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
-        dummy.scale.set(instanceDesc.scale.x, instanceDesc.scale.y, instanceDesc.scale.z);
-        dummy.updateMatrix();
-        instance.setMatrixAt(instanceDesc.elementId, dummy.matrix);
+        _position.set(_translation.x, _translation.y, _translation.z);
+        _quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
+        _matrix.compose(_position, _quaternion, instanceDesc.scale);
+        instance.setMatrixAt(instanceDesc.elementId, _matrix);
         instance.instanceMatrix.needsUpdate = true;
 
         this.coll2instance.set(collider.handle, instanceDesc);
@@ -929,7 +1187,14 @@ export class Graphics {
     /** Draws a collider with a mesh of its own, for the shapes that aren't instanced. */
     private addMesh(collider: RAPIER.Collider, geometry: THREE.BufferGeometry, colorIndex: number) {
         let mesh = new THREE.Mesh(geometry, this.material(colorIndex, true));
+        // As in `addCollider`: place it now, since a collider on a sleeping or fixed
+        // body is never reported active for `updatePositions` to pick up.
+        collider.translation(_translation);
+        collider.rotation(_rotation);
+        mesh.position.set(_translation.x, _translation.y, _translation.z);
+        mesh.quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
+        mesh.updateMatrix();
         this.scene.add(mesh);
-        this.coll2mesh.set(collider.handle, mesh);
+        this.coll2mesh.set(collider.handle, {mesh, frameId: -1});
     }
 }

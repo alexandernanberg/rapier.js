@@ -65,6 +65,8 @@ export class Testbed {
     lastFrameTime: number;
     accumulator: number;
     maxSubsteps: number;
+    /** Bound once, so the frame loop doesn't allocate a closure per frame. */
+    private readonly loop: () => void = () => this.run();
 
     constructor(RAPIER: RAPIER_API, builders: Builders) {
         let backends = ["rapier"];
@@ -134,6 +136,10 @@ export class Testbed {
             this.graphics.addCollider(this.RAPIER, world, coll);
         });
 
+        // The world has not stepped yet, so it reports nothing as active: the first
+        // frame has to read every collider rather than only the ones that moved.
+        this.graphics.refresh();
+
         this.lastMessageTime = new Date().getTime();
     }
 
@@ -179,6 +185,8 @@ export class Testbed {
                 this.world.free();
                 this.world = restored;
                 this.stepId = this.snapStepId;
+                // Every transform just changed without a step to report it.
+                this.graphics.refresh();
             }
         }
     }
@@ -282,6 +290,6 @@ export class Testbed {
         this.graphics.render(this.world, this.parameters.debugRender, alpha);
         this.gui.stats.end();
 
-        requestAnimationFrame(() => this.run());
+        requestAnimationFrame(this.loop);
     }
 }

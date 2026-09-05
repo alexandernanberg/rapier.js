@@ -60,6 +60,8 @@ export class Testbed {
     lastMessageTime: number;
     snap?: Uint8Array;
     snapStepId: number;
+    /** Bound once, so the frame loop doesn't allocate a closure per frame. */
+    private readonly loop: () => void = () => this.run();
 
     static async create(RAPIER: RAPIER_API, builders: Builders): Promise<Testbed> {
         const testbed = new Testbed(RAPIER, builders);
@@ -116,6 +118,10 @@ export class Testbed {
             this.graphics.addCollider(this.RAPIER, world, coll);
         });
 
+        // The world has not stepped yet, so it reports nothing as active: the first
+        // frame has to read every collider rather than only the ones that moved.
+        this.graphics.refresh();
+
         this.lastMessageTime = new Date().getTime();
     }
 
@@ -162,6 +168,8 @@ export class Testbed {
                 this.world.free();
                 this.world = restored;
                 this.stepId = this.snapStepId;
+                // Every transform just changed without a step to report it.
+                this.graphics.refresh();
             }
         }
     }
@@ -174,9 +182,11 @@ export class Testbed {
                 this.preTimestepAction(this.graphics);
             }
 
-            let t0 = new Date().getTime();
+            // `Date` only resolves to the millisecond, which a step rarely fills:
+            // the panel read 0 or 1 for most scenes.
+            let t0 = performance.now();
             this.world.step(this.events);
-            this.gui.setTiming(new Date().getTime() - t0);
+            this.gui.setTiming(performance.now() - t0);
             this.stepId += 1;
 
             if (!!this.parameters.debugInfos) {
@@ -213,6 +223,6 @@ export class Testbed {
         this.graphics.render(this.world, this.parameters.debugRender);
         this.gui.stats.end();
 
-        requestAnimationFrame(() => this.run());
+        requestAnimationFrame(this.loop);
     }
 }
