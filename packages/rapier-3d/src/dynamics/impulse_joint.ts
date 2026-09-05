@@ -385,13 +385,56 @@ export class RevoluteImpulseJoint extends UnitImpulseJoint {
     }
 }
 
-export class GenericImpulseJoint extends ImpulseJoint {}
-
-export class SphericalImpulseJoint extends ImpulseJoint {
+/**
+ * A joint whose axes are configured one by one, unlike `UnitImpulseJoint` which
+ * leaves a single axis free and configures that one implicitly.
+ *
+ * Which axes are actually free depends on the joint: a spherical joint leaves the
+ * three angular ones, a generic joint whichever its axes mask didn't lock.
+ */
+export class MultiAxisImpulseJoint extends ImpulseJoint {
     /**
-     * Sets the motor model of one of this joint's angular axes.
+     * Are the limits enabled for the given axis of this joint?
      *
-     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
+     * @param axis - The axis to read the limits of.
+     */
+    public limitsEnabled(axis: JointAxis): boolean {
+        return this.rawSet.jointLimitsEnabled(this.handle, axis as number as RawJointAxis);
+    }
+
+    /**
+     * The min limit of the given axis of this joint.
+     *
+     * @param axis - The axis to read the limits of.
+     */
+    public limitsMin(axis: JointAxis): number {
+        return this.rawSet.jointLimitsMin(this.handle, axis as number as RawJointAxis);
+    }
+
+    /**
+     * The max limit of the given axis of this joint.
+     *
+     * @param axis - The axis to read the limits of.
+     */
+    public limitsMax(axis: JointAxis): number {
+        return this.rawSet.jointLimitsMax(this.handle, axis as number as RawJointAxis);
+    }
+
+    /**
+     * Enables and sets the limits of the given axis of this joint.
+     *
+     * @param axis - The axis to limit.
+     * @param min - The minimum bound of that axis’ coordinate.
+     * @param max - The maximum bound of that axis’ coordinate.
+     */
+    public setLimits(axis: JointAxis, min: number, max: number) {
+        this.rawSet.jointSetLimits(this.handle, axis as number as RawJointAxis, min, max);
+    }
+
+    /**
+     * Sets the motor model of one of this joint's axes.
+     *
+     * @param axis - The axis to configure.
      * @param model - The motor model to apply to that axis.
      */
     public configureMotorModel(axis: JointAxis, model: MotorModel) {
@@ -403,20 +446,22 @@ export class SphericalImpulseJoint extends ImpulseJoint {
     }
 
     /**
-     * Sets the maximum torque the motor of the given angular axis can deliver.
+     * Sets the maximum force (or torque, for an angular axis) the motor of the
+     * given axis can deliver.
      *
-     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
-     * @param maxForce - The maximum torque the axis motor can deliver.
+     * @param axis - The axis to configure.
+     * @param maxForce - The maximum force the axis motor can deliver.
      */
     public setMotorMaxForce(axis: JointAxis, maxForce: number) {
         this.rawSet.jointSetMotorMaxForce(this.handle, axis as number as RawJointAxis, maxForce);
     }
 
     /**
-     * Makes the motor of the given angular axis target a specific angular velocity.
+     * Makes the motor of the given axis target a specific velocity.
      *
-     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
-     * @param targetVel - The target angular velocity along the axis, in radians per second.
+     * @param axis - The axis to configure.
+     * @param targetVel - The target velocity along the axis (radians per second for
+     *                    an angular axis).
      * @param factor - The strength used to reach the target velocity (a damping coefficient).
      */
     public configureMotorVelocity(axis: JointAxis, targetVel: number, factor: number) {
@@ -429,12 +474,13 @@ export class SphericalImpulseJoint extends ImpulseJoint {
     }
 
     /**
-     * Makes the motor of the given angular axis target a specific angle.
+     * Makes the motor of the given axis target a specific position.
      *
-     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
-     * @param targetPos - The target angle along the axis, in radians.
-     * @param stiffness - The spring-like stiffness used to reach the target angle.
-     * @param damping - The damping applied to the axis' angular velocity.
+     * @param axis - The axis to configure.
+     * @param targetPos - The target position along the axis (an angle in radians for
+     *                    an angular axis).
+     * @param stiffness - The spring-like stiffness used to reach the target position.
+     * @param damping - The damping applied to the axis' velocity.
      */
     public configureMotorPosition(
         axis: JointAxis,
@@ -452,14 +498,15 @@ export class SphericalImpulseJoint extends ImpulseJoint {
     }
 
     /**
-     * Configures the motor of the given angular axis with both an angle and an
-     * angular-velocity target.
+     * Configures the motor of the given axis with both a position and a velocity
+     * target.
      *
-     * @param axis - The angular axis (`JointAxis.AngX/AngY/AngZ`) to configure.
-     * @param targetPos - The target angle along the axis, in radians.
-     * @param targetVel - The target angular velocity along the axis, in radians per second.
-     * @param stiffness - The spring-like stiffness used to reach the target angle.
-     * @param damping - The damping applied to the axis' angular velocity.
+     * @param axis - The axis to configure.
+     * @param targetPos - The target position along the axis (an angle in radians for
+     *                    an angular axis).
+     * @param targetVel - The target velocity along the axis.
+     * @param stiffness - The spring-like stiffness used to reach the target position.
+     * @param damping - The damping applied to the axis' velocity.
      */
     public configureMotor(
         axis: JointAxis,
@@ -478,6 +525,12 @@ export class SphericalImpulseJoint extends ImpulseJoint {
         );
     }
 }
+
+/** A joint with customizable degrees of freedom, one per axis left free by its mask. */
+export class GenericImpulseJoint extends MultiAxisImpulseJoint {}
+
+/** A joint leaving the three angular degrees of freedom free. */
+export class SphericalImpulseJoint extends MultiAxisImpulseJoint {}
 
 export class JointData {
     anchor1!: Vector;

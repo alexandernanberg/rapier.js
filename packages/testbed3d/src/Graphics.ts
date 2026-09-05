@@ -7,6 +7,27 @@ const BALL_INSTANCE_INDEX = 1;
 const CYLINDER_INSTANCE_INDEX = 2;
 const CONE_INSTANCE_INDEX = 3;
 
+/** Palette slot used for colliders on a fixed body (or on no body at all). */
+const FIXED_COLOR = 0;
+/**
+ * How many palette slots `addCollider` hands out to dynamic bodies, starting at
+ * slot 1. The slots past those are only used when a demo asks for them by index,
+ * so adding one doesn't shift the colors of every other demo.
+ */
+const DYNAMIC_COLORS = 3;
+/** Palette slot of the mouse-over highlight. */
+const HIGHLIGHT_COLOR = 4;
+/**
+ * Palette slot left to demos that recolor bodies themselves (e.g. `sensor`
+ * flagging the boxes currently inside its sensor).
+ */
+export const ACCENT_COLOR = 5;
+/**
+ * Palette slot of sensor colliders, drawn as wireframes so what they overlap
+ * stays visible.
+ */
+const SENSOR_COLOR = 6;
+
 var dummy = new THREE.Object3D();
 var kk = 0;
 
@@ -257,7 +278,7 @@ export class Graphics {
         this.coll2mesh = new Map();
         this.rb2colls = new Map();
         this.colorIndex = 0;
-        this.colorPalette = [0xf3d9b1, 0x98c1d9, 0x053c5e, 0x1f7a8c, 0xff0000];
+        this.colorPalette = [0xf3d9b1, 0x98c1d9, 0x053c5e, 0x1f7a8c, 0xff0000, 0xffe066, 0xc8c8c8];
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(
             45,
@@ -310,48 +331,36 @@ export class Graphics {
     }
 
     initInstances() {
+        // Capacities are per color, and a shape that overflows its instanced mesh
+        // silently stops being drawn — so they have to cover the biggest demo of
+        // each kind (`domino` builds 4000 boxes, `primitives` 256 of each round
+        // shape) split over the `DYNAMIC_COLORS` slots.
         this.instanceGroups = [];
         this.instanceGroups.push(
-            this.colorPalette.map((color) => {
+            this.colorPalette.map((_, i) => {
                 let box = new THREE.BoxGeometry(2.0, 2.0, 2.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
-                    flatShading: true,
-                });
-                return new THREE.InstancedMesh(box, mat, 1000);
+                return new THREE.InstancedMesh(box, this.material(i), 2000);
             }),
         );
 
         this.instanceGroups.push(
-            this.colorPalette.map((color) => {
+            this.colorPalette.map((_, i) => {
                 let ball = new THREE.SphereGeometry(1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
-                    flatShading: true,
-                });
-                return new THREE.InstancedMesh(ball, mat, 1000);
+                return new THREE.InstancedMesh(ball, this.material(i), 1000);
             }),
         );
 
         this.instanceGroups.push(
-            this.colorPalette.map((color) => {
+            this.colorPalette.map((_, i) => {
                 let cylinder = new THREE.CylinderGeometry(1.0, 1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
-                    flatShading: true,
-                });
-                return new THREE.InstancedMesh(cylinder, mat, 100);
+                return new THREE.InstancedMesh(cylinder, this.material(i), 500);
             }),
         );
 
         this.instanceGroups.push(
-            this.colorPalette.map((color) => {
+            this.colorPalette.map((_, i) => {
                 let cone = new THREE.ConeGeometry(1.0, 1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
-                    flatShading: true,
-                });
-                return new THREE.InstancedMesh(cone, mat, 100);
+                return new THREE.InstancedMesh(cone, this.material(i), 500);
             }),
         );
 
@@ -362,6 +371,23 @@ export class Graphics {
                 instance.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
                 this.scene.add(instance);
             });
+        });
+    }
+
+    /**
+     * The material of one palette slot.
+     *
+     * @param doubleSided - For the shapes that aren't closed surfaces (a heightfield,
+     *                      an open trimesh), whose back faces have to be drawn too.
+     */
+    private material(colorIndex: number, doubleSided: boolean = false) {
+        return new THREE.MeshPhongMaterial({
+            color: this.colorPalette[colorIndex],
+            side: doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+            flatShading: true,
+            // Sensors don't collide with anything, so drawing them solid would only
+            // hide the bodies passing through them.
+            wireframe: colorIndex == SENSOR_COLOR,
         });
     }
 
@@ -416,7 +442,7 @@ export class Graphics {
     }
 
     highlightInstanceId() {
-        return this.colorPalette.length - 1;
+        return HIGHLIGHT_COLOR;
     }
 
     highlightCollider(handle: number) {
@@ -533,8 +559,11 @@ export class Graphics {
 
         this.coll2mesh.forEach((mesh) => {
             this.scene.remove(mesh);
+            mesh.geometry.dispose();
+            (mesh.material as THREE.Material).dispose();
         });
 
+        this.coll2mesh = new Map();
         this.coll2instance = new Map();
         this.rb2colls = new Map();
         this.colorIndex = 0;
@@ -565,9 +594,20 @@ export class Graphics {
     }
 
     removeCollider(collider: RAPIER.Collider) {
+        // Shapes drawn as their own mesh (trimesh, heightfield, capsule, …) have
+        // no instance, and are removed from the scene instead.
+        let mesh = this.coll2mesh.get(collider.handle);
+
+        if (mesh !== undefined) {
+            this.scene.remove(mesh);
+            mesh.geometry.dispose();
+            (mesh.material as THREE.Material).dispose();
+            this.coll2mesh.delete(collider.handle);
+            return;
+        }
+
         let gfx = this.coll2instance.get(collider.handle);
 
-        // Shapes drawn as their own mesh (trimesh, heightfield, …) have no instance.
         if (gfx === undefined) {
             return;
         }
@@ -589,16 +629,54 @@ export class Graphics {
         this.coll2instance.delete(collider.handle);
     }
 
-    addCollider(RAPIER: RAPIER_API, world: RAPIER.World, collider: RAPIER.Collider) {
-        this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 2);
+    /**
+     * Redraws a collider with another palette slot (see `ACCENT_COLOR`).
+     *
+     * The color of an instanced shape is the instanced mesh it belongs to, so
+     * recoloring means dropping the collider and adding it back to another one.
+     */
+    setColliderColor(
+        RAPIER: RAPIER_API,
+        world: RAPIER.World,
+        collider: RAPIER.Collider,
+        colorIndex: number,
+    ) {
+        this.removeCollider(collider);
+        this.addCollider(RAPIER, world, collider, colorIndex);
+    }
+
+    /**
+     * @param colorIndex - Palette slot to draw the collider with. Defaults to the
+     *                     next one in the rotation used for dynamic bodies.
+     */
+    addCollider(
+        RAPIER: RAPIER_API,
+        world: RAPIER.World,
+        collider: RAPIER.Collider,
+        colorIndex?: number,
+    ) {
         let parent = collider.parent();
+
+        if (colorIndex === undefined) {
+            this.colorIndex = (this.colorIndex + 1) % DYNAMIC_COLORS;
+
+            if (collider.isSensor()) {
+                colorIndex = SENSOR_COLOR;
+            } else {
+                // A collider without a parent body is static, so color it like a fixed
+                // one. The dynamic slots are the `DYNAMIC_COLORS` right after that one.
+                colorIndex =
+                    parent === null || parent.isFixed() ? FIXED_COLOR : this.colorIndex + 1;
+            }
+        }
 
         if (parent !== null) {
             let colls = this.rb2colls.get(parent.handle);
 
             if (colls === undefined) {
                 this.rb2colls.set(parent.handle, [collider]);
-            } else {
+            } else if (!colls.some((coll) => coll.handle === collider.handle)) {
+                // A recolored collider is added back to a body that already tracks it.
                 colls.push(collider);
             }
         }
@@ -606,8 +684,7 @@ export class Graphics {
         let instance;
         let instanceDesc: InstanceDesc = {
             groupId: 0,
-            // A collider without a parent body is static, so colour it like a fixed one.
-            instanceId: parent === null || parent.isFixed() ? 0 : this.colorIndex + 1,
+            instanceId: colorIndex,
             elementId: 0,
             highlighted: false,
             scale: new THREE.Vector3(1.0, 1.0, 1.0),
@@ -641,6 +718,17 @@ export class Graphics {
                 instanceDesc.groupId = CONE_INSTANCE_INDEX;
                 instanceDesc.scale = new THREE.Vector3(cone_rad, cone_height, cone_rad);
                 break;
+            case RAPIER.ShapeType.Capsule: {
+                // A capsule isn't a scaled copy of a unit capsule unless its radius
+                // and half-height happen to match, so it gets its own mesh rather
+                // than a slot in an instanced one.
+                let capsuleGeometry = new THREE.CapsuleGeometry(
+                    collider.radius(),
+                    collider.halfHeight() * 2.0,
+                );
+                this.addMesh(collider, capsuleGeometry, colorIndex);
+                return;
+            }
             case RAPIER.ShapeType.TriMesh:
             case RAPIER.ShapeType.HeightField:
             case RAPIER.ShapeType.ConvexPolyhedron:
@@ -678,17 +766,7 @@ export class Graphics {
 
                 geometry.setIndex(Array.from(indices));
                 geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-                let color = parent !== null && !parent.isFixed() ? this.colorIndex + 1 : 0;
-
-                let material = new THREE.MeshPhongMaterial({
-                    color: this.colorPalette[color],
-                    side: THREE.DoubleSide,
-                    flatShading: true,
-                });
-
-                let mesh = new THREE.Mesh(geometry, material);
-                this.scene.add(mesh);
-                this.coll2mesh.set(collider.handle, mesh);
+                this.addMesh(collider, geometry, colorIndex);
                 return;
             default:
                 console.log("Unknown shape to render.");
@@ -715,5 +793,12 @@ export class Graphics {
         instance.instanceMatrix.needsUpdate = true;
 
         this.coll2instance.set(collider.handle, instanceDesc);
+    }
+
+    /** Draws a collider with a mesh of its own, for the shapes that aren't instanced. */
+    private addMesh(collider: RAPIER.Collider, geometry: THREE.BufferGeometry, colorIndex: number) {
+        let mesh = new THREE.Mesh(geometry, this.material(colorIndex, true));
+        this.scene.add(mesh);
+        this.coll2mesh.set(collider.handle, mesh);
     }
 }
