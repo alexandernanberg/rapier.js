@@ -58,9 +58,17 @@ impl RawRotation {
 #[cfg(feature = "dim3")]
 /// A unit quaternion describing the orientation of a Rapier entity.
 impl RawRotation {
+    /// Builds a rotation from quaternion components.
+    ///
+    /// Same policy as every other quaternion entry point (see
+    /// `utils::unit_rotation`): a quaternion that drifted off unit length is
+    /// normalized, and a zero or non-finite one falls back to the identity.
+    /// glam's rotation ops assume a unit quaternion, so passing a drifted one
+    /// through as-is would scale whatever it rotates (a shape query, a joint
+    /// frame) by its squared length.
     #[wasm_bindgen(constructor)]
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
-        RawRotation(Rotation::from_xyzw(x, y, z, w))
+        RawRotation(crate::utils::unit_rotation(x, y, z, w).unwrap_or(Rotation::IDENTITY))
     }
 
     /// The identity quaternion.

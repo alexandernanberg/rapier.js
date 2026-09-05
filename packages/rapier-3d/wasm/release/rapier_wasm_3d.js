@@ -2736,16 +2736,33 @@ export class RawImpulseJointSet {
         return ret !== 0;
     }
     /**
+     * Creates a joint between two bodies, or returns `None` if either body is
+     * not (or no longer) part of `bodies`.
+     *
+     * Rapier's `insert` takes the handles on trust; a joint attached to a
+     * removed body would then index the body arena from inside the next
+     * `step()`, and on wasm32 that panic is a module-wide trap far away from
+     * the call that caused it. The JS side turns the `None` into an exception
+     * at the creation site instead.
+     * @param {RawRigidBodySet} bodies
      * @param {RawGenericJoint} params
      * @param {number} parent1
      * @param {number} parent2
      * @param {boolean} wake_up
-     * @returns {number}
+     * @returns {number | undefined}
      */
-    createJoint(params, parent1, parent2, wake_up) {
-        _assertClass(params, RawGenericJoint);
-        const ret = wasm.rawimpulsejointset_createJoint(this.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wake_up);
-        return ret;
+    createJoint(bodies, params, parent1, parent2, wake_up) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            _assertClass(bodies, RawRigidBodySet);
+            _assertClass(params, RawGenericJoint);
+            wasm.rawimpulsejointset_createJoint(retptr, this.__wbg_ptr, bodies.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wake_up);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * Applies the given JavaScript function to the integer handle of each joint attached to the given rigid-body.
@@ -3686,17 +3703,19 @@ export class RawMultibodyJointSet {
      * real handle — the very next accessor looked it up and hit the "Invalid Joint
      * reference" `expect` in [`Self::map`], i.e. a WASM trap for what is an
      * ordinary rejected-topology error.
+     * @param {RawRigidBodySet} bodies
      * @param {RawGenericJoint} params
      * @param {number} parent1
      * @param {number} parent2
      * @param {boolean} wakeUp
      * @returns {number | undefined}
      */
-    createJoint(params, parent1, parent2, wakeUp) {
+    createJoint(bodies, params, parent1, parent2, wakeUp) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            _assertClass(bodies, RawRigidBodySet);
             _assertClass(params, RawGenericJoint);
-            wasm.rawmultibodyjointset_createJoint(retptr, this.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wakeUp);
+            wasm.rawmultibodyjointset_createJoint(retptr, this.__wbg_ptr, bodies.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wakeUp);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
             return r0 === 0 ? undefined : r2;
@@ -5240,6 +5259,14 @@ export class RawRotation {
         return RawRotation.__wrap(ret);
     }
     /**
+     * Builds a rotation from quaternion components.
+     *
+     * Same policy as every other quaternion entry point (see
+     * `utils::unit_rotation`): a quaternion that drifted off unit length is
+     * normalized, and a zero or non-finite one falls back to the identity.
+     * glam's rotation ops assume a unit quaternion, so passing a drifted one
+     * through as-is would scale whatever it rotates (a shape query, a joint
+     * frame) by its squared length.
      * @param {number} x
      * @param {number} y
      * @param {number} z
@@ -6021,28 +6048,32 @@ export class RawShape {
         return ret === 0 ? undefined : RawVector.__wrap(ret);
     }
     /**
+     * Builds a voxel shape from grid coordinates, or returns `None` if the
+     * buffer is ragged (its length is not a multiple of the dimension).
      * @param {RawVector} voxel_size
      * @param {Int32Array} grid_coords
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static voxels(voxel_size, grid_coords) {
         _assertClass(voxel_size, RawVector);
         const ptr0 = passArray32ToWasm0(grid_coords, wasm.__wbindgen_export3);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.rawshape_voxels(voxel_size.__wbg_ptr, ptr0, len0);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
     /**
+     * Builds a voxel shape from the points it must cover, or returns `None` if
+     * the point buffer is ragged.
      * @param {RawVector} voxel_size
      * @param {Float32Array} points
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static voxelsFromPoints(voxel_size, points) {
         _assertClass(voxel_size, RawVector);
         const ptr0 = passArrayF32ToWasm0(points, wasm.__wbindgen_export3);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.rawshape_voxelsFromPoints(voxel_size.__wbg_ptr, ptr0, len0);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
 }
 if (Symbol.dispose) RawShape.prototype[Symbol.dispose] = RawShape.prototype.free;

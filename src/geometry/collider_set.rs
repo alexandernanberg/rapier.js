@@ -65,6 +65,30 @@ impl RawColliderSet {
         result
     }
 
+    /// Like [`Self::map_mut`], for mutations that cannot change the collider's
+    /// world pose: shape, material, groups, events, mass properties, flags.
+    ///
+    /// Routing those through `map_mut` would not be wrong, only wasteful: every
+    /// call would rewrite the slot with unchanged values and, worse, count the
+    /// collider toward the pending list's `max(64, len / 2)` budget, after which
+    /// the incremental sync gives up and every step rewrites every slot. A
+    /// voxel editor calling `setVoxel` on a hundred chunks per frame, or a game
+    /// toggling collision groups on most of its colliders, would lose the
+    /// incremental sync entirely. Same split as `RawRigidBodySet`.
+    pub(crate) fn map_mut_untracked<T>(
+        &mut self,
+        handle: FlatHandle,
+        f: impl FnOnce(&mut Collider) -> T,
+    ) -> T {
+        let collider = self
+            .0
+            .get_mut(utils::collider_handle(handle))
+            .expect("Invalid Collider reference. It may have been removed from the physics World.");
+        f(collider)
+    }
+
+    /// Mutates two colliders at once. Only used for voxel edits, which cannot
+    /// change either pose, so nothing is marked or written through.
     pub(crate) fn map_pair_mut<T>(
         &mut self,
         handle1: FlatHandle,
@@ -73,22 +97,8 @@ impl RawColliderSet {
     ) -> T {
         let handle1 = utils::collider_handle(handle1);
         let handle2 = utils::collider_handle(handle2);
-        let len = self.0.len();
-        self.1.mark_pending(handle1, len);
-        self.1.mark_pending(handle2, len);
-
         let (collider1, collider2) = self.0.get_pair_mut(handle1, handle2);
-        let result = f(collider1, collider2);
-
-        for handle in [handle1, handle2] {
-            if let Some(collider) = self.0.get(handle) {
-                if let Some(slot) = self.1.existing_slot(handle.arena_index()) {
-                    write_collider_transform(slot, collider);
-                }
-            }
-        }
-
-        result
+        f(collider1, collider2)
     }
 
     /// Syncs collider world transforms into the contiguous buffer, resizing it to
@@ -113,9 +123,11 @@ impl RawColliderSet {
         let needs_full_sync = self.1.take_needs_full_sync();
 
         // Same trade-off as the body sync: walking the arena in order is cheaper
-        // than chasing every parent body's collider list once most bodies moved.
+        // than chasing every parent body's collider list once the moved bodies
+        // account for most of the *colliders* (each moved body carries at least
+        // one collider worth of work, and usually exactly one).
         let moved_bodies = moved_bodies
-            .filter(|moved| !mostly_moved(moved.len(), bodies.len()))
+            .filter(|moved| !mostly_moved(moved.len(), self.0.len()))
             .filter(|_| !needs_full_sync);
 
         let Some(moved_bodies) = moved_bodies else {
@@ -276,9 +288,12 @@ impl RawColliderSet {
             builder = builder.mass_properties(mprops);
         } else if massPropsMode == MassPropsMode::Density as u32 {
             builder = builder.density(density);
-        } else {
-            assert_eq!(massPropsMode, MassPropsMode::Mass as u32);
+        } else if massPropsMode == MassPropsMode::Mass as u32 {
             builder = builder.mass(mass);
+        } else {
+            // `ColliderDesc.massPropsMode` is a plain field on the JS side; a
+            // value outside the enum is a bad argument, not a reason to trap.
+            return None;
         };
 
         let collider = builder.build();

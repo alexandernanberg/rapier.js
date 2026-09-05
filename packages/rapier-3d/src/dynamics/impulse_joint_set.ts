@@ -62,8 +62,17 @@ export class ImpulseJointSet {
         wakeUp: boolean,
     ): ImpulseJoint {
         const rawParams = desc.intoRaw();
-        const handle = this.raw.createJoint(rawParams, parent1, parent2, wakeUp);
+        const handle = this.raw.createJoint(bodies.raw, rawParams, parent1, parent2, wakeUp);
         rawParams.free();
+
+        if (handle === undefined) {
+            // Left unchecked, the joint would trap the module from inside the
+            // next `step()` rather than fail here.
+            throw new Error(
+                "Cannot create a joint attached to a rigid-body that is not part of the world (it may have been removed).",
+            );
+        }
+
         let joint = ImpulseJoint.newTyped(this.raw, bodies, handle);
         this.map.set(handle, joint);
         return joint;

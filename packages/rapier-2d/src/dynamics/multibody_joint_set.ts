@@ -67,13 +67,14 @@ export class MultibodyJointSet {
         wakeUp: boolean,
     ): MultibodyJoint {
         const rawParams = desc.intoRaw();
-        const handle = this.raw.createJoint(rawParams, parent1, parent2, wakeUp);
+        const handle = this.raw.createJoint(bodies.raw, rawParams, parent1, parent2, wakeUp);
         rawParams.free();
 
         if (handle === undefined) {
             throw new Error(
-                "could not create the multibody joint: `parent2` already has a parent joint, " +
-                    "or both bodies already belong to the same multibody",
+                "could not create the multibody joint: a body is not part of the world (it may " +
+                    "have been removed), `parent2` already has a parent joint, or both bodies " +
+                    "already belong to the same multibody",
             );
         }
 

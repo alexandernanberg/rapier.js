@@ -1,4 +1,4 @@
-use crate::dynamics::RawGenericJoint;
+use crate::dynamics::{RawGenericJoint, RawRigidBodySet};
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::{ImpulseJoint, ImpulseJointSet};
 use wasm_bindgen::prelude::*;
@@ -36,23 +36,30 @@ impl RawImpulseJointSet {
         RawImpulseJointSet(ImpulseJointSet::new())
     }
 
+    /// Creates a joint between two bodies, or returns `None` if either body is
+    /// not (or no longer) part of `bodies`.
+    ///
+    /// Rapier's `insert` takes the handles on trust; a joint attached to a
+    /// removed body would then index the body arena from inside the next
+    /// `step()`, and on wasm32 that panic is a module-wide trap far away from
+    /// the call that caused it. The JS side turns the `None` into an exception
+    /// at the creation site instead.
     pub fn createJoint(
         &mut self,
+        bodies: &RawRigidBodySet,
         params: &RawGenericJoint,
         parent1: FlatHandle,
         parent2: FlatHandle,
         wake_up: bool,
-    ) -> FlatHandle {
-        utils::flat_handle(
-            self.0
-                .insert(
-                    utils::body_handle(parent1),
-                    utils::body_handle(parent2),
-                    params.0.clone(),
-                    wake_up,
-                )
-                .0,
-        )
+    ) -> Option<FlatHandle> {
+        let parent1 = utils::body_handle(parent1);
+        let parent2 = utils::body_handle(parent2);
+        if !bodies.bodies.contains(parent1) || !bodies.bodies.contains(parent2) {
+            return None;
+        }
+
+        let handle = self.0.insert(parent1, parent2, params.0.clone(), wake_up);
+        Some(utils::flat_handle(handle.0))
     }
 
     pub fn remove(&mut self, handle: FlatHandle, wakeUp: bool) {

@@ -264,7 +264,7 @@ impl RawColliderSet {
 
     /// Set the half-extents of this collider if it has a cuboid shape.
     pub fn coSetHalfExtents(&mut self, handle: FlatHandle, newHalfExtents: &RawVector) {
-        self.map_mut(handle, |co| match co.shape().shape_type() {
+        self.map_mut_untracked(handle, |co| match co.shape().shape_type() {
             ShapeType::Cuboid => co
                 .shape_mut()
                 .as_cuboid_mut()
@@ -298,7 +298,7 @@ impl RawColliderSet {
 
     /// Set the radius of this collider if it is a ball, capsule, cylinder, or cone shape.
     pub fn coSetRadius(&mut self, handle: FlatHandle, newRadius: Real) {
-        self.map_mut(handle, |co| match co.shape().shape_type() {
+        self.map_mut_untracked(handle, |co| match co.shape().shape_type() {
             ShapeType::Ball => co.shape_mut().as_ball_mut().map(|b| b.radius = newRadius),
             ShapeType::Capsule => co
                 .shape_mut()
@@ -349,14 +349,16 @@ impl RawColliderSet {
 
     /// Set the half height of this collider if it is a capsule, cylinder, or cone shape.
     pub fn coSetHalfHeight(&mut self, handle: FlatHandle, newHalfheight: Real) {
-        self.map_mut(handle, |co| match co.shape().shape_type() {
-            ShapeType::Capsule => {
-                let point = Vector::Y * newHalfheight;
-                co.shape_mut().as_capsule_mut().map(|b| {
-                    b.segment.a = -point;
-                    b.segment.b = point;
-                })
-            }
+        self.map_mut_untracked(handle, |co| match co.shape().shape_type() {
+            ShapeType::Capsule => co.shape_mut().as_capsule_mut().map(|b| {
+                // Keep the capsule's axis (a deserialized world may hold one
+                // that is not aligned with `Y`); only its length changes.
+                let axis = (b.segment.b - b.segment.a).normalize_or(Vector::Y);
+                let center = (b.segment.a + b.segment.b) * 0.5;
+                let half = axis * newHalfheight;
+                b.segment.a = center - half;
+                b.segment.b = center + half;
+            }),
             #[cfg(feature = "dim3")]
             ShapeType::Cylinder => co
                 .shape_mut()
@@ -406,7 +408,7 @@ impl RawColliderSet {
 
     /// Set the radius of the round edges of this collider.
     pub fn coSetRoundRadius(&mut self, handle: FlatHandle, newBorderRadius: Real) {
-        self.map_mut(handle, |co| match co.shape().shape_type() {
+        self.map_mut_untracked(handle, |co| match co.shape().shape_type() {
             ShapeType::RoundCuboid => co
                 .shape_mut()
                 .as_round_cuboid_mut()
@@ -441,7 +443,7 @@ impl RawColliderSet {
 
     #[cfg(feature = "dim2")]
     pub fn coSetVoxel(&mut self, handle: FlatHandle, ix: i32, iy: i32, filled: bool) {
-        self.map_mut(handle, |co| {
+        self.map_mut_untracked(handle, |co| {
             if let Some(vox) = co.shape_mut().as_voxels_mut() {
                 vox.set_voxel(IVector::new(ix, iy), filled);
             }
@@ -450,7 +452,7 @@ impl RawColliderSet {
 
     #[cfg(feature = "dim3")]
     pub fn coSetVoxel(&mut self, handle: FlatHandle, ix: i32, iy: i32, iz: i32, filled: bool) {
-        self.map_mut(handle, |co| {
+        self.map_mut_untracked(handle, |co| {
             if let Some(vox) = co.shape_mut().as_voxels_mut() {
                 vox.set_voxel(IVector::new(ix, iy, iz), filled);
             }
@@ -678,7 +680,7 @@ impl RawColliderSet {
     }
 
     pub fn coSetEnabled(&mut self, handle: FlatHandle, enabled: bool) {
-        self.map_mut(handle, |co| co.set_enabled(enabled))
+        self.map_mut_untracked(handle, |co| co.set_enabled(enabled))
     }
 
     pub fn coIsEnabled(&self, handle: FlatHandle) -> bool {
@@ -686,7 +688,7 @@ impl RawColliderSet {
     }
 
     pub fn coSetContactSkin(&mut self, handle: FlatHandle, contact_skin: f32) {
-        self.map_mut(handle, |co| co.set_contact_skin(contact_skin))
+        self.map_mut_untracked(handle, |co| co.set_contact_skin(contact_skin))
     }
 
     pub fn coContactSkin(&self, handle: FlatHandle) -> f32 {
@@ -1046,15 +1048,15 @@ impl RawColliderSet {
     }
 
     pub fn coSetSensor(&mut self, handle: FlatHandle, is_sensor: bool) {
-        self.map_mut(handle, |co| co.set_sensor(is_sensor))
+        self.map_mut_untracked(handle, |co| co.set_sensor(is_sensor))
     }
 
     pub fn coSetRestitution(&mut self, handle: FlatHandle, restitution: f32) {
-        self.map_mut(handle, |co| co.set_restitution(restitution))
+        self.map_mut_untracked(handle, |co| co.set_restitution(restitution))
     }
 
     pub fn coSetFriction(&mut self, handle: FlatHandle, friction: f32) {
-        self.map_mut(handle, |co| co.set_friction(friction))
+        self.map_mut_untracked(handle, |co| co.set_friction(friction))
     }
 
     pub fn coFrictionCombineRule(&self, handle: FlatHandle) -> u32 {
@@ -1063,7 +1065,7 @@ impl RawColliderSet {
 
     pub fn coSetFrictionCombineRule(&mut self, handle: FlatHandle, rule: u32) {
         let rule = super::combine_rule_from_u32(rule);
-        self.map_mut(handle, |co| co.set_friction_combine_rule(rule))
+        self.map_mut_untracked(handle, |co| co.set_friction_combine_rule(rule))
     }
 
     pub fn coRestitutionCombineRule(&self, handle: FlatHandle) -> u32 {
@@ -1072,48 +1074,48 @@ impl RawColliderSet {
 
     pub fn coSetRestitutionCombineRule(&mut self, handle: FlatHandle, rule: u32) {
         let rule = super::combine_rule_from_u32(rule);
-        self.map_mut(handle, |co| co.set_restitution_combine_rule(rule))
+        self.map_mut_untracked(handle, |co| co.set_restitution_combine_rule(rule))
     }
 
     pub fn coSetCollisionGroups(&mut self, handle: FlatHandle, groups: u32) {
         let groups = super::unpack_interaction_groups(groups);
-        self.map_mut(handle, |co| co.set_collision_groups(groups))
+        self.map_mut_untracked(handle, |co| co.set_collision_groups(groups))
     }
 
     pub fn coSetSolverGroups(&mut self, handle: FlatHandle, groups: u32) {
         let groups = super::unpack_interaction_groups(groups);
-        self.map_mut(handle, |co| co.set_solver_groups(groups))
+        self.map_mut_untracked(handle, |co| co.set_solver_groups(groups))
     }
 
     pub fn coSetActiveHooks(&mut self, handle: FlatHandle, hooks: u32) {
         let hooks = ActiveHooks::from_bits_truncate(hooks);
-        self.map_mut(handle, |co| co.set_active_hooks(hooks));
+        self.map_mut_untracked(handle, |co| co.set_active_hooks(hooks));
     }
 
     pub fn coSetActiveEvents(&mut self, handle: FlatHandle, events: u32) {
         let events = ActiveEvents::from_bits_truncate(events);
-        self.map_mut(handle, |co| co.set_active_events(events))
+        self.map_mut_untracked(handle, |co| co.set_active_events(events))
     }
 
     pub fn coSetActiveCollisionTypes(&mut self, handle: FlatHandle, types: u16) {
         let types = ActiveCollisionTypes::from_bits_truncate(types);
-        self.map_mut(handle, |co| co.set_active_collision_types(types));
+        self.map_mut_untracked(handle, |co| co.set_active_collision_types(types));
     }
 
     pub fn coSetShape(&mut self, handle: FlatHandle, shape: &RawShape) {
-        self.map_mut(handle, |co| co.set_shape(shape.0.clone()));
+        self.map_mut_untracked(handle, |co| co.set_shape(shape.0.clone()));
     }
 
     pub fn coSetContactForceEventThreshold(&mut self, handle: FlatHandle, threshold: f32) {
-        self.map_mut(handle, |co| co.set_contact_force_event_threshold(threshold))
+        self.map_mut_untracked(handle, |co| co.set_contact_force_event_threshold(threshold))
     }
 
     pub fn coSetDensity(&mut self, handle: FlatHandle, density: f32) {
-        self.map_mut(handle, |co| co.set_density(density))
+        self.map_mut_untracked(handle, |co| co.set_density(density))
     }
 
     pub fn coSetMass(&mut self, handle: FlatHandle, mass: f32) {
-        self.map_mut(handle, |co| co.set_mass(mass))
+        self.map_mut_untracked(handle, |co| co.set_mass(mass))
     }
 
     #[cfg(feature = "dim3")]
@@ -1125,7 +1127,7 @@ impl RawColliderSet {
         principalAngularInertia: &RawVector,
         angularInertiaFrame: &RawRotation,
     ) {
-        self.map_mut(handle, |co| {
+        self.map_mut_untracked(handle, |co| {
             let mprops = MassProperties::with_principal_inertia_frame(
                 centerOfMass.0.into(),
                 mass,
@@ -1145,7 +1147,7 @@ impl RawColliderSet {
         centerOfMass: &RawVector,
         principalAngularInertia: f32,
     ) {
-        self.map_mut(handle, |co| {
+        self.map_mut_untracked(handle, |co| {
             let props = MassProperties::new(centerOfMass.0.into(), mass, principalAngularInertia);
             co.set_mass_properties(props)
         })

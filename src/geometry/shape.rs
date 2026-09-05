@@ -743,17 +743,24 @@ impl RawShape {
         Self(SharedShape::round_cone(halfHeight, radius, borderRadius))
     }
 
-    pub fn voxels(voxel_size: &RawVector, grid_coords: Vec<i32>) -> Self {
+    /// Builds a voxel shape from grid coordinates, or returns `None` if the
+    /// buffer is ragged (its length is not a multiple of the dimension).
+    pub fn voxels(voxel_size: &RawVector, grid_coords: Vec<i32>) -> Option<RawShape> {
+        if grid_coords.len() % DIM != 0 {
+            return None;
+        }
         let grid_coords: Vec<_> = grid_coords
             .chunks_exact(DIM)
             .map(IVector::from_slice)
             .collect();
-        Self(SharedShape::voxels(voxel_size.0, &grid_coords))
+        Some(Self(SharedShape::voxels(voxel_size.0, &grid_coords)))
     }
 
-    pub fn voxelsFromPoints(voxel_size: &RawVector, points: Vec<f32>) -> Self {
-        let points: Vec<_> = points.chunks_exact(DIM).map(Vector::from_slice).collect();
-        Self(SharedShape::voxels_from_points(voxel_size.0, &points))
+    /// Builds a voxel shape from the points it must cover, or returns `None` if
+    /// the point buffer is ragged.
+    pub fn voxelsFromPoints(voxel_size: &RawVector, points: Vec<f32>) -> Option<RawShape> {
+        let points = to_points(&points)?;
+        Some(Self(SharedShape::voxels_from_points(voxel_size.0, &points)))
     }
 
     /// Builds a polyline, or returns `None` if the buffers are ragged or a segment
@@ -946,12 +953,14 @@ impl RawShape {
             #[cfg(feature = "dim3")]
             let rotation = {
                 let o = i * 4;
-                Rotation::from_xyzw(
+                // Same normalization policy as every other quaternion input.
+                crate::utils::unit_rotation(
                     rotations[o],
                     rotations[o + 1],
                     rotations[o + 2],
                     rotations[o + 3],
                 )
+                .unwrap_or(Rotation::IDENTITY)
             };
 
             parts.push((Pose::from_parts(translation, rotation), shape.0.clone()));

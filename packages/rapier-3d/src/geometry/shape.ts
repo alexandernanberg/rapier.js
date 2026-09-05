@@ -941,14 +941,22 @@ export class Voxels extends Shape {
         let voxelSize = VectorOps.intoRaw(this.voxelSize);
 
         let result;
-        if (this.data instanceof Int32Array) {
-            result = RawShape.voxels(voxelSize, this.data);
-        } else {
-            result = RawShape.voxelsFromPoints(voxelSize, this.data);
+        try {
+            if (this.data instanceof Int32Array) {
+                result = RawShape.voxels(voxelSize, this.data);
+            } else {
+                result = RawShape.voxelsFromPoints(voxelSize, this.data);
+            }
+        } finally {
+            voxelSize.free();
         }
 
-        voxelSize.free();
-        return result;
+        return expectRawShape(
+            result,
+            "Voxels data must hold a whole number of " +
+                (this.data instanceof Int32Array ? "grid coordinates" : "points") +
+                ".",
+        );
     }
 }
 

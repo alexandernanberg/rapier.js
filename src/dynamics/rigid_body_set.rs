@@ -234,16 +234,31 @@ impl RawRigidBodySet {
     /// Called internally from the physics pipeline step for cache locality.
     /// Not exposed via wasm-bindgen to avoid borrow tracking issues.
     ///
-    /// Returns `true` if every slot was rewritten. Otherwise only the bodies in
-    /// [`Self::synced`] were refreshed, and the collider sync can use that list
-    /// to skip the colliders that cannot have moved.
-    pub(crate) fn sync_transform_data(&mut self, islands: &IslandManager) -> bool {
+    /// Returns `true` if every slot was rewritten *and* the refresh list was
+    /// not kept. Otherwise [`Self::synced`] holds every body whose pose may have
+    /// changed, and the collider sync can use that list to skip the colliders
+    /// that cannot have moved.
+    ///
+    /// `num_colliders` is the size of the collider set: whether the collider
+    /// sync can afford to lose the list depends on how many colliders a full
+    /// pass would rewrite, not on how many bodies there are. A handful of
+    /// awake bodies among thousands of standalone colliders (tiles, static
+    /// level geometry) used to trip the "mostly moved" shortcut on the body
+    /// count alone and rewrite every collider slot every step.
+    pub(crate) fn sync_transform_data(
+        &mut self,
+        islands: &IslandManager,
+        num_colliders: usize,
+    ) -> bool {
         // A scattered pass pays a random arena lookup per body, so once most of
         // the set is moving the sequential walk is the cheaper one — and deciding
         // that is `O(1)`, so a scene where nothing ever sleeps never pays for a
-        // refresh list it would only discard.
+        // refresh list it would only discard. The list is only skipped when the
+        // colliders are mostly moving too, since they would need it otherwise.
+        let num_active = islands.num_active_bodies();
         if self.transforms.take_needs_full_sync()
-            || mostly_moved(islands.num_active_bodies(), self.bodies.len())
+            || (mostly_moved(num_active, self.bodies.len())
+                && mostly_moved(num_active, num_colliders))
         {
             // Every slot ends up correct, so the pending list is moot. The active
             // set still has to be recorded though: the *next* step needs it to
@@ -264,6 +279,15 @@ impl RawRigidBodySet {
         }
 
         self.collect_synced(islands);
+
+        if mostly_moved(self.synced.len(), self.bodies.len()) {
+            // Most bodies moved but the colliders still want the list: walk the
+            // arena in order (the cheaper pass at this ratio) and keep `synced`.
+            for (handle, body) in self.bodies.iter() {
+                write_body_transform(self.transforms.slot(handle.arena_index()), body);
+            }
+            return false;
+        }
 
         for i in 0..self.synced.len() {
             let handle = self.synced[i];

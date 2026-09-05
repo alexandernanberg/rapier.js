@@ -7,8 +7,10 @@ use rapier::control::{
     CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
     KinematicCharacterController,
 };
+use rapier::dynamics::RigidBodyHandle;
 use rapier::geometry::{ColliderHandle, ShapeCastHit};
 use rapier::math::{Pose, Real, Vector, DIM};
+use rapier::parry::bounding_volume::BoundingVolume;
 use rapier::parry::query::ShapeCastStatus;
 use rapier::pipeline::{QueryFilter, QueryFilterFlags};
 use wasm_bindgen::prelude::*;
@@ -18,6 +20,9 @@ pub struct RawKinematicCharacterController {
     controller: KinematicCharacterController,
     result: EffectiveCharacterMovement,
     events: Vec<CharacterCollision>,
+    /// Bodies the last `computeColliderMovement` may have applied an impulse
+    /// to; kept around so the per-call collection does not allocate.
+    pushed: Vec<RigidBodyHandle>,
 }
 
 fn length_value(length: CharacterLength) -> Real {
@@ -45,6 +50,7 @@ impl RawKinematicCharacterController {
                 is_sliding_down_slope: false,
             },
             events: vec![],
+            pushed: vec![],
         }
     }
 
@@ -208,20 +214,50 @@ impl RawKinematicCharacterController {
                         character_mass,
                         self.events.iter(),
                     );
+
+                    // The impulses above went straight into rapier's bodies,
+                    // bypassing `map_mut`, so their new velocities have to be
+                    // published by hand below. Rapier does not only push the body
+                    // behind each reported hit: for every collision it runs a
+                    // contact query over the character's AABB (loosened by the
+                    // same margin as here, see `solve_single_character_collision_impulse`)
+                    // and applies an impulse to every dynamic body it finds, so
+                    // the same query is repeated to know which bodies to publish.
+                    // Over-collecting is harmless: a write-through of an
+                    // untouched body is a no-op.
+                    let queries = query_pipeline.as_ref();
+                    let up_extent = collider_shape
+                        .compute_local_aabb()
+                        .extents()
+                        .dot(self.controller.up.abs());
+                    let prediction = match self.controller.offset {
+                        CharacterLength::Absolute(offset) => offset,
+                        CharacterLength::Relative(offset) => offset * up_extent,
+                    } + 0.05;
+
+                    self.pushed.clear();
+                    for event in &self.events {
+                        let aabb = collider_shape
+                            .compute_aabb(&event.character_pos)
+                            .loosened(prediction);
+                        for (_, collider) in queries.intersect_aabb_conservative(aabb) {
+                            if let Some(parent) = collider.parent() {
+                                if queries.bodies.get(parent).is_some_and(|b| b.is_dynamic()) {
+                                    self.pushed.push(parent);
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
-            if apply_impulses_to_dynamic_bodies {
-                // The impulses above went straight into rapier's bodies, bypassing
-                // `map_mut`. Publish the new velocities so JS does not read the
-                // pre-impulse ones out of the buffer until the next step.
-                for event in &self.events {
-                    if let Some(parent) = colliders.0.get(event.handle).and_then(|c| c.parent()) {
-                        bodies.mark_pending(parent);
-                        bodies.write_through(parent);
-                    }
-                }
+            // Publish the new velocities so JS does not read the pre-impulse ones
+            // out of the buffer until the next step.
+            for &parent in &self.pushed {
+                bodies.mark_pending(parent);
+                bodies.write_through(parent);
             }
+            self.pushed.clear();
         } else {
             // The collider is gone: report no movement, no contacts, not grounded,
             // rather than leaving the previous call's results in place.

@@ -1,4 +1,4 @@
-use crate::dynamics::RawGenericJoint;
+use crate::dynamics::{RawGenericJoint, RawRigidBodySet};
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::{MultibodyJoint, MultibodyJointSet};
 use wasm_bindgen::prelude::*;
@@ -45,6 +45,7 @@ impl RawMultibodyJointSet {
     /// ordinary rejected-topology error.
     pub fn createJoint(
         &mut self,
+        bodies: &RawRigidBodySet,
         params: &RawGenericJoint,
         parent1: FlatHandle,
         parent2: FlatHandle,
@@ -52,6 +53,11 @@ impl RawMultibodyJointSet {
     ) -> Option<FlatHandle> {
         let parent1 = utils::body_handle(parent1);
         let parent2 = utils::body_handle(parent2);
+        // Same as the impulse joint set: a joint attached to a body that is no
+        // longer there would trap the module from inside the next `step()`.
+        if !bodies.bodies.contains(parent1) || !bodies.bodies.contains(parent2) {
+            return None;
+        }
 
         self.0
             .insert(parent1, parent2, params.0.clone(), wakeUp)
