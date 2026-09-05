@@ -59,13 +59,75 @@ export class ColliderSet {
     }
 
     /** @internal */
+    // A user callback that threw from inside a query. The Rust side cannot let
+    // the exception through (it has to be caught at the boundary), so it used to
+    // treat a throwing predicate as "include this collider" and a throwing hit
+    // callback as "keep going", and the error was lost. The wrappers built below
+    // catch it, make the query stop, and keep it here for `rethrowCallbackError`
+    // to throw once the query has returned and released its WASM borrows and
+    // temporaries.
+    private _callbackError: unknown = undefined;
+    private _callbackFailed = false;
+
+    /**
+     * Wraps a callback handed to a WASM query so that an exception it throws
+     * stops the query and is re-thrown by {@link rethrowCallbackError} instead
+     * of being swallowed at the boundary.
+     *
+     * @internal
+     */
+    public guardCallback<Res>(f: () => Res): () => Res {
+        this._callbackFailed = false;
+        return () => {
+            if (this._callbackFailed) return false as unknown as Res;
+            try {
+                return f();
+            } catch (e) {
+                this._callbackFailed = true;
+                this._callbackError = e;
+                // `false` excludes the collider from a predicate and stops a
+                // hit callback's iteration.
+                return false as unknown as Res;
+            }
+        };
+    }
+
+    /**
+     * Turns a callback taking a `Collider` into one taking a handle, guarded the
+     * same way as {@link guardCallback}.
+     *
+     * @internal
+     */
     public castClosure<Res>(
         f?: (collider: Collider) => Res,
     ): ((handle: ColliderHandle) => Res) | undefined {
         if (!f) return undefined;
+        this._callbackFailed = false;
         return (handle) => {
-            return f(this.get(handle)!);
+            if (this._callbackFailed) return false as unknown as Res;
+            try {
+                return f(this.get(handle)!);
+            } catch (e) {
+                this._callbackFailed = true;
+                this._callbackError = e;
+                return false as unknown as Res;
+            }
         };
+    }
+
+    /**
+     * Throws the exception a guarded callback raised during the query that just
+     * returned, if any. Called by every query wrapper after its WASM call.
+     *
+     * @internal
+     */
+    public rethrowCallbackError() {
+        if (this._callbackFailed) {
+            const error = this._callbackError;
+            this._callbackFailed = false;
+            this._callbackError = undefined;
+            throw error;
+        }
     }
 
     /**
@@ -160,7 +222,7 @@ export class ColliderSet {
 
         if (handle === undefined) {
             throw Error(
-                "Cannot create a collider attached to a rigid-body that is not part of the world (it may have been removed).",
+                "Cannot create the collider: its parent rigid-body is not part of the world (it may have been removed), or its descriptor holds an invalid mass-properties mode.",
             );
         }
 

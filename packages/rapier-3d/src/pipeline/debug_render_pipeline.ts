@@ -160,6 +160,7 @@ export class DebugRenderPipeline {
             filterFlags ?? 0,
             colliders.castClosure(filterPredicate) as unknown as Function,
         );
+        colliders.rethrowCallbackError();
 
         if (!this._wasmMemory) {
             this._wasmMemory = wasmMemory() as unknown as WebAssembly.Memory;

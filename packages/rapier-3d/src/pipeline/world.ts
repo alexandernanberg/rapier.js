@@ -288,6 +288,9 @@ export class World {
         );
         this.bodies.syncTransformBuffer();
         this.colliders.syncTransformBuffer();
+        // A hook that threw is reported only now: the step ran to completion,
+        // so the buffers above describe the world it produced.
+        this.physicsPipeline.rethrowHookError();
     }
 
     /**
@@ -1090,6 +1093,7 @@ export class World {
      */
     public contactPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
         this.narrowPhase.contactPairsWith(collider1.handle, this.colliders.castClosure(f)!);
+        this.colliders.rethrowCallbackError();
     }
 
     /**
@@ -1098,6 +1102,7 @@ export class World {
      */
     public intersectionPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
         this.narrowPhase.intersectionPairsWith(collider1.handle, this.colliders.castClosure(f)!);
+        this.colliders.rethrowCallbackError();
     }
 
     /**

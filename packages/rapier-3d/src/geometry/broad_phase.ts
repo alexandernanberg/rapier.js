@@ -117,6 +117,7 @@ export class BroadPhase {
         target.featureType = r[5] as FeatureType;
         target.featureId = r[6] < 0 ? undefined : r[6];
         return target;
+        colliders.rethrowCallbackError();
     }
 
     /**
@@ -164,6 +165,7 @@ export class BroadPhase {
             filterPredicate as unknown as Function,
         );
 
+        colliders.rethrowCallbackError();
         if (!hit) return null;
 
         const r = this.results();
@@ -217,6 +219,7 @@ export class BroadPhase {
             filterPredicate as unknown as Function,
         );
 
+        colliders.rethrowCallbackError();
         if (!hit) return null;
 
         return this.rayIntersectionFromResults(colliders, target);
@@ -251,7 +254,9 @@ export class BroadPhase {
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ) {
         // Each hit is written to the result buffer right before this is called.
-        let rawCallback = () => callback(this.rayIntersectionFromResults(colliders));
+        const rawCallback = colliders.guardCallback(() =>
+            callback(this.rayIntersectionFromResults(colliders)),
+        );
 
         this.raw.intersectionsWithRay(
             narrowPhase.raw,
@@ -272,6 +277,7 @@ export class BroadPhase {
             filterExcludeRigidBody,
             filterPredicate as unknown as Function,
         );
+        colliders.rethrowCallbackError();
     }
 
     /**
@@ -318,6 +324,7 @@ export class BroadPhase {
         rawRot.free();
         rawShape.free();
 
+        colliders.rethrowCallbackError();
         return result ?? null;
     }
 
@@ -363,6 +370,7 @@ export class BroadPhase {
             filterPredicate as unknown as Function,
         );
 
+        colliders.rethrowCallbackError();
         if (!hit) return null;
 
         return this.pointProjectionFromResults(colliders, target);
@@ -403,6 +411,7 @@ export class BroadPhase {
             filterPredicate as unknown as Function,
         );
 
+        colliders.rethrowCallbackError();
         if (!hit) return null;
 
         return this.pointProjectionFromResults(colliders, target);
@@ -444,6 +453,7 @@ export class BroadPhase {
             filterExcludeRigidBody,
             filterPredicate as unknown as Function,
         );
+        colliders.rethrowCallbackError();
     }
 
     /**
@@ -517,6 +527,7 @@ export class BroadPhase {
         rawVel.free();
         rawShape.free();
 
+        colliders.rethrowCallbackError();
         return result;
     }
 
@@ -567,6 +578,7 @@ export class BroadPhase {
         rawPos.free();
         rawRot.free();
         rawShape.free();
+        colliders.rethrowCallbackError();
     }
 
     /**
@@ -597,5 +609,6 @@ export class BroadPhase {
         );
         rawCenter.free();
         rawHalfExtents.free();
+        colliders.rethrowCallbackError();
     }
 }

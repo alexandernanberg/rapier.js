@@ -66,6 +66,7 @@ export class DynamicRayCastVehicleController {
             filterGroups,
             this.colliders.castClosure(filterPredicate) as unknown as Function,
         );
+        this.colliders.rethrowCallbackError();
     }
 
     /**

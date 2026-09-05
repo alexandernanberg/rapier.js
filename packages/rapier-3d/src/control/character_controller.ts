@@ -319,6 +319,7 @@ export class KinematicCharacterController {
             this.colliders.castClosure(filterPredicate) as unknown as Function,
         );
         rawTranslationDelta.free();
+        this.colliders.rethrowCallbackError();
     }
 
     /**
