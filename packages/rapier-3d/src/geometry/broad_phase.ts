@@ -118,7 +118,6 @@ export class BroadPhase {
         target.featureType = r[5] as FeatureType;
         target.featureId = r[6] < 0 ? undefined : r[6];
         return target;
-        colliders.rethrowCallbackError();
     }
 
     /**
@@ -531,16 +530,21 @@ export class BroadPhase {
                 filterExcludeRigidBody,
                 filterPredicate as unknown as Function,
             );
+            // Read out before the shape is freed: every scratch reader copies its
+            // payload out before the next WASM call, whatever that call is.
+            if (handle !== undefined) {
+                target = ColliderShapeCastHit.fromBufferWithCollider(
+                    colliders.get(handle)!,
+                    scratch(),
+                    target,
+                );
+            }
         } finally {
             rawShape.free();
         }
         colliders.rethrowCallbackError();
         if (handle === undefined) return null;
-        return ColliderShapeCastHit.fromBufferWithCollider(
-            colliders.get(handle)!,
-            scratch(),
-            target,
-        );
+        return target!;
     }
 
     /**

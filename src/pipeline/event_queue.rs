@@ -10,8 +10,9 @@ use wasm_bindgen::prelude::*;
 const COLLISION_EVENT_STRIDE: usize = 5;
 
 /// `f32` slots one drained contact-force event occupies: two split handles, the
-/// total force and its magnitude, and the max force direction and its magnitude.
-const CONTACT_FORCE_EVENT_STRIDE: usize = 6 + 2 * DIM;
+/// total force and its magnitude, the max force direction and its magnitude,
+/// and the started flag.
+const CONTACT_FORCE_EVENT_STRIDE: usize = 7 + 2 * DIM;
 
 /// The stride of the collision-event buffer, so the JS side can walk it without
 /// hard-coding the layout.
@@ -124,7 +125,8 @@ impl RawEventQueue {
     ///
     /// Each event takes `CONTACT_FORCE_EVENT_STRIDE` slots: the two collider
     /// handles (split as above), the total force, the total force magnitude, the
-    /// max force direction and the max force magnitude.
+    /// max force direction, the max force magnitude, and `1` if this is the first
+    /// step the pair's force crossed its threshold or `0` if it stayed above it.
     ///
     /// Handing each event to JS as a `RawContactForceEvent` instead meant boxing
     /// one WASM object per event — allocated, passed across, read back through
@@ -142,6 +144,7 @@ impl RawEventQueue {
             out.push(event.total_force_magnitude);
             out.extend_from_slice(event.max_force_direction.as_ref());
             out.push(event.max_force_magnitude);
+            out.push(if event.started { 1.0 } else { 0.0 });
         }
 
         pack_buffer_info(&self.contact_force_buffer)

@@ -9,12 +9,25 @@ import {
 import {BroadPhase, ColliderSet, NarrowPhase} from "../geometry";
 import {Vector, VectorOps} from "../math";
 import {RawPhysicsPipeline, RawVector} from "../raw";
+import {scratchU32} from "../scratch";
+import {handleFromParts} from "../wasm_buffer";
 import {EventQueue} from "./event_queue";
 import {ContactModificationContext, PhysicsHooks, SolverFlags} from "./physics_hooks";
 
 type FilterContactPair = NonNullable<PhysicsHooks["filterContactPair"]>;
 type FilterIntersectionPair = NonNullable<PhysicsHooks["filterIntersectionPair"]>;
 type ModifySolverContacts = NonNullable<PhysicsHooks["modifySolverContacts"]>;
+
+/** The generation slot WASM writes for a pair-filter body that does not exist. */
+const NO_HANDLE = 0xffffffff;
+
+/**
+ * Reads the body handle at `offset` of the scratch view a pair filter was called
+ * with, or `null` if the collider has no parent.
+ */
+function pairBody(u32: Uint32Array, offset: number): number | null {
+    return u32[offset + 1] === NO_HANDLE ? null : handleFromParts(u32[offset], u32[offset + 1]);
+}
 
 export class PhysicsPipeline {
     raw: RawPhysicsPipeline;
@@ -24,9 +37,9 @@ export class PhysicsPipeline {
     // hooks object whose methods get reassigned keeps working.
     private hooksObject: PhysicsHooks | null = null;
     private filterContactPairSource: FilterContactPair | undefined = undefined;
-    private filterContactPair: FilterContactPair | undefined = undefined;
+    private filterContactPair: (() => SolverFlags | null) | undefined = undefined;
     private filterIntersectionPairSource: FilterIntersectionPair | undefined = undefined;
-    private filterIntersectionPair: FilterIntersectionPair | undefined = undefined;
+    private filterIntersectionPair: (() => boolean) | undefined = undefined;
     private modifySolverContactsSource: ModifySolverContacts | undefined = undefined;
     private modifySolverContacts: (() => void) | undefined = undefined;
     // The first exception a hook threw during the current step. Rust cannot let it
@@ -96,9 +109,18 @@ export class PhysicsPipeline {
         const filterContactPair = hooks.filterContactPair;
         if (this.filterContactPairSource !== filterContactPair) {
             this.filterContactPairSource = filterContactPair;
+            // WASM publishes the pair's four handles into the scratch buffer rather
+            // than boxing them into call arguments (see `write_pair_context`); they
+            // are read out before the user's hook runs, since it may overwrite the
+            // buffer with any getter it calls.
             this.filterContactPair = filterContactPair
-                ? (collider1, collider2, body1, body2) => {
+                ? () => {
                       if (this.hookFailed) return SolverFlags.COMPUTE_IMPULSE;
+                      const u32 = scratchU32();
+                      const collider1 = handleFromParts(u32[0], u32[1]);
+                      const collider2 = handleFromParts(u32[2], u32[3]);
+                      const body1 = pairBody(u32, 4)!;
+                      const body2 = pairBody(u32, 6)!;
                       try {
                           return hooks.filterContactPair!(collider1, collider2, body1, body2);
                       } catch (e) {
@@ -113,8 +135,13 @@ export class PhysicsPipeline {
         if (this.filterIntersectionPairSource !== filterIntersectionPair) {
             this.filterIntersectionPairSource = filterIntersectionPair;
             this.filterIntersectionPair = filterIntersectionPair
-                ? (collider1, collider2, body1, body2) => {
+                ? () => {
                       if (this.hookFailed) return true;
+                      const u32 = scratchU32();
+                      const collider1 = handleFromParts(u32[0], u32[1]);
+                      const collider2 = handleFromParts(u32[2], u32[3]);
+                      const body1 = pairBody(u32, 4)!;
+                      const body2 = pairBody(u32, 6)!;
                       try {
                           return hooks.filterIntersectionPair!(collider1, collider2, body1, body2);
                       } catch (e) {

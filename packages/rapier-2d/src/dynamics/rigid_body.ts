@@ -742,15 +742,14 @@ export class RigidBody {
         principalAngularInertia: number,
         wakeUp: boolean,
     ) {
-        let rawCom = VectorOps.intoRaw(centerOfMass);
         this.rawSet.rbSetAdditionalMassProperties(
             this.handle,
             mass,
-            rawCom,
+            centerOfMass.x,
+            centerOfMass.y,
             principalAngularInertia,
             wakeUp,
         );
-        rawCom.free();
     }
 
     /**

@@ -180,6 +180,23 @@ impl<H: ArenaHandle> TransformBuffer<H> {
         core::mem::replace(&mut self.needs_full_sync, false)
     }
 
+    /// Whether the next sync will rewrite every slot, without clearing the flag.
+    ///
+    /// While this is set the pending list is empty (and no longer maintained),
+    /// so a caller that wants "every entity JS mutated since the last sync" has
+    /// to treat every entity as a candidate.
+    #[inline]
+    pub(crate) fn needs_full_sync(&self) -> bool {
+        self.needs_full_sync
+    }
+
+    /// The handles JS created or mutated since the last sync, when the list is
+    /// being maintained (see [`Self::needs_full_sync`]).
+    #[inline]
+    pub(crate) fn pending(&self) -> &[H] {
+        &self.pending
+    }
+
     /// Returns the `STRIDE` floats belonging to `index` if that slot already
     /// exists, without ever growing (and therefore moving) the buffer.
     ///

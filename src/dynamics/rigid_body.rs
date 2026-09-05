@@ -1,14 +1,9 @@
 use crate::dynamics::{RawRigidBodySet, RawRigidBodyType};
 use crate::geometry::RawColliderSet;
-#[cfg(feature = "dim3")]
-use crate::math::RawRotation;
-use crate::math::RawVector;
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::MassProperties;
-#[cfg(feature = "dim2")]
-use rapier::math::Rotation;
-use rapier::math::Vector;
+use rapier::math::{Rotation, Vector};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -166,6 +161,11 @@ impl RawRigidBodySet {
     ) {
         if let Some(q) = utils::unit_rotation(x, y, z, w) {
             self.map_mut(handle, |rb| rb.set_rotation(q, wakeUp))
+        } else if wakeUp {
+            // A rejected (zero) quaternion leaves the rotation alone, but the
+            // wake-up must not be dropped with it: same policy as
+            // `rbSetTransform`. The pose is unchanged, so no write-through.
+            self.map_mut_untracked(handle, |rb| rb.wake_up(true))
         }
     }
 
@@ -224,9 +224,18 @@ impl RawRigidBodySet {
     /// - `x`: the world-space position of the rigid-body along the `x` axis.
     /// - `y`: the world-space position of the rigid-body along the `y` axis.
     /// - `z`: the world-space position of the rigid-body along the `z` axis.
+    // The `rbSetNextKinematic*` setters only write the body's *next* pose, which
+    // the transform buffer does not hold; the current pose and velocity are left
+    // as they are until the step integrates them. They therefore go through
+    // `map_mut_untracked`: routing them through `map_mut` would rewrite the slot
+    // with unchanged values and, worse, count every kinematic body driven each
+    // frame toward the pending list's `max(64, len / 2)` budget, after which the
+    // incremental sync gives up and every step rewrites every body *and* collider
+    // slot. Nothing is lost: a kinematic body is never asleep, so it is always in
+    // the island manager's active set and the post-step sync refreshes it anyway.
     #[cfg(feature = "dim3")]
     pub fn rbSetNextKinematicTranslation(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.set_next_kinematic_translation(Vector::new(x, y, z));
         })
     }
@@ -244,7 +253,7 @@ impl RawRigidBodySet {
     /// - `y`: the world-space position of the rigid-body along the `y` axis.
     #[cfg(feature = "dim2")]
     pub fn rbSetNextKinematicTranslation(&mut self, handle: FlatHandle, x: f32, y: f32) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.set_next_kinematic_translation(Vector::new(x, y));
         })
     }
@@ -272,7 +281,7 @@ impl RawRigidBodySet {
         w: f32,
     ) {
         if let Some(q) = utils::unit_rotation(x, y, z, w) {
-            self.map_mut(handle, |rb| {
+            self.map_mut_untracked(handle, |rb| {
                 rb.set_next_kinematic_rotation(q);
             })
         }
@@ -290,7 +299,7 @@ impl RawRigidBodySet {
     /// - `angle`: the rotation angle, in radians.
     #[cfg(feature = "dim2")]
     pub fn rbSetNextKinematicRotation(&mut self, handle: FlatHandle, angle: f32) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.set_next_kinematic_rotation(Rotation::new(angle));
         })
     }
@@ -372,7 +381,7 @@ impl RawRigidBodySet {
         rw: f32,
     ) {
         let q = utils::unit_rotation(rx, ry, rz, rw);
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.set_next_kinematic_translation(Vector::new(tx, ty, tz));
             if let Some(q) = q {
                 rb.set_next_kinematic_rotation(q);
@@ -394,7 +403,7 @@ impl RawRigidBodySet {
         ty: f32,
         angle: f32,
     ) {
-        self.map_mut(handle, |rb| {
+        self.map_mut_untracked(handle, |rb| {
             rb.set_next_kinematic_translation(Vector::new(tx, ty));
             rb.set_next_kinematic_rotation(Rotation::new(angle));
         })
@@ -416,38 +425,70 @@ impl RawRigidBodySet {
         })
     }
 
+    /// Sets the additional mass properties of this rigid-body.
+    ///
+    /// The vectors and the inertia frame are passed component-wise, like every
+    /// other setter: a `RawVector`/`RawRotation` temporary costs a WASM
+    /// allocation plus a `FinalizationRegistry` registration each. The frame is
+    /// normalized like every other quaternion input, falling back to the
+    /// identity when it has no direction to recover.
     #[cfg(feature = "dim3")]
     pub fn rbSetAdditionalMassProperties(
         &mut self,
         handle: FlatHandle,
         mass: f32,
-        centerOfMass: &RawVector,
-        principalAngularInertia: &RawVector,
-        angularInertiaFrame: &RawRotation,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
+        centerOfMass_z: f32,
+        principalAngularInertia_x: f32,
+        principalAngularInertia_y: f32,
+        principalAngularInertia_z: f32,
+        angularInertiaFrame_x: f32,
+        angularInertiaFrame_y: f32,
+        angularInertiaFrame_z: f32,
+        angularInertiaFrame_w: f32,
         wake_up: bool,
     ) {
         self.map_mut_untracked(handle, |rb| {
             let mprops = MassProperties::with_principal_inertia_frame(
-                centerOfMass.0.into(),
+                Vector::new(centerOfMass_x, centerOfMass_y, centerOfMass_z).into(),
                 mass,
-                principalAngularInertia.0,
-                angularInertiaFrame.0,
+                Vector::new(
+                    principalAngularInertia_x,
+                    principalAngularInertia_y,
+                    principalAngularInertia_z,
+                ),
+                utils::unit_rotation(
+                    angularInertiaFrame_x,
+                    angularInertiaFrame_y,
+                    angularInertiaFrame_z,
+                    angularInertiaFrame_w,
+                )
+                .unwrap_or(Rotation::IDENTITY),
             );
             rb.set_additional_mass_properties(mprops, wake_up)
         })
     }
 
+    /// Sets the additional mass properties of this rigid-body.
+    ///
+    /// See the 3D variant for why the center of mass is passed component-wise.
     #[cfg(feature = "dim2")]
     pub fn rbSetAdditionalMassProperties(
         &mut self,
         handle: FlatHandle,
         mass: f32,
-        centerOfMass: &RawVector,
+        centerOfMass_x: f32,
+        centerOfMass_y: f32,
         principalAngularInertia: f32,
         wake_up: bool,
     ) {
         self.map_mut_untracked(handle, |rb| {
-            let props = MassProperties::new(centerOfMass.0.into(), mass, principalAngularInertia);
+            let props = MassProperties::new(
+                Vector::new(centerOfMass_x, centerOfMass_y).into(),
+                mass,
+                principalAngularInertia,
+            );
             rb.set_additional_mass_properties(props, wake_up)
         })
     }

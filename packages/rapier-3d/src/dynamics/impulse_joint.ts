@@ -216,9 +216,7 @@ export class ImpulseJoint {
      * local frame of the first rigid-body it is attached to.
      */
     public setAnchor1(newPos: Vector) {
-        const rawPoint = VectorOps.intoRaw(newPos);
-        this.rawSet.jointSetAnchor1(this.handle, rawPoint);
-        rawPoint.free();
+        this.rawSet.jointSetAnchor1(this.handle, newPos.x, newPos.y, newPos.z);
     }
 
     /**
@@ -228,9 +226,7 @@ export class ImpulseJoint {
      * local frame of the second rigid-body it is attached to.
      */
     public setAnchor2(newPos: Vector) {
-        const rawPoint = VectorOps.intoRaw(newPos);
-        this.rawSet.jointSetAnchor2(this.handle, rawPoint);
-        rawPoint.free();
+        this.rawSet.jointSetAnchor2(this.handle, newPos.x, newPos.y, newPos.z);
     }
 
     /**
@@ -238,9 +234,7 @@ export class ImpulseJoint {
      * rigid-body it is attached to.
      */
     public setFrameX1(rot: Rotation) {
-        const rawRot = RotationOps.intoRaw(rot);
-        this.rawSet.jointSetFrameX1(this.handle, rawRot);
-        rawRot.free();
+        this.rawSet.jointSetFrameX1(this.handle, rot.x, rot.y, rot.z, rot.w);
     }
 
     /**
@@ -248,9 +242,7 @@ export class ImpulseJoint {
      * rigid-body it is attached to.
      */
     public setFrameX2(rot: Rotation) {
-        const rawRot = RotationOps.intoRaw(rot);
-        this.rawSet.jointSetFrameX2(this.handle, rawRot);
-        rawRot.free();
+        this.rawSet.jointSetFrameX2(this.handle, rot.x, rot.y, rot.z, rot.w);
     }
 
     /**
@@ -258,11 +250,16 @@ export class ImpulseJoint {
      * relative to the first rigid-body it is attached to.
      */
     public setLocalFrame1(anchor: Vector, rot: Rotation) {
-        const rawAnchor = VectorOps.intoRaw(anchor);
-        const rawRot = RotationOps.intoRaw(rot);
-        this.rawSet.jointSetLocalFrame1(this.handle, rawAnchor, rawRot);
-        rawAnchor.free();
-        rawRot.free();
+        this.rawSet.jointSetLocalFrame1(
+            this.handle,
+            anchor.x,
+            anchor.y,
+            anchor.z,
+            rot.x,
+            rot.y,
+            rot.z,
+            rot.w,
+        );
     }
 
     /**
@@ -270,11 +267,16 @@ export class ImpulseJoint {
      * relative to the second rigid-body it is attached to.
      */
     public setLocalFrame2(anchor: Vector, rot: Rotation) {
-        const rawAnchor = VectorOps.intoRaw(anchor);
-        const rawRot = RotationOps.intoRaw(rot);
-        this.rawSet.jointSetLocalFrame2(this.handle, rawAnchor, rawRot);
-        rawAnchor.free();
-        rawRot.free();
+        this.rawSet.jointSetLocalFrame2(
+            this.handle,
+            anchor.x,
+            anchor.y,
+            anchor.z,
+            rot.x,
+            rot.y,
+            rot.z,
+            rot.w,
+        );
     }
 
     /**

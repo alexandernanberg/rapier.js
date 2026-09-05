@@ -3,7 +3,9 @@ use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::control::PidController;
 use rapier::dynamics::AxesMask;
-use rapier::math::{Rotation, Vector};
+#[cfg(feature = "dim2")]
+use rapier::math::Rotation;
+use rapier::math::Vector;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -183,6 +185,11 @@ impl RawPidController {
         target_angvel: f32,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
+        // Looked up before it is marked: the pending set grows to fit the arena
+        // index it is given, so a fabricated handle must not reach it.
+        if !bodies.bodies.contains(rb_handle) {
+            return;
+        }
         bodies.mark_pending(rb_handle);
         let Some(rb) = bodies.bodies.get_mut(rb_handle) else {
             return;
@@ -215,18 +222,27 @@ impl RawPidController {
         target_angvel_z: f32,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
+        // Looked up before it is marked: the pending set grows to fit the arena
+        // index it is given, so a fabricated handle must not reach it.
+        if !bodies.bodies.contains(rb_handle) {
+            return;
+        }
         bodies.mark_pending(rb_handle);
         let Some(rb) = bodies.bodies.get_mut(rb_handle) else {
             return;
         };
 
-        let target_rotation = utils::unit_rotation(
+        // A target with no direction to recover (zero or non-finite) is rejected
+        // like every other rotation input: steering the body toward the identity
+        // instead would be a correction nobody asked for.
+        let Some(target_rotation) = utils::unit_rotation(
             target_rotation_x,
             target_rotation_y,
             target_rotation_z,
             target_rotation_w,
-        )
-        .unwrap_or(Rotation::IDENTITY);
+        ) else {
+            return;
+        };
         let correction = self.controller.angular_rigid_body_correction(
             dt,
             rb,
@@ -320,18 +336,19 @@ impl RawPidController {
         target_angvel_z: f32,
     ) {
         let rb_handle = crate::utils::body_handle(rb_handle);
+        // See `apply_angular_correction`: no direction, no correction.
         let target_rotation = utils::unit_rotation(
             target_rotation_x,
             target_rotation_y,
             target_rotation_z,
             target_rotation_w,
-        )
-        .unwrap_or(Rotation::IDENTITY);
+        );
         let target_angvel = Vector::new(target_angvel_x, target_angvel_y, target_angvel_z);
         let correction = bodies
             .bodies
             .get(rb_handle)
-            .map(|rb| {
+            .zip(target_rotation)
+            .map(|(rb, target_rotation)| {
                 self.controller.angular_rigid_body_correction(
                     dt,
                     rb,
@@ -355,6 +372,11 @@ impl RawPidController {
         target_linvel: Vector,
     ) {
         let rb_handle = utils::body_handle(rb_handle);
+        // Looked up before it is marked: the pending set grows to fit the arena
+        // index it is given, so a fabricated handle must not reach it.
+        if !bodies.bodies.contains(rb_handle) {
+            return;
+        }
         bodies.mark_pending(rb_handle);
         let Some(rb) = bodies.bodies.get_mut(rb_handle) else {
             return;

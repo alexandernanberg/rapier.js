@@ -154,16 +154,21 @@ impl RawRigidBodySet {
         f: impl FnOnce(&mut RigidBody) -> T,
     ) -> T {
         let handle = utils::body_handle(handle);
-        // Every mutating accessor goes through here, so this is the one place that
-        // has to notice a body whose buffered transform (or velocity) was changed
-        // from JS. A body mutated without waking up never shows up in the island
-        // manager's active set, so the next sync would otherwise skip it.
-        self.transforms.mark_pending(handle, self.bodies.len());
-
+        let set_len = self.bodies.len();
         let body = self.bodies.get_mut(handle).expect(
             "Invalid RigidBody reference. It may have been removed from the physics World.",
         );
         let result = f(body);
+
+        // Every mutating accessor goes through here, so this is the one place that
+        // has to notice a body whose buffered transform (or velocity) was changed
+        // from JS. A body mutated without waking up never shows up in the island
+        // manager's active set, so the next sync would otherwise skip it.
+        //
+        // Marked only once the lookup above has succeeded: the dedup set grows to
+        // fit the arena index it is given, so a fabricated handle must not reach
+        // it (an index in the billions would allocate its way into a trap).
+        self.transforms.mark_pending(handle, set_len);
 
         // Publish the new state right away so the JS-side buffer reads stay
         // coherent with WASM until the next step refreshes the slot anyway.
@@ -576,8 +581,30 @@ impl RawRigidBodySet {
         }
     }
 
+    /// Updates the world pose of every collider attached to a body repositioned
+    /// from JS since the last step, the way the step itself would.
+    ///
+    /// The colliders' buffer slots are written through as well, so JS keeps
+    /// reading them out of the buffer. Rapier tracks the moved bodies privately,
+    /// but every body repositioned from JS went through `map_mut` and so sits in
+    /// the pending list, a superset of what rapier moved. Once that list has been
+    /// dropped in favour of a full sync, every collider is a candidate.
     pub fn propagateModifiedBodyPositionsToColliders(&mut self, colliders: &mut RawColliderSet) {
         self.bodies
             .propagate_modified_body_positions_to_colliders(&mut colliders.0);
+
+        if self.transforms.needs_full_sync() {
+            colliders.write_through_all();
+            return;
+        }
+
+        for &handle in self.transforms.pending() {
+            let Some(body) = self.bodies.get(handle) else {
+                continue;
+            };
+            for &collider in body.colliders() {
+                colliders.write_through(collider);
+            }
+        }
     }
 }

@@ -65,6 +65,33 @@ impl RawColliderSet {
         result
     }
 
+    /// Publishes a collider's current world pose into its buffer slot, if the
+    /// slot exists (growing the buffer here could move it from under a live JS
+    /// view; a collider without a slot yet is still pending and gets written by
+    /// the next sync).
+    ///
+    /// For poses rapier changed outside of a step and outside of `map_mut` —
+    /// `propagate_modified_body_positions_to_colliders` moves the colliders of
+    /// every body repositioned from JS.
+    #[inline]
+    pub(crate) fn write_through(&mut self, handle: ColliderHandle) {
+        if let Some(collider) = self.0.get(handle) {
+            if let Some(slot) = self.1.existing_slot(handle.arena_index()) {
+                write_collider_transform(slot, collider);
+            }
+        }
+    }
+
+    /// [`Self::write_through`] for every collider in the set, for a caller that
+    /// cannot tell which ones moved.
+    pub(crate) fn write_through_all(&mut self) {
+        for (handle, collider) in self.0.iter() {
+            if let Some(slot) = self.1.existing_slot(handle.arena_index()) {
+                write_collider_transform(slot, collider);
+            }
+        }
+    }
+
     /// Like [`Self::map_mut`], for mutations that cannot change the collider's
     /// world pose: shape, material, groups, events, mass properties, flags.
     ///

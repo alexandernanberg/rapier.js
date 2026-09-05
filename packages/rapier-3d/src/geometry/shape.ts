@@ -1073,7 +1073,18 @@ export class Compound extends Shape {
     }
 
     public intoRaw(): RawShape {
-        const rawShapes = this.shapes.map((shape) => shape.intoRaw());
+        // Built one at a time so that a sub-shape rejected part-way (a zero
+        // half-space normal, an out-of-range convex index) does not leak the raw
+        // shapes built before it; `RawShape.compound` consumes them on success.
+        const rawShapes = new Array<RawShape>(this.shapes.length);
+        for (let i = 0; i < this.shapes.length; i++) {
+            try {
+                rawShapes[i] = this.shapes[i].intoRaw();
+            } catch (e) {
+                for (let j = 0; j < i; j++) rawShapes[j].free();
+                throw e;
+            }
+        }
 
         const positions = new Float32Array(this.positions.length * 3);
         this.positions.forEach((pos, i) => {

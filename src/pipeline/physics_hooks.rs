@@ -73,6 +73,44 @@ fn with_context<T>(default: T, f: impl FnOnce(&ActiveContext) -> T) -> T {
     }
 }
 
+/// The generation slot written for a pair-filter body that does not exist
+/// (a collider without a parent).
+const NO_HANDLE: u32 = u32::MAX;
+
+/// Appends a handle to `out` as its arena index and generation, both as raw
+/// `u32` bit patterns (see `push_handle` in the event queue).
+#[inline]
+fn write_handle(out: &mut [f32], handle: FlatHandle) {
+    let bits = handle.to_bits();
+    out[0] = scratch::u32_bits(bits as u32);
+    out[1] = scratch::u32_bits((bits >> 32) as u32);
+}
+
+/// Publishes the four handles of a pair-filter context into the scratch buffer:
+/// `[collider1, collider2, body1, body2]`, each as its arena index and
+/// generation. A missing body has both slots set to [`NO_HANDLE`].
+///
+/// Passing them as call arguments instead meant boxing four `f64`s into JS heap
+/// objects, and dropping them again, for every candidate pair of every step —
+/// eleven boundary crossings per hook call before the user's code ran. The JS
+/// wrapper now reads them out of the scratch view and the call is `call0`.
+#[inline]
+fn write_pair_context(ctxt: &PairFilterContext) {
+    let mut flat = [0.0f32; 8];
+    write_handle(&mut flat[0..2], utils::flat_handle(ctxt.collider1.0));
+    write_handle(&mut flat[2..4], utils::flat_handle(ctxt.collider2.0));
+    for (slot, body) in [(4, ctxt.rigid_body1), (6, ctxt.rigid_body2)] {
+        match body {
+            Some(rb) => write_handle(&mut flat[slot..slot + 2], utils::flat_handle(rb.0)),
+            None => {
+                flat[slot] = scratch::u32_bits(NO_HANDLE);
+                flat[slot + 1] = scratch::u32_bits(NO_HANDLE);
+            }
+        }
+    }
+    scratch::write(&flat);
+}
+
 impl PhysicsHooks for RawPhysicsHooks {
     fn filter_contact_pair(&self, ctxt: &PairFilterContext) -> Option<SolverFlags> {
         // A collider can carry the hook flag while the hooks object implements only
@@ -81,21 +119,8 @@ impl PhysicsHooks for RawPhysicsHooks {
             return Some(SolverFlags::default());
         };
 
-        let rb1 = ctxt
-            .rigid_body1
-            .map(|rb| JsValue::from(utils::flat_handle(rb.0)))
-            .unwrap_or(JsValue::NULL);
-        let rb2 = ctxt
-            .rigid_body2
-            .map(|rb| JsValue::from(utils::flat_handle(rb.0)))
-            .unwrap_or(JsValue::NULL);
-
-        let collider1 = JsValue::from(utils::flat_handle(ctxt.collider1.0));
-        let collider2 = JsValue::from(utils::flat_handle(ctxt.collider2.0));
-
-        let result = filter
-            .call4(&self.this, &collider1, &collider2, &rb1, &rb2)
-            .ok()?;
+        write_pair_context(ctxt);
+        let result = filter.call0(&self.this).ok()?;
         let flags = result.as_f64()?;
         // The hook returns the flags as an ordinary JS number, i.e. a small
         // integer stored exactly in an `f64`, so a numeric cast is the right
@@ -108,20 +133,9 @@ impl PhysicsHooks for RawPhysicsHooks {
             return true;
         };
 
-        let rb1 = ctxt
-            .rigid_body1
-            .map(|rb| JsValue::from(utils::flat_handle(rb.0)))
-            .unwrap_or(JsValue::NULL);
-        let rb2 = ctxt
-            .rigid_body2
-            .map(|rb| JsValue::from(utils::flat_handle(rb.0)))
-            .unwrap_or(JsValue::NULL);
-
-        let collider1 = JsValue::from(utils::flat_handle(ctxt.collider1.0));
-        let collider2 = JsValue::from(utils::flat_handle(ctxt.collider2.0));
-
+        write_pair_context(ctxt);
         filter
-            .call4(&self.this, &collider1, &collider2, &rb1, &rb2)
+            .call0(&self.this)
             .ok()
             .and_then(|res| res.as_bool())
             .unwrap_or(false)

@@ -6,6 +6,18 @@ import {RawDynamicRayCastVehicleController} from "../raw";
 import {scratch} from "../scratch";
 
 /**
+ * Checks a chassis axis index: rapier turns an index outside `0..3` into a zero
+ * axis vector, and the vehicle's velocity goes `NaN` on the next update with no
+ * diagnostic, so it is rejected here instead.
+ */
+function checkAxisIndex(axis: number): number {
+    if (!(axis === 0 || axis === 1 || axis === 2)) {
+        throw new Error(`Invalid chassis axis index ${axis}: expected 0 (x), 1 (y) or 2 (z).`);
+    }
+    return axis;
+}
+
+/**
  * A character controller to simulate vehicles using ray-casting for the wheels.
  */
 export class DynamicRayCastVehicleController {
@@ -94,7 +106,7 @@ export class DynamicRayCastVehicleController {
      * Sets the chassis’ local _up_ direction (`0 = x, 1 = y, 2 = z`).
      */
     set indexUpAxis(axis: number) {
-        this.raw.set_index_up_axis(axis);
+        this.raw.set_index_up_axis(checkAxisIndex(axis));
     }
 
     /**
@@ -108,7 +120,7 @@ export class DynamicRayCastVehicleController {
      * Sets the chassis’ local _forward_ direction (`0 = x, 1 = y, 2 = z`).
      */
     set indexForwardAxis(axis: number) {
-        this.raw.set_index_forward_axis(axis);
+        this.raw.set_index_forward_axis(checkAxisIndex(axis));
     }
 
     /**
@@ -117,7 +129,7 @@ export class DynamicRayCastVehicleController {
      * @deprecated Assign to {@link indexForwardAxis} instead.
      */
     set setIndexForwardAxis(axis: number) {
-        this.raw.set_index_forward_axis(axis);
+        this.raw.set_index_forward_axis(checkAxisIndex(axis));
     }
 
     /**

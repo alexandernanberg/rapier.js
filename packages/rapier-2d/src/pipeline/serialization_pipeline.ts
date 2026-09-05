@@ -70,7 +70,10 @@ export class SerializationPipeline {
         );
         rawGra.free();
 
-        return res!;
+        if (res === undefined) {
+            throw new Error("Failed to serialize the physics world.");
+        }
+        return res;
     }
 
     /**

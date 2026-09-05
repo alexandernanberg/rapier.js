@@ -58,6 +58,11 @@ impl RawMultibodyJointSet {
         if !bodies.bodies.contains(parent1) || !bodies.bodies.contains(parent2) {
             return None;
         }
+        // Rapier would build a multibody containing the same body twice, with its
+        // body-to-link map pointing at only one of the links.
+        if parent1 == parent2 {
+            return None;
+        }
 
         self.0
             .insert(parent1, parent2, params.0.clone(), wakeUp)

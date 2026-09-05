@@ -1,9 +1,10 @@
 use crate::dynamics::{RawImpulseJointSet, RawJointAxis, RawJointType, RawMotorModel};
-use crate::math::{RawRotation, RawVector};
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::JointAxis;
-use rapier::math::Pose;
+#[cfg(feature = "dim2")]
+use rapier::math::Rotation;
+use rapier::math::{Pose, Vector};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -57,55 +58,158 @@ impl RawImpulseJointSet {
         })
     }
 
+    // The frame setters take their vectors and rotations component-wise: a
+    // `RawVector`/`RawRotation` temporary costs a WASM allocation plus a
+    // `FinalizationRegistry` registration each, for a value that is read once.
+    // In 3D a drifted quaternion is normalized like every other rotation input;
+    // one with no direction to recover leaves the rotation as it was.
+
     /// Sets the position of the first local anchor
-    pub fn jointSetAnchor1(&mut self, handle: FlatHandle, newPos: &RawVector) {
+    #[cfg(feature = "dim3")]
+    pub fn jointSetAnchor1(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32) {
         self.map_mut(handle, |j| {
-            j.data.set_local_anchor1(newPos.0.into());
+            j.data.set_local_anchor1(Vector::new(x, y, z).into());
+        });
+    }
+
+    /// Sets the position of the first local anchor
+    #[cfg(feature = "dim2")]
+    pub fn jointSetAnchor1(&mut self, handle: FlatHandle, x: f32, y: f32) {
+        self.map_mut(handle, |j| {
+            j.data.set_local_anchor1(Vector::new(x, y).into());
         });
     }
 
     /// Sets the position of the second local anchor
-    pub fn jointSetAnchor2(&mut self, handle: FlatHandle, newPos: &RawVector) {
+    #[cfg(feature = "dim3")]
+    pub fn jointSetAnchor2(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32) {
         self.map_mut(handle, |j| {
-            j.data.set_local_anchor2(newPos.0.into());
+            j.data.set_local_anchor2(Vector::new(x, y, z).into());
+        })
+    }
+
+    /// Sets the position of the second local anchor
+    #[cfg(feature = "dim2")]
+    pub fn jointSetAnchor2(&mut self, handle: FlatHandle, x: f32, y: f32) {
+        self.map_mut(handle, |j| {
+            j.data.set_local_anchor2(Vector::new(x, y).into());
         })
     }
 
     /// Sets the angular part of the joint's local frame relative to the first rigid-body.
-    pub fn jointSetFrameX1(&mut self, handle: FlatHandle, newRot: &RawRotation) {
+    #[cfg(feature = "dim3")]
+    pub fn jointSetFrameX1(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, w: f32) {
+        if let Some(q) = utils::unit_rotation(x, y, z, w) {
+            self.map_mut(handle, |j| {
+                j.data.local_frame1.rotation = q;
+            });
+        }
+    }
+
+    /// Sets the angular part of the joint's local frame relative to the first rigid-body.
+    #[cfg(feature = "dim2")]
+    pub fn jointSetFrameX1(&mut self, handle: FlatHandle, angle: f32) {
         self.map_mut(handle, |j| {
-            j.data.local_frame1.rotation = newRot.0;
+            j.data.local_frame1.rotation = Rotation::new(angle);
         });
     }
 
     /// Sets the angular part of the joint's local frame relative to the second rigid-body.
-    pub fn jointSetFrameX2(&mut self, handle: FlatHandle, newRot: &RawRotation) {
+    #[cfg(feature = "dim3")]
+    pub fn jointSetFrameX2(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32, w: f32) {
+        if let Some(q) = utils::unit_rotation(x, y, z, w) {
+            self.map_mut(handle, |j| {
+                j.data.local_frame2.rotation = q;
+            });
+        }
+    }
+
+    /// Sets the angular part of the joint's local frame relative to the second rigid-body.
+    #[cfg(feature = "dim2")]
+    pub fn jointSetFrameX2(&mut self, handle: FlatHandle, angle: f32) {
         self.map_mut(handle, |j| {
-            j.data.local_frame2.rotation = newRot.0;
+            j.data.local_frame2.rotation = Rotation::new(angle);
         });
     }
 
     /// Sets the full local frame (anchor + rotation) for the first rigid-body attachment.
+    #[cfg(feature = "dim3")]
     pub fn jointSetLocalFrame1(
         &mut self,
         handle: FlatHandle,
-        anchor: &RawVector,
-        rot: &RawRotation,
+        anchor_x: f32,
+        anchor_y: f32,
+        anchor_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+    ) {
+        let rot = utils::unit_rotation(rot_x, rot_y, rot_z, rot_w);
+        self.map_mut(handle, |j| {
+            // A rejected rotation keeps the current one; the anchor still moves.
+            let rot = rot.unwrap_or(j.data.local_frame1.rotation);
+            j.data.set_local_frame1(Pose::from_parts(
+                Vector::new(anchor_x, anchor_y, anchor_z),
+                rot,
+            ));
+        });
+    }
+
+    /// Sets the full local frame (anchor + rotation) for the first rigid-body attachment.
+    #[cfg(feature = "dim2")]
+    pub fn jointSetLocalFrame1(
+        &mut self,
+        handle: FlatHandle,
+        anchor_x: f32,
+        anchor_y: f32,
+        angle: f32,
     ) {
         self.map_mut(handle, |j| {
-            j.data.set_local_frame1(Pose::from_parts(anchor.0, rot.0));
+            j.data.set_local_frame1(Pose::from_parts(
+                Vector::new(anchor_x, anchor_y),
+                Rotation::new(angle),
+            ));
         });
     }
 
     /// Sets the full local frame (anchor + rotation) for the second rigid-body attachment.
+    #[cfg(feature = "dim3")]
     pub fn jointSetLocalFrame2(
         &mut self,
         handle: FlatHandle,
-        anchor: &RawVector,
-        rot: &RawRotation,
+        anchor_x: f32,
+        anchor_y: f32,
+        anchor_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+    ) {
+        let rot = utils::unit_rotation(rot_x, rot_y, rot_z, rot_w);
+        self.map_mut(handle, |j| {
+            let rot = rot.unwrap_or(j.data.local_frame2.rotation);
+            j.data.set_local_frame2(Pose::from_parts(
+                Vector::new(anchor_x, anchor_y, anchor_z),
+                rot,
+            ));
+        });
+    }
+
+    /// Sets the full local frame (anchor + rotation) for the second rigid-body attachment.
+    #[cfg(feature = "dim2")]
+    pub fn jointSetLocalFrame2(
+        &mut self,
+        handle: FlatHandle,
+        anchor_x: f32,
+        anchor_y: f32,
+        angle: f32,
     ) {
         self.map_mut(handle, |j| {
-            j.data.set_local_frame2(Pose::from_parts(anchor.0, rot.0));
+            j.data.set_local_frame2(Pose::from_parts(
+                Vector::new(anchor_x, anchor_y),
+                Rotation::new(angle),
+            ));
         });
     }
 

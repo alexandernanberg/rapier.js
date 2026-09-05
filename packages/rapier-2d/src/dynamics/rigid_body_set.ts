@@ -223,7 +223,12 @@ export class RigidBodySet {
      */
     public forEachActiveRigidBody(islands: IslandManager, f: (body: RigidBody) => void) {
         islands.forEachActiveRigidBodyHandle((handle) => {
-            f(this.get(handle)!);
+            // The active set is a snapshot taken before the walk started, so a
+            // body removed by an earlier callback (despawning whatever fell out
+            // of the world, say) is still listed: skip it rather than hand the
+            // callback a `null`.
+            const body = this.get(handle);
+            if (body !== null) f(body);
         });
     }
 

@@ -1,6 +1,5 @@
 use crate::dynamics::RawRigidBodySet;
 use crate::geometry::{RawBroadPhase, RawColliderSet, RawNarrowPhase};
-use crate::math::RawVector;
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::control::{
@@ -8,12 +7,14 @@ use rapier::control::{
     KinematicCharacterController,
 };
 use rapier::dynamics::RigidBodyHandle;
-use rapier::geometry::{ColliderHandle, ShapeCastHit};
-use rapier::math::{Pose, Real, Vector, DIM};
+use rapier::math::{Real, Vector, DIM};
 use rapier::parry::bounding_volume::BoundingVolume;
-use rapier::parry::query::ShapeCastStatus;
 use rapier::pipeline::{QueryFilter, QueryFilterFlags};
 use wasm_bindgen::prelude::*;
+
+/// Scratch slots one character collision occupies: `1 + 6 * DIM` floats plus
+/// the two `u32` halves of the hit collider's handle.
+const CHARACTER_COLLISION_LEN: usize = 3 + 6 * DIM;
 
 #[wasm_bindgen]
 pub struct RawKinematicCharacterController {
@@ -59,9 +60,20 @@ impl RawKinematicCharacterController {
         scratch::write_vector(self.controller.up)
     }
 
-    pub fn setUp(&mut self, vector: &RawVector) {
+    /// Sets the up direction, passed component-wise so JS allocates no `RawVector`
+    /// (some games re-aim it every frame on curved ground).
+    #[cfg(feature = "dim3")]
+    pub fn setUp(&mut self, x: f32, y: f32, z: f32) {
         // Ignore a zero vector rather than setting a NaN up direction.
-        if let Some(up) = vector.0.try_normalize() {
+        if let Some(up) = Vector::new(x, y, z).try_normalize() {
+            self.controller.up = up;
+        }
+    }
+
+    /// Sets the up direction; see the 3D variant.
+    #[cfg(feature = "dim2")]
+    pub fn setUp(&mut self, x: f32, y: f32) {
+        if let Some(up) = Vector::new(x, y).try_normalize() {
             self.controller.up = up;
         }
     }
@@ -239,12 +251,51 @@ impl RawKinematicCharacterController {
         self.events.len()
     }
 
-    pub fn computedCollision(&self, i: usize, collision: &mut RawCharacterCollision) -> bool {
-        if let Some(coll) = self.events.get(i) {
-            collision.0 = *coll;
+    /// Writes the `i`-th collision of the last `computeColliderMovement` into the
+    /// shared scratch buffer, or returns `false` if there is no such collision.
+    ///
+    /// Layout: `[toi, translationDeltaApplied, translationDeltaRemaining,
+    /// worldWitness1, worldWitness2, worldNormal1, worldNormal2]` as floats
+    /// (`1 + 6 * DIM` slots), then the hit collider's handle as its arena index
+    /// and generation, two raw `u32` bit patterns JS reads back through a
+    /// `Uint32Array` view. Witnesses and normals are all expressed in world-space.
+    ///
+    /// This used to copy the collision into a `RawCharacterCollision` first and
+    /// read the handle back with a third call; the whole read is one crossing now.
+    pub fn computedCollision(&self, i: usize) -> bool {
+        let Some(coll) = self.events.get(i) else {
+            return false;
+        };
+
+        let components = [
+            coll.translation_applied,
+            coll.translation_remaining,
+            coll.hit.witness1, // Already in world-space.
+            coll.character_pos * coll.hit.witness2,
+            coll.hit.normal1, // Already in world-space.
+            coll.character_pos.rotation * coll.hit.normal2,
+        ];
+
+        // Flattened on the stack, then written into WASM memory in one go — none of
+        // it crosses the boundary.
+        let mut flat = [0.0; CHARACTER_COLLISION_LEN];
+        flat[0] = coll.hit.time_of_impact;
+
+        for (i, u) in components.iter().enumerate() {
+            flat[1 + i * DIM] = u.x;
+            flat[2 + i * DIM] = u.y;
+            #[cfg(feature = "dim3")]
+            {
+                flat[3 + i * DIM] = u.z;
+            }
         }
 
-        i < self.events.len()
+        let handle = utils::flat_handle(coll.handle.0).to_bits();
+        flat[1 + 6 * DIM] = scratch::u32_bits(handle as u32);
+        flat[2 + 6 * DIM] = scratch::u32_bits((handle >> 32) as u32);
+
+        scratch::write(&flat);
+        true
     }
 }
 
@@ -367,69 +418,5 @@ impl RawKinematicCharacterController {
                 is_sliding_down_slope: false,
             };
         }
-    }
-}
-
-#[wasm_bindgen]
-pub struct RawCharacterCollision(CharacterCollision);
-
-#[wasm_bindgen]
-impl RawCharacterCollision {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        Self(CharacterCollision {
-            handle: ColliderHandle::invalid(),
-            character_pos: Pose::IDENTITY,
-            translation_applied: Vector::ZERO,
-            translation_remaining: Vector::ZERO,
-            hit: ShapeCastHit {
-                time_of_impact: 0.0,
-                witness1: Vector::ZERO,
-                witness2: Vector::ZERO,
-                normal1: Vector::Y,
-                normal2: Vector::Y,
-                status: ShapeCastStatus::Failed,
-            },
-        })
-    }
-
-    pub fn handle(&self) -> FlatHandle {
-        utils::flat_handle(self.0.handle.0)
-    }
-
-    pub fn toi(&self) -> Real {
-        self.0.hit.time_of_impact
-    }
-
-    /// Writes this collision into the shared scratch buffer, in a single call.
-    ///
-    /// Layout: `[toi, translationDeltaApplied, translationDeltaRemaining,
-    /// worldWitness1, worldWitness2, worldNormal1, worldNormal2]`. Witnesses and
-    /// normals are all expressed in world-space.
-    pub fn getComponents(&self) {
-        let components = [
-            self.0.translation_applied,
-            self.0.translation_remaining,
-            self.0.hit.witness1, // Already in world-space.
-            self.0.character_pos * self.0.hit.witness2,
-            self.0.hit.normal1, // Already in world-space.
-            self.0.character_pos.rotation * self.0.hit.normal2,
-        ];
-
-        // Flattened on the stack, then written into WASM memory in one go — none of
-        // it crosses the boundary (19 `set_index` calls would, in 3D).
-        let mut flat = [0.0; 1 + 6 * DIM];
-        flat[0] = self.0.hit.time_of_impact;
-
-        for (i, u) in components.iter().enumerate() {
-            flat[1 + i * DIM] = u.x;
-            flat[2 + i * DIM] = u.y;
-            #[cfg(feature = "dim3")]
-            {
-                flat[3 + i * DIM] = u.z;
-            }
-        }
-
-        scratch::write(&flat);
     }
 }

@@ -854,22 +854,21 @@ export class RigidBody {
         angularInertiaLocalFrame: Rotation,
         wakeUp: boolean,
     ) {
-        let rawCom = VectorOps.intoRaw(centerOfMass);
-        let rawPrincipalInertia = VectorOps.intoRaw(principalAngularInertia);
-        let rawInertiaFrame = RotationOps.intoRaw(angularInertiaLocalFrame);
-
         this.rawSet.rbSetAdditionalMassProperties(
             this.handle,
             mass,
-            rawCom,
-            rawPrincipalInertia,
-            rawInertiaFrame,
+            centerOfMass.x,
+            centerOfMass.y,
+            centerOfMass.z,
+            principalAngularInertia.x,
+            principalAngularInertia.y,
+            principalAngularInertia.z,
+            angularInertiaLocalFrame.x,
+            angularInertiaLocalFrame.y,
+            angularInertiaLocalFrame.z,
+            angularInertiaLocalFrame.w,
             wakeUp,
         );
-
-        rawCom.free();
-        rawPrincipalInertia.free();
-        rawInertiaFrame.free();
     }
 
     /**

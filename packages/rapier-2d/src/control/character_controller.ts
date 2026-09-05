@@ -2,8 +2,9 @@ import {IntegrationParameters, RigidBodySet} from "../dynamics";
 import {BroadPhase, Collider, ColliderSet, InteractionGroups, NarrowPhase} from "../geometry";
 import {Vector, VectorOps} from "../math";
 import {QueryFilterFlags} from "../pipeline";
-import {RawKinematicCharacterController, RawCharacterCollision} from "../raw";
-import {scratch} from "../scratch";
+import {RawKinematicCharacterController} from "../raw";
+import {scratch, scratchU32} from "../scratch";
+import {handleFromParts} from "../wasm_buffer";
 
 /**
  * A collision between the character and an obstacle hit on its path.
@@ -33,7 +34,6 @@ export class CharacterCollision {
  */
 export class KinematicCharacterController {
     private raw: RawKinematicCharacterController;
-    private rawCharacterCollision: RawCharacterCollision;
 
     private params: IntegrationParameters;
     private broadPhase: BroadPhase;
@@ -57,7 +57,6 @@ export class KinematicCharacterController {
         this.broadPhase = broadPhase;
         this.narrowPhase = narrowPhase;
         this.raw = new RawKinematicCharacterController(offset);
-        this.rawCharacterCollision = new RawCharacterCollision();
         this._applyImpulsesToDynamicBodies = false;
         this._characterMass = null;
     }
@@ -66,11 +65,9 @@ export class KinematicCharacterController {
     public free() {
         if (!!this.raw) {
             this.raw.free();
-            this.rawCharacterCollision.free();
         }
 
         this.raw = undefined!;
-        this.rawCharacterCollision = undefined!;
     }
 
     /**
@@ -85,9 +82,7 @@ export class KinematicCharacterController {
      * Sets the direction that goes "up". Used to determine where the floor is, and the floor’s angle.
      */
     public setUp(vector: Vector) {
-        let rawVect = VectorOps.intoRaw(vector);
-        this.raw.setUp(rawVect);
-        rawVect.free();
+        this.raw.setUp(vector.x, vector.y);
     }
 
     public applyImpulsesToDynamicBodies(): boolean {
@@ -352,26 +347,24 @@ export class KinematicCharacterController {
      * @param out - If this argument is set, it will be filled with the collision information.
      */
     public computedCollision(i: number, out?: CharacterCollision): CharacterCollision | null {
-        if (!this.raw.computedCollision(i, this.rawCharacterCollision)) {
+        // One call writes the whole collision, handle included, into the scratch
+        // buffer (it used to take three: a copy into a raw object, its components,
+        // then its handle).
+        if (!this.raw.computedCollision(i)) {
             return null;
-        } else {
-            let c = this.rawCharacterCollision;
-            out = out ?? new CharacterCollision();
-            c.getComponents();
-            const s = scratch();
-            out.toi = s[0];
-            out.translationDeltaApplied = VectorOps.fromBufferAt(s, 1, out.translationDeltaApplied);
-            out.translationDeltaRemaining = VectorOps.fromBufferAt(
-                s,
-                3,
-                out.translationDeltaRemaining,
-            );
-            out.witness1 = VectorOps.fromBufferAt(s, 5, out.witness1);
-            out.witness2 = VectorOps.fromBufferAt(s, 7, out.witness2);
-            out.normal1 = VectorOps.fromBufferAt(s, 9, out.normal1);
-            out.normal2 = VectorOps.fromBufferAt(s, 11, out.normal2);
-            out.collider = this.colliders.get(c.handle());
-            return out;
         }
+        out = out ?? new CharacterCollision();
+        const s = scratch();
+        out.toi = s[0];
+        out.translationDeltaApplied = VectorOps.fromBufferAt(s, 1, out.translationDeltaApplied);
+        out.translationDeltaRemaining = VectorOps.fromBufferAt(s, 3, out.translationDeltaRemaining);
+        out.witness1 = VectorOps.fromBufferAt(s, 5, out.witness1);
+        out.witness2 = VectorOps.fromBufferAt(s, 7, out.witness2);
+        out.normal1 = VectorOps.fromBufferAt(s, 9, out.normal1);
+        out.normal2 = VectorOps.fromBufferAt(s, 11, out.normal2);
+        // The handle rides along as two `u32` slots right after the floats.
+        const u32 = scratchU32();
+        out.collider = this.colliders.get(handleFromParts(u32[13], u32[14]));
+        return out;
     }
 }

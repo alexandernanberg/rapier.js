@@ -291,9 +291,12 @@ impl RawVHACDParameters {
         self.0.resolution
     }
 
+    /// Parry divides by `resolution - 1` and asserts every voxel index lies
+    /// below it, so anything under 2 is a trap (`0`) or a `NaN`-filled
+    /// decomposition (`1`); with `panic = "abort"` a trap kills the module.
     #[wasm_bindgen(setter)]
     pub fn set_resolution(&mut self, val: u32) {
-        self.0.resolution = val;
+        self.0.resolution = val.max(2);
     }
 
     #[wasm_bindgen(getter)]
@@ -301,9 +304,10 @@ impl RawVHACDParameters {
         self.0.plane_downsampling
     }
 
+    /// Used as an iterator step, and `step_by(0)` panics unconditionally.
     #[wasm_bindgen(setter)]
     pub fn set_plane_downsampling(&mut self, val: u32) {
-        self.0.plane_downsampling = val;
+        self.0.plane_downsampling = val.max(1);
     }
 
     #[wasm_bindgen(getter)]
@@ -311,9 +315,10 @@ impl RawVHACDParameters {
         self.0.convex_hull_downsampling
     }
 
+    /// Used as an iterator step, and `step_by(0)` panics unconditionally.
     #[wasm_bindgen(setter)]
     pub fn set_convex_hull_downsampling(&mut self, val: u32) {
-        self.0.convex_hull_downsampling = val;
+        self.0.convex_hull_downsampling = val.max(1);
     }
 
     #[wasm_bindgen(getter)]

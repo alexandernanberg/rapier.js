@@ -3,7 +3,7 @@ use crate::geometry::{RawBroadPhase, RawColliderSet, RawNarrowPhase};
 use crate::math::RawVector;
 use crate::utils::{self, FlatHandle};
 use rapier::control::{DynamicRayCastVehicleController, WheelTuning};
-use rapier::math::Real;
+use rapier::math::{Real, DIM};
 use rapier::pipeline::{QueryFilter, QueryFilterFlags};
 use wasm_bindgen::prelude::*;
 
@@ -32,15 +32,22 @@ impl RawDynamicRayCastVehicleController {
     pub fn index_up_axis(&self) -> usize {
         self.controller.index_up_axis
     }
+    /// Sets the chassis' local up axis; an index outside `0..DIM` is ignored,
+    /// since rapier would turn it into a zero up vector and `NaN` velocities.
     pub fn set_index_up_axis(&mut self, axis: usize) {
-        self.controller.index_up_axis = axis;
+        if axis < DIM {
+            self.controller.index_up_axis = axis;
+        }
     }
 
     pub fn index_forward_axis(&self) -> usize {
         self.controller.index_forward_axis
     }
+    /// Sets the chassis' local forward axis; see [`Self::set_index_up_axis`].
     pub fn set_index_forward_axis(&mut self, axis: usize) {
-        self.controller.index_forward_axis = axis;
+        if axis < DIM {
+            self.controller.index_forward_axis = axis;
+        }
     }
 
     pub fn add_wheel(
