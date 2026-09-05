@@ -28,8 +28,10 @@ export type ImpulseJointHandle = number;
  * - `Fixed`: A fixed joint that removes all relative degrees of freedom between the affected bodies.
  * - `Prismatic`: A prismatic joint that removes all degrees of freedom between the affected
  *                bodies except for the translation along one axis.
- * - `Spherical`: (3D only) A spherical joint that removes all relative linear degrees of freedom between the affected bodies.
- * - `Generic`: (3D only) A joint with customizable degrees of freedom, allowing any of the 6 axes to be locked.
+ * - `Rope`: A joint that keeps the distance between the anchors below a maximum.
+ * - `Spring`: A joint that acts as a spring between the anchors.
+ * - `Generic`: A joint whose configuration matches none of the above (a rope or spring
+ *              whose limit or motor was cleared, or a joint restored from a snapshot).
  */
 export enum JointType {
     Revolute,
@@ -37,6 +39,7 @@ export enum JointType {
     Prismatic,
     Rope,
     Spring,
+    Generic,
 }
 
 export enum MotorModel {

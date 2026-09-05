@@ -265,3 +265,33 @@ impl RawSdpMatrix3 {
 pub(crate) fn write_sdp_matrix3(m: SdpMatrix3<Real>) {
     crate::scratch::write(&[m.m11, m.m12, m.m13, m.m22, m.m23, m.m33]);
 }
+
+/// Builds a pose from the components JS passes instead of a `RawVector` and a
+/// `RawRotation`: allocating those temporaries costs far more than a few extra
+/// arguments (each is a WASM allocation plus a `FinalizationRegistry`
+/// registration, then a free).
+#[cfg(feature = "dim2")]
+#[inline]
+pub(crate) fn pose_from_scalars(x: f32, y: f32, angle: f32) -> rapier::math::Pose {
+    rapier::math::Pose::from_parts(Vector::new(x, y), Rotation::new(angle))
+}
+
+/// Builds a pose from the components JS passes instead of a `RawVector` and a
+/// `RawRotation`; see the 2D variant. The quaternion follows the usual
+/// normalization policy (`utils::unit_rotation`).
+#[cfg(feature = "dim3")]
+#[inline]
+pub(crate) fn pose_from_scalars(
+    x: f32,
+    y: f32,
+    z: f32,
+    qx: f32,
+    qy: f32,
+    qz: f32,
+    qw: f32,
+) -> rapier::math::Pose {
+    rapier::math::Pose::from_parts(
+        Vector::new(x, y, z),
+        crate::utils::unit_rotation(qx, qy, qz, qw).unwrap_or(Rotation::IDENTITY),
+    )
+}

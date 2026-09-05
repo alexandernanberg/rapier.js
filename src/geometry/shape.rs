@@ -1,8 +1,8 @@
-use crate::geometry::{
-    write_point_projection, write_ray_intersection, RawShapeCastHit, RawShapeContact,
+use crate::geometry::{write_contact, write_hit, write_point_projection, write_ray_intersection};
+use crate::math::{pose_from_scalars, RawRotation, RawVector};
+use rapier::geometry::{
+    PointProjection, RayIntersection, Shape, ShapeCastHit, SharedShape, TriMeshFlags,
 };
-use crate::math::{RawRotation, RawVector};
-use rapier::geometry::{PointProjection, RayIntersection, Shape, SharedShape, TriMeshFlags};
 use rapier::math::{IVector, Pose, Rotation, Vector, DIM};
 use rapier::parry::query;
 use rapier::parry::query::{Ray, ShapeCastOptions};
@@ -78,7 +78,7 @@ pub trait SharedShapeUtility {
         target_distance: f32,
         maxToi: f32,
         stop_at_penetration: bool,
-    ) -> Option<RawShapeCastHit>;
+    ) -> Option<ShapeCastHit>;
 
     fn intersectsShape(&self, shapePos1: &Pose, shape2: &dyn Shape, shapePos2: &Pose) -> bool;
 
@@ -88,7 +88,7 @@ pub trait SharedShapeUtility {
         shape2: &dyn Shape,
         shapePos2: &Pose,
         prediction: f32,
-    ) -> Option<RawShapeContact>;
+    ) -> Option<query::Contact>;
 
     fn containsPoint(&self, shapePos: &Pose, point: Vector) -> bool;
 
@@ -127,7 +127,7 @@ impl SharedShapeUtility for SharedShape {
         target_distance: f32,
         maxToi: f32,
         stop_at_penetration: bool,
-    ) -> Option<RawShapeCastHit> {
+    ) -> Option<ShapeCastHit> {
         query::cast_shapes(
             shapePos1,
             *shapeVel1,
@@ -144,7 +144,6 @@ impl SharedShapeUtility for SharedShape {
         )
         .ok()
         .flatten()
-        .map(|hit| RawShapeCastHit { hit })
     }
 
     fn intersectsShape(&self, shapePos1: &Pose, shape2: &dyn Shape, shapePos2: &Pose) -> bool {
@@ -157,11 +156,10 @@ impl SharedShapeUtility for SharedShape {
         shape2: &dyn Shape,
         shapePos2: &Pose,
         prediction: f32,
-    ) -> Option<RawShapeContact> {
+    ) -> Option<query::Contact> {
         query::contact(shapePos1, &*self.0, shapePos2, shape2, prediction)
             .ok()
             .flatten()
-            .map(|contact| RawShapeContact { contact })
     }
 
     fn containsPoint(&self, shapePos: &Pose, point: Vector) -> bool {
@@ -1021,129 +1019,464 @@ impl RawShape {
         Some(Self(SharedShape::compound(parts)))
     }
 
+    /// Casts this shape against `shape2` and, on a hit, writes it into the
+    /// scratch buffer (`[time_of_impact, witness1, witness2, normal1, normal2]`).
+    ///
+    /// Poses and velocities are passed component-wise so the JS side allocates
+    /// nothing but the two shapes per call.
+    #[cfg(feature = "dim2")]
     pub fn castShape(
         &self,
-        shapePos1: &RawVector,
-        shapeRot1: &RawRotation,
-        shapeVel1: &RawVector,
+        pos1_x: f32,
+        pos1_y: f32,
+        rot1: f32,
+        vel1_x: f32,
+        vel1_y: f32,
         shape2: &RawShape,
-        shapePos2: &RawVector,
-        shapeRot2: &RawRotation,
-        shapeVel2: &RawVector,
+        pos2_x: f32,
+        pos2_y: f32,
+        rot2: f32,
+        vel2_x: f32,
+        vel2_y: f32,
         target_distance: f32,
         maxToi: f32,
         stop_at_penetration: bool,
-    ) -> Option<RawShapeCastHit> {
-        let pos1 = Pose::from_parts(shapePos1.0, shapeRot1.0);
-        let pos2 = Pose::from_parts(shapePos2.0, shapeRot2.0);
-
-        self.0.castShape(
-            &pos1,
-            &shapeVel1.0,
-            &*shape2.0,
-            &pos2,
-            &shapeVel2.0,
+    ) -> bool {
+        self.do_cast_shape(
+            &pose_from_scalars(pos1_x, pos1_y, rot1),
+            &Vector::new(vel1_x, vel1_y),
+            shape2,
+            &pose_from_scalars(pos2_x, pos2_y, rot2),
+            &Vector::new(vel2_x, vel2_y),
             target_distance,
             maxToi,
             stop_at_penetration,
         )
     }
 
+    /// Casts this shape against `shape2` and, on a hit, writes it into the
+    /// scratch buffer (`[time_of_impact, witness1, witness2, normal1, normal2]`).
+    ///
+    /// Poses and velocities are passed component-wise so the JS side allocates
+    /// nothing but the two shapes per call.
+    #[cfg(feature = "dim3")]
+    pub fn castShape(
+        &self,
+        pos1_x: f32,
+        pos1_y: f32,
+        pos1_z: f32,
+        rot1_x: f32,
+        rot1_y: f32,
+        rot1_z: f32,
+        rot1_w: f32,
+        vel1_x: f32,
+        vel1_y: f32,
+        vel1_z: f32,
+        shape2: &RawShape,
+        pos2_x: f32,
+        pos2_y: f32,
+        pos2_z: f32,
+        rot2_x: f32,
+        rot2_y: f32,
+        rot2_z: f32,
+        rot2_w: f32,
+        vel2_x: f32,
+        vel2_y: f32,
+        vel2_z: f32,
+        target_distance: f32,
+        maxToi: f32,
+        stop_at_penetration: bool,
+    ) -> bool {
+        self.do_cast_shape(
+            &pose_from_scalars(pos1_x, pos1_y, pos1_z, rot1_x, rot1_y, rot1_z, rot1_w),
+            &Vector::new(vel1_x, vel1_y, vel1_z),
+            shape2,
+            &pose_from_scalars(pos2_x, pos2_y, pos2_z, rot2_x, rot2_y, rot2_z, rot2_w),
+            &Vector::new(vel2_x, vel2_y, vel2_z),
+            target_distance,
+            maxToi,
+            stop_at_penetration,
+        )
+    }
+
+    #[cfg(feature = "dim2")]
     pub fn intersectsShape(
         &self,
-        shapePos1: &RawVector,
-        shapeRot1: &RawRotation,
+        pos1_x: f32,
+        pos1_y: f32,
+        rot1: f32,
         shape2: &RawShape,
-        shapePos2: &RawVector,
-        shapeRot2: &RawRotation,
+        pos2_x: f32,
+        pos2_y: f32,
+        rot2: f32,
     ) -> bool {
-        let pos1 = Pose::from_parts(shapePos1.0, shapeRot1.0);
-        let pos2 = Pose::from_parts(shapePos2.0, shapeRot2.0);
-
-        self.0.intersectsShape(&pos1, &*shape2.0, &pos2)
+        self.0.intersectsShape(
+            &pose_from_scalars(pos1_x, pos1_y, rot1),
+            &*shape2.0,
+            &pose_from_scalars(pos2_x, pos2_y, rot2),
+        )
     }
 
+    #[cfg(feature = "dim3")]
+    pub fn intersectsShape(
+        &self,
+        pos1_x: f32,
+        pos1_y: f32,
+        pos1_z: f32,
+        rot1_x: f32,
+        rot1_y: f32,
+        rot1_z: f32,
+        rot1_w: f32,
+        shape2: &RawShape,
+        pos2_x: f32,
+        pos2_y: f32,
+        pos2_z: f32,
+        rot2_x: f32,
+        rot2_y: f32,
+        rot2_z: f32,
+        rot2_w: f32,
+    ) -> bool {
+        self.0.intersectsShape(
+            &pose_from_scalars(pos1_x, pos1_y, pos1_z, rot1_x, rot1_y, rot1_z, rot1_w),
+            &*shape2.0,
+            &pose_from_scalars(pos2_x, pos2_y, pos2_z, rot2_x, rot2_y, rot2_z, rot2_w),
+        )
+    }
+
+    /// Computes the contact between this shape and `shape2` and, if there is one
+    /// within `prediction`, writes it into the scratch buffer
+    /// (`[distance, point1, point2, normal1, normal2]`).
+    #[cfg(feature = "dim2")]
     pub fn contactShape(
         &self,
-        shapePos1: &RawVector,
-        shapeRot1: &RawRotation,
+        pos1_x: f32,
+        pos1_y: f32,
+        rot1: f32,
         shape2: &RawShape,
-        shapePos2: &RawVector,
-        shapeRot2: &RawRotation,
+        pos2_x: f32,
+        pos2_y: f32,
+        rot2: f32,
         prediction: f32,
-    ) -> Option<RawShapeContact> {
-        let pos1 = Pose::from_parts(shapePos1.0, shapeRot1.0);
-        let pos2 = Pose::from_parts(shapePos2.0, shapeRot2.0);
-
-        self.0.contactShape(&pos1, &*shape2.0, &pos2, prediction)
+    ) -> bool {
+        self.do_contact_shape(
+            &pose_from_scalars(pos1_x, pos1_y, rot1),
+            shape2,
+            &pose_from_scalars(pos2_x, pos2_y, rot2),
+            prediction,
+        )
     }
 
+    /// Computes the contact between this shape and `shape2` and, if there is one
+    /// within `prediction`, writes it into the scratch buffer
+    /// (`[distance, point1, point2, normal1, normal2]`).
+    #[cfg(feature = "dim3")]
+    pub fn contactShape(
+        &self,
+        pos1_x: f32,
+        pos1_y: f32,
+        pos1_z: f32,
+        rot1_x: f32,
+        rot1_y: f32,
+        rot1_z: f32,
+        rot1_w: f32,
+        shape2: &RawShape,
+        pos2_x: f32,
+        pos2_y: f32,
+        pos2_z: f32,
+        rot2_x: f32,
+        rot2_y: f32,
+        rot2_z: f32,
+        rot2_w: f32,
+        prediction: f32,
+    ) -> bool {
+        self.do_contact_shape(
+            &pose_from_scalars(pos1_x, pos1_y, pos1_z, rot1_x, rot1_y, rot1_z, rot1_w),
+            shape2,
+            &pose_from_scalars(pos2_x, pos2_y, pos2_z, rot2_x, rot2_y, rot2_z, rot2_w),
+            prediction,
+        )
+    }
+
+    #[cfg(feature = "dim2")]
     pub fn containsPoint(
         &self,
-        shapePos: &RawVector,
-        shapeRot: &RawRotation,
-        point: &RawVector,
+        pos_x: f32,
+        pos_y: f32,
+        rot: f32,
+        point_x: f32,
+        point_y: f32,
     ) -> bool {
-        let pos = Pose::from_parts(shapePos.0, shapeRot.0);
+        self.0.containsPoint(
+            &pose_from_scalars(pos_x, pos_y, rot),
+            Vector::new(point_x, point_y),
+        )
+    }
 
-        self.0.containsPoint(&pos, point.0)
+    #[cfg(feature = "dim3")]
+    pub fn containsPoint(
+        &self,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+        point_x: f32,
+        point_y: f32,
+        point_z: f32,
+    ) -> bool {
+        self.0.containsPoint(
+            &pose_from_scalars(pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, rot_w),
+            Vector::new(point_x, point_y, point_z),
+        )
     }
 
     /// Projects a point on this shape, writing `point, isInside` to the scratch buffer.
+    #[cfg(feature = "dim2")]
     pub fn projectPoint(
         &self,
-        shapePos: &RawVector,
-        shapeRot: &RawRotation,
-        point: &RawVector,
+        pos_x: f32,
+        pos_y: f32,
+        rot: f32,
+        point_x: f32,
+        point_y: f32,
         solid: bool,
     ) {
-        let pos = Pose::from_parts(shapePos.0, shapeRot.0);
-
-        write_point_projection(&self.0.projectPoint(&pos, point.0, solid));
+        write_point_projection(&self.0.projectPoint(
+            &pose_from_scalars(pos_x, pos_y, rot),
+            Vector::new(point_x, point_y),
+            solid,
+        ));
     }
 
+    /// Projects a point on this shape, writing `point, isInside` to the scratch buffer.
+    #[cfg(feature = "dim3")]
+    pub fn projectPoint(
+        &self,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+        point_x: f32,
+        point_y: f32,
+        point_z: f32,
+        solid: bool,
+    ) {
+        write_point_projection(&self.0.projectPoint(
+            &pose_from_scalars(pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, rot_w),
+            Vector::new(point_x, point_y, point_z),
+            solid,
+        ));
+    }
+
+    #[cfg(feature = "dim2")]
     pub fn intersectsRay(
         &self,
-        shapePos: &RawVector,
-        shapeRot: &RawRotation,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        pos_x: f32,
+        pos_y: f32,
+        rot: f32,
+        orig_x: f32,
+        orig_y: f32,
+        dir_x: f32,
+        dir_y: f32,
         maxToi: f32,
     ) -> bool {
-        let pos = Pose::from_parts(shapePos.0, shapeRot.0);
-
-        self.0.intersectsRay(&pos, rayOrig.0, rayDir.0, maxToi)
+        self.0.intersectsRay(
+            &pose_from_scalars(pos_x, pos_y, rot),
+            Vector::new(orig_x, orig_y),
+            Vector::new(dir_x, dir_y),
+            maxToi,
+        )
     }
 
+    #[cfg(feature = "dim3")]
+    pub fn intersectsRay(
+        &self,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+        orig_x: f32,
+        orig_y: f32,
+        orig_z: f32,
+        dir_x: f32,
+        dir_y: f32,
+        dir_z: f32,
+        maxToi: f32,
+    ) -> bool {
+        self.0.intersectsRay(
+            &pose_from_scalars(pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, rot_w),
+            Vector::new(orig_x, orig_y, orig_z),
+            Vector::new(dir_x, dir_y, dir_z),
+            maxToi,
+        )
+    }
+
+    #[cfg(feature = "dim2")]
     pub fn castRay(
         &self,
-        shapePos: &RawVector,
-        shapeRot: &RawRotation,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        pos_x: f32,
+        pos_y: f32,
+        rot: f32,
+        orig_x: f32,
+        orig_y: f32,
+        dir_x: f32,
+        dir_y: f32,
         maxToi: f32,
         solid: bool,
     ) -> f32 {
-        let pos = Pose::from_parts(shapePos.0, shapeRot.0);
-
-        self.0.castRay(&pos, rayOrig.0, rayDir.0, maxToi, solid)
+        self.0.castRay(
+            &pose_from_scalars(pos_x, pos_y, rot),
+            Vector::new(orig_x, orig_y),
+            Vector::new(dir_x, dir_y),
+            maxToi,
+            solid,
+        )
     }
 
+    #[cfg(feature = "dim3")]
+    pub fn castRay(
+        &self,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+        orig_x: f32,
+        orig_y: f32,
+        orig_z: f32,
+        dir_x: f32,
+        dir_y: f32,
+        dir_z: f32,
+        maxToi: f32,
+        solid: bool,
+    ) -> f32 {
+        self.0.castRay(
+            &pose_from_scalars(pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, rot_w),
+            Vector::new(orig_x, orig_y, orig_z),
+            Vector::new(dir_x, dir_y, dir_z),
+            maxToi,
+            solid,
+        )
+    }
+
+    /// Casts a ray and, on a hit, writes the intersection into the scratch buffer.
+    #[cfg(feature = "dim2")]
     pub fn castRayAndGetNormal(
         &self,
-        shapePos: &RawVector,
-        shapeRot: &RawRotation,
-        rayOrig: &RawVector,
-        rayDir: &RawVector,
+        pos_x: f32,
+        pos_y: f32,
+        rot: f32,
+        orig_x: f32,
+        orig_y: f32,
+        dir_x: f32,
+        dir_y: f32,
         maxToi: f32,
         solid: bool,
     ) -> bool {
-        let pos = Pose::from_parts(shapePos.0, shapeRot.0);
+        self.do_cast_ray_and_get_normal(
+            &pose_from_scalars(pos_x, pos_y, rot),
+            Vector::new(orig_x, orig_y),
+            Vector::new(dir_x, dir_y),
+            maxToi,
+            solid,
+        )
+    }
 
-        match self
-            .0
-            .castRayAndGetNormal(&pos, rayOrig.0, rayDir.0, maxToi, solid)
-        {
+    /// Casts a ray and, on a hit, writes the intersection into the scratch buffer.
+    #[cfg(feature = "dim3")]
+    pub fn castRayAndGetNormal(
+        &self,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+        orig_x: f32,
+        orig_y: f32,
+        orig_z: f32,
+        dir_x: f32,
+        dir_y: f32,
+        dir_z: f32,
+        maxToi: f32,
+        solid: bool,
+    ) -> bool {
+        self.do_cast_ray_and_get_normal(
+            &pose_from_scalars(pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, rot_w),
+            Vector::new(orig_x, orig_y, orig_z),
+            Vector::new(dir_x, dir_y, dir_z),
+            maxToi,
+            solid,
+        )
+    }
+}
+
+impl RawShape {
+    fn do_cast_shape(
+        &self,
+        pos1: &Pose,
+        vel1: &Vector,
+        shape2: &RawShape,
+        pos2: &Pose,
+        vel2: &Vector,
+        target_distance: f32,
+        max_toi: f32,
+        stop_at_penetration: bool,
+    ) -> bool {
+        match self.0.castShape(
+            pos1,
+            vel1,
+            &*shape2.0,
+            pos2,
+            vel2,
+            target_distance,
+            max_toi,
+            stop_at_penetration,
+        ) {
+            Some(hit) => {
+                write_hit(&hit);
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn do_contact_shape(
+        &self,
+        pos1: &Pose,
+        shape2: &RawShape,
+        pos2: &Pose,
+        prediction: f32,
+    ) -> bool {
+        match self.0.contactShape(pos1, &*shape2.0, pos2, prediction) {
+            Some(contact) => {
+                write_contact(&contact);
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn do_cast_ray_and_get_normal(
+        &self,
+        pos: &Pose,
+        orig: Vector,
+        dir: Vector,
+        max_toi: f32,
+        solid: bool,
+    ) -> bool {
+        match self.0.castRayAndGetNormal(pos, orig, dir, max_toi, solid) {
             Some(inter) => {
                 write_ray_intersection(&inter);
                 true

@@ -1,7 +1,8 @@
 import {RigidBodyHandle, RigidBodySet} from "../dynamics";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
+import {Rotation, Vector, VectorOps} from "../math";
 import {QueryFilterFlags} from "../pipeline";
 import {RawBroadPhase, wasmMemory} from "../raw";
+import {scratch} from "../scratch";
 import {unpackBufferInfo} from "../transform_buffer";
 import {ColliderHandle} from "./collider";
 import {ColliderSet} from "./collider_set";
@@ -307,27 +308,30 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ): ColliderHandle | null {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawShape = shape.intoRaw();
-        let result = this.raw.intersectionWithShape(
-            narrowPhase.raw,
-            bodies.raw,
-            colliders.raw,
-            rawPos,
-            rawRot,
-            rawShape,
-            filterFlags ?? 0,
-            filterGroups,
-            filterExcludeCollider,
-            filterExcludeRigidBody,
-            filterPredicate as unknown as Function,
-        );
-
-        rawPos.free();
-        rawRot.free();
-        rawShape.free();
-
+        const rawShape = shape.intoRaw();
+        let result: ColliderHandle | undefined;
+        try {
+            result = this.raw.intersectionWithShape(
+                narrowPhase.raw,
+                bodies.raw,
+                colliders.raw,
+                shapePos.x,
+                shapePos.y,
+                shapePos.z,
+                shapeRot.x,
+                shapeRot.y,
+                shapeRot.z,
+                shapeRot.w,
+                rawShape,
+                filterFlags ?? 0,
+                filterGroups,
+                filterExcludeCollider,
+                filterExcludeRigidBody,
+                filterPredicate as unknown as Function,
+            );
+        } finally {
+            rawShape.free();
+        }
         colliders.rethrowCallbackError();
         return result ?? null;
     }
@@ -499,20 +503,24 @@ export class BroadPhase {
         filterPredicate?: (collider: ColliderHandle) => boolean,
         target?: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawVel = VectorOps.intoRaw(shapeVel);
-        let rawShape = shape.intoRaw();
-
-        let result = ColliderShapeCastHit.fromRaw(
-            colliders,
-            this.raw.castShape(
+        const rawShape = shape.intoRaw();
+        let handle: ColliderHandle | undefined;
+        try {
+            // On a hit, the components are in the scratch buffer.
+            handle = this.raw.castShape(
                 narrowPhase.raw,
                 bodies.raw,
                 colliders.raw,
-                rawPos,
-                rawRot,
-                rawVel,
+                shapePos.x,
+                shapePos.y,
+                shapePos.z,
+                shapeRot.x,
+                shapeRot.y,
+                shapeRot.z,
+                shapeRot.w,
+                shapeVel.x,
+                shapeVel.y,
+                shapeVel.z,
                 rawShape,
                 targetDistance,
                 maxToi,
@@ -522,17 +530,17 @@ export class BroadPhase {
                 filterExcludeCollider,
                 filterExcludeRigidBody,
                 filterPredicate as unknown as Function,
-            )!,
+            );
+        } finally {
+            rawShape.free();
+        }
+        colliders.rethrowCallbackError();
+        if (handle === undefined) return null;
+        return ColliderShapeCastHit.fromBufferWithCollider(
+            colliders.get(handle)!,
+            scratch(),
             target,
         );
-
-        rawPos.free();
-        rawRot.free();
-        rawVel.free();
-        rawShape.free();
-
-        colliders.rethrowCallbackError();
-        return result;
     }
 
     /**
@@ -560,28 +568,30 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ) {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawShape = shape.intoRaw();
-
-        this.raw.intersectionsWithShape(
-            narrowPhase.raw,
-            bodies.raw,
-            colliders.raw,
-            rawPos,
-            rawRot,
-            rawShape,
-            callback,
-            filterFlags ?? 0,
-            filterGroups,
-            filterExcludeCollider,
-            filterExcludeRigidBody,
-            filterPredicate as unknown as Function,
-        );
-
-        rawPos.free();
-        rawRot.free();
-        rawShape.free();
+        const rawShape = shape.intoRaw();
+        try {
+            this.raw.intersectionsWithShape(
+                narrowPhase.raw,
+                bodies.raw,
+                colliders.raw,
+                shapePos.x,
+                shapePos.y,
+                shapePos.z,
+                shapeRot.x,
+                shapeRot.y,
+                shapeRot.z,
+                shapeRot.w,
+                rawShape,
+                callback,
+                filterFlags ?? 0,
+                filterGroups,
+                filterExcludeCollider,
+                filterExcludeRigidBody,
+                filterPredicate as unknown as Function,
+            );
+        } finally {
+            rawShape.free();
+        }
         colliders.rethrowCallbackError();
     }
 
@@ -601,18 +611,18 @@ export class BroadPhase {
         aabbHalfExtents: Vector,
         callback: (handle: ColliderHandle) => boolean,
     ) {
-        let rawCenter = VectorOps.intoRaw(aabbCenter);
-        let rawHalfExtents = VectorOps.intoRaw(aabbHalfExtents);
         this.raw.collidersWithAabbIntersectingAabb(
             narrowPhase.raw,
             bodies.raw,
             colliders.raw,
-            rawCenter,
-            rawHalfExtents,
+            aabbCenter.x,
+            aabbCenter.y,
+            aabbCenter.z,
+            aabbHalfExtents.x,
+            aabbHalfExtents.y,
+            aabbHalfExtents.z,
             callback,
         );
-        rawCenter.free();
-        rawHalfExtents.free();
         colliders.rethrowCallbackError();
     }
 }

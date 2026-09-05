@@ -1,11 +1,14 @@
 use crate::scratch;
-use crate::utils::{self, FlatHandle};
-use rapier::geometry::{ColliderHandle, ShapeCastHit};
-use wasm_bindgen::prelude::*;
+use rapier::geometry::ShapeCastHit;
 
 /// Writes `hit` into the scratch buffer as
 /// `[time_of_impact, witness1, witness2, normal1, normal2]`.
-fn write_hit(hit: &ShapeCastHit) {
+///
+/// Shape casts used to hand a boxed `RawShapeCastHit` back to JS, which then
+/// cost two more boundary crossings (one to read the components, one to free
+/// it) plus the allocation. The querying call now returns a flag and JS reads
+/// the hit out of the scratch buffer directly.
+pub(crate) fn write_hit(hit: &ShapeCastHit) {
     let w1 = hit.witness1;
     let w2 = hit.witness2;
     let n1 = hit.normal1;
@@ -42,39 +45,4 @@ fn write_hit(hit: &ShapeCastHit) {
     ];
 
     scratch::write(&components);
-}
-
-#[wasm_bindgen]
-pub struct RawShapeCastHit {
-    pub(crate) hit: ShapeCastHit,
-}
-
-#[wasm_bindgen]
-impl RawShapeCastHit {
-    /// Writes this hit into the shared scratch buffer, in a single call.
-    ///
-    /// Layout: `[time_of_impact, witness1, witness2, normal1, normal2]`.
-    pub fn getComponents(&self) {
-        write_hit(&self.hit);
-    }
-}
-
-#[wasm_bindgen]
-pub struct RawColliderShapeCastHit {
-    pub(crate) handle: ColliderHandle,
-    pub(crate) hit: ShapeCastHit,
-}
-
-#[wasm_bindgen]
-impl RawColliderShapeCastHit {
-    pub fn colliderHandle(&self) -> FlatHandle {
-        utils::flat_handle(self.handle.0)
-    }
-
-    /// Writes this hit into the shared scratch buffer, in a single call.
-    ///
-    /// Layout: `[time_of_impact, witness1, witness2, normal1, normal2]`.
-    pub fn getComponents(&self) {
-        write_hit(&self.hit);
-    }
 }

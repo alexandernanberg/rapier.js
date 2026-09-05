@@ -1,6 +1,4 @@
 import {Vector, VectorOps} from "../math";
-import {RawShapeContact} from "../raw";
-import {scratch} from "../scratch";
 
 /**
  * The contact info between two shapes.
@@ -47,13 +45,13 @@ export class ShapeContact {
      * @param raw - The raw contact. It is always freed before returning.
      * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public static fromRaw(raw: RawShapeContact, target?: ShapeContact): ShapeContact | null {
-        if (!raw) return null;
-
-        raw.getComponents();
-        const s = scratch();
-        raw.free();
-
+    /**
+     * Reads the contact the last contact query wrote into the scratch buffer
+     * (`[distance, point1, point2, normal1, normal2]`).
+     *
+     * @internal
+     */
+    public static fromBuffer(s: Float32Array, target?: ShapeContact): ShapeContact {
         const result =
             target ??
             new ShapeContact(
@@ -63,7 +61,6 @@ export class ShapeContact {
                 VectorOps.zeros(),
                 VectorOps.zeros(),
             );
-
         result.distance = s[0];
         result.point1 = VectorOps.set(result.point1, s[1], s[2], s[3]);
         result.point2 = VectorOps.set(result.point2, s[4], s[5], s[6]);

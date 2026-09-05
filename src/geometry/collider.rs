@@ -2,10 +2,12 @@
 use crate::geometry::shape::normalized_convex_polyhedron_mesh;
 use crate::geometry::shape::SharedShapeUtility;
 use crate::geometry::{
-    write_point_projection, write_ray_intersection, RawColliderSet, RawColliderShapeCastHit,
-    RawShape, RawShapeCastHit, RawShapeContact, RawShapeType,
+    write_contact, write_hit, write_point_projection, write_ray_intersection, RawColliderSet,
+    RawShape, RawShapeType,
 };
-use crate::math::{RawRotation, RawVector};
+#[cfg(feature = "dim3")]
+use crate::math::RawRotation;
+use crate::math::{pose_from_scalars, RawVector};
 use crate::scratch;
 use crate::utils::{self, FlatHandle};
 use rapier::dynamics::MassProperties;
@@ -769,116 +771,229 @@ impl RawColliderSet {
         })
     }
 
+    /// Casts this collider's shape against `shape2` and, on a hit, writes it into
+    /// the scratch buffer (`[time_of_impact, witness1, witness2, normal1, normal2]`).
+    ///
+    /// The pose and velocities are passed component-wise so the JS side
+    /// allocates nothing but `shape2` per call.
+    #[cfg(feature = "dim2")]
     pub fn coCastShape(
         &self,
         handle: FlatHandle,
-        colliderVel: &RawVector,
+        vel1_x: f32,
+        vel1_y: f32,
         shape2: &RawShape,
-        shape2Pos: &RawVector,
-        shape2Rot: &RawRotation,
-        shape2Vel: &RawVector,
+        pos2_x: f32,
+        pos2_y: f32,
+        rot2: f32,
+        vel2_x: f32,
+        vel2_y: f32,
         target_distance: f32,
         maxToi: f32,
         stop_at_penetration: bool,
-    ) -> Option<RawShapeCastHit> {
-        let pos2 = Pose::from_parts(shape2Pos.0, shape2Rot.0);
-
-        self.map(handle, |co| {
-            let pos1 = co.position();
-            co.shared_shape().castShape(
-                pos1,
-                &colliderVel.0,
-                &*shape2.0,
-                &pos2,
-                &shape2Vel.0,
-                target_distance,
-                maxToi,
-                stop_at_penetration,
-            )
-        })
+    ) -> bool {
+        self.do_cast_shape(
+            handle,
+            &Vector::new(vel1_x, vel1_y),
+            shape2,
+            &pose_from_scalars(pos2_x, pos2_y, rot2),
+            &Vector::new(vel2_x, vel2_y),
+            target_distance,
+            maxToi,
+            stop_at_penetration,
+        )
     }
 
+    /// Casts this collider's shape against `shape2` and, on a hit, writes it into
+    /// the scratch buffer (`[time_of_impact, witness1, witness2, normal1, normal2]`).
+    ///
+    /// The pose and velocities are passed component-wise so the JS side
+    /// allocates nothing but `shape2` per call.
+    #[cfg(feature = "dim3")]
+    pub fn coCastShape(
+        &self,
+        handle: FlatHandle,
+        vel1_x: f32,
+        vel1_y: f32,
+        vel1_z: f32,
+        shape2: &RawShape,
+        pos2_x: f32,
+        pos2_y: f32,
+        pos2_z: f32,
+        rot2_x: f32,
+        rot2_y: f32,
+        rot2_z: f32,
+        rot2_w: f32,
+        vel2_x: f32,
+        vel2_y: f32,
+        vel2_z: f32,
+        target_distance: f32,
+        maxToi: f32,
+        stop_at_penetration: bool,
+    ) -> bool {
+        self.do_cast_shape(
+            handle,
+            &Vector::new(vel1_x, vel1_y, vel1_z),
+            shape2,
+            &pose_from_scalars(pos2_x, pos2_y, pos2_z, rot2_x, rot2_y, rot2_z, rot2_w),
+            &Vector::new(vel2_x, vel2_y, vel2_z),
+            target_distance,
+            maxToi,
+            stop_at_penetration,
+        )
+    }
+
+    /// Casts this collider against another one and, on a hit, writes it into the
+    /// scratch buffer. A removed second collider is a miss, not a trap.
+    #[cfg(feature = "dim2")]
     pub fn coCastCollider(
         &self,
         handle: FlatHandle,
-        collider1Vel: &RawVector,
+        vel1_x: f32,
+        vel1_y: f32,
         collider2handle: FlatHandle,
-        collider2Vel: &RawVector,
+        vel2_x: f32,
+        vel2_y: f32,
         target_distance: f32,
         max_toi: f32,
         stop_at_penetration: bool,
-    ) -> Option<RawColliderShapeCastHit> {
-        // A removed second collider is a miss, not a trap.
-        let handle2 = utils::collider_handle(collider2handle);
-        let co2 = self.0.get(handle2)?;
-
-        self.map(handle, |co| {
-            query::cast_shapes(
-                co.position(),
-                collider1Vel.0,
-                co.shape(),
-                co2.position(),
-                collider2Vel.0,
-                co2.shape(),
-                ShapeCastOptions {
-                    max_time_of_impact: max_toi,
-                    stop_at_penetration,
-                    target_distance,
-                    compute_impact_geometry_on_penetration: true,
-                },
-            )
-            .unwrap_or(None)
-            .map_or(None, |hit| {
-                Some(RawColliderShapeCastHit {
-                    handle: handle2,
-                    hit,
-                })
-            })
-        })
+    ) -> bool {
+        self.do_cast_collider(
+            handle,
+            Vector::new(vel1_x, vel1_y),
+            collider2handle,
+            Vector::new(vel2_x, vel2_y),
+            target_distance,
+            max_toi,
+            stop_at_penetration,
+        )
     }
 
+    /// Casts this collider against another one and, on a hit, writes it into the
+    /// scratch buffer. A removed second collider is a miss, not a trap.
+    #[cfg(feature = "dim3")]
+    pub fn coCastCollider(
+        &self,
+        handle: FlatHandle,
+        vel1_x: f32,
+        vel1_y: f32,
+        vel1_z: f32,
+        collider2handle: FlatHandle,
+        vel2_x: f32,
+        vel2_y: f32,
+        vel2_z: f32,
+        target_distance: f32,
+        max_toi: f32,
+        stop_at_penetration: bool,
+    ) -> bool {
+        self.do_cast_collider(
+            handle,
+            Vector::new(vel1_x, vel1_y, vel1_z),
+            collider2handle,
+            Vector::new(vel2_x, vel2_y, vel2_z),
+            target_distance,
+            max_toi,
+            stop_at_penetration,
+        )
+    }
+
+    #[cfg(feature = "dim2")]
     pub fn coIntersectsShape(
         &self,
         handle: FlatHandle,
         shape2: &RawShape,
-        shapePos2: &RawVector,
-        shapeRot2: &RawRotation,
+        pos2_x: f32,
+        pos2_y: f32,
+        rot2: f32,
     ) -> bool {
-        let pos2 = Pose::from_parts(shapePos2.0, shapeRot2.0);
-
+        let pos2 = pose_from_scalars(pos2_x, pos2_y, rot2);
         self.map(handle, |co| {
             co.shared_shape()
                 .intersectsShape(co.position(), &*shape2.0, &pos2)
         })
     }
 
+    #[cfg(feature = "dim3")]
+    pub fn coIntersectsShape(
+        &self,
+        handle: FlatHandle,
+        shape2: &RawShape,
+        pos2_x: f32,
+        pos2_y: f32,
+        pos2_z: f32,
+        rot2_x: f32,
+        rot2_y: f32,
+        rot2_z: f32,
+        rot2_w: f32,
+    ) -> bool {
+        let pos2 = pose_from_scalars(pos2_x, pos2_y, pos2_z, rot2_x, rot2_y, rot2_z, rot2_w);
+        self.map(handle, |co| {
+            co.shared_shape()
+                .intersectsShape(co.position(), &*shape2.0, &pos2)
+        })
+    }
+
+    /// Computes the contact between this collider and `shape2` and, if there is
+    /// one within `prediction`, writes it into the scratch buffer
+    /// (`[distance, point1, point2, normal1, normal2]`).
+    #[cfg(feature = "dim2")]
     pub fn coContactShape(
         &self,
         handle: FlatHandle,
         shape2: &RawShape,
-        shapePos2: &RawVector,
-        shapeRot2: &RawRotation,
+        pos2_x: f32,
+        pos2_y: f32,
+        rot2: f32,
         prediction: f32,
-    ) -> Option<RawShapeContact> {
-        let pos2 = Pose::from_parts(shapePos2.0, shapeRot2.0);
-
-        self.map(handle, |co| {
-            co.shared_shape()
-                .contactShape(co.position(), &*shape2.0, &pos2, prediction)
-        })
+    ) -> bool {
+        self.do_contact_shape(
+            handle,
+            shape2,
+            &pose_from_scalars(pos2_x, pos2_y, rot2),
+            prediction,
+        )
     }
 
+    /// Computes the contact between this collider and `shape2` and, if there is
+    /// one within `prediction`, writes it into the scratch buffer
+    /// (`[distance, point1, point2, normal1, normal2]`).
+    #[cfg(feature = "dim3")]
+    pub fn coContactShape(
+        &self,
+        handle: FlatHandle,
+        shape2: &RawShape,
+        pos2_x: f32,
+        pos2_y: f32,
+        pos2_z: f32,
+        rot2_x: f32,
+        rot2_y: f32,
+        rot2_z: f32,
+        rot2_w: f32,
+        prediction: f32,
+    ) -> bool {
+        self.do_contact_shape(
+            handle,
+            shape2,
+            &pose_from_scalars(pos2_x, pos2_y, pos2_z, rot2_x, rot2_y, rot2_z, rot2_w),
+            prediction,
+        )
+    }
+
+    /// Computes the contact between two colliders and, if there is one within
+    /// `prediction`, writes it into the scratch buffer. A removed second
+    /// collider is a miss, not a trap.
     pub fn coContactCollider(
         &self,
         handle: FlatHandle,
         collider2handle: FlatHandle,
         prediction: f32,
-    ) -> Option<RawShapeContact> {
-        // A removed second collider is a miss, not a trap.
-        let co2 = self.0.get(utils::collider_handle(collider2handle))?;
+    ) -> bool {
+        let Some(co2) = self.0.get(utils::collider_handle(collider2handle)) else {
+            return false;
+        };
 
         self.map(handle, |co| {
-            query::contact(
+            match query::contact(
                 co.position(),
                 co.shape(),
                 &co2.position(),
@@ -887,7 +1002,13 @@ impl RawColliderSet {
             )
             .ok()
             .flatten()
-            .map(|contact| RawShapeContact { contact })
+            {
+                Some(contact) => {
+                    write_contact(&contact);
+                    true
+                }
+                None => false,
+            }
         })
     }
 
@@ -1155,6 +1276,99 @@ impl RawColliderSet {
 }
 
 impl RawColliderSet {
+    fn do_cast_shape(
+        &self,
+        handle: FlatHandle,
+        vel1: &Vector,
+        shape2: &RawShape,
+        pos2: &Pose,
+        vel2: &Vector,
+        target_distance: f32,
+        max_toi: f32,
+        stop_at_penetration: bool,
+    ) -> bool {
+        self.map(handle, |co| {
+            match co.shared_shape().castShape(
+                co.position(),
+                vel1,
+                &*shape2.0,
+                pos2,
+                vel2,
+                target_distance,
+                max_toi,
+                stop_at_penetration,
+            ) {
+                Some(hit) => {
+                    write_hit(&hit);
+                    true
+                }
+                None => false,
+            }
+        })
+    }
+
+    fn do_cast_collider(
+        &self,
+        handle: FlatHandle,
+        vel1: Vector,
+        collider2handle: FlatHandle,
+        vel2: Vector,
+        target_distance: f32,
+        max_toi: f32,
+        stop_at_penetration: bool,
+    ) -> bool {
+        let Some(co2) = self.0.get(utils::collider_handle(collider2handle)) else {
+            return false;
+        };
+
+        self.map(handle, |co| {
+            match query::cast_shapes(
+                co.position(),
+                vel1,
+                co.shape(),
+                co2.position(),
+                vel2,
+                co2.shape(),
+                ShapeCastOptions {
+                    max_time_of_impact: max_toi,
+                    stop_at_penetration,
+                    target_distance,
+                    compute_impact_geometry_on_penetration: true,
+                },
+            )
+            .ok()
+            .flatten()
+            {
+                Some(hit) => {
+                    write_hit(&hit);
+                    true
+                }
+                None => false,
+            }
+        })
+    }
+
+    fn do_contact_shape(
+        &self,
+        handle: FlatHandle,
+        shape2: &RawShape,
+        pos2: &Pose,
+        prediction: f32,
+    ) -> bool {
+        self.map(handle, |co| {
+            match co
+                .shared_shape()
+                .contactShape(co.position(), &*shape2.0, pos2, prediction)
+            {
+                Some(contact) => {
+                    write_contact(&contact);
+                    true
+                }
+                None => false,
+            }
+        })
+    }
+
     fn do_set_half_extents(&mut self, handle: FlatHandle, half_extents: Vector) {
         self.map_mut_untracked(handle, |co| match co.shape().shape_type() {
             ShapeType::Cuboid => co

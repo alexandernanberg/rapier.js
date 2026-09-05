@@ -165,9 +165,9 @@ export class RigidBody {
     /**
      * Locks or unlocks the ability of this rigid-body to translate along individual coordinate axes.
      *
-     * @param enableX - If `false`, this rigid-body will no longer translate due to torques and impulses, along the X coordinate axis.
-     * @param enableY - If `false`, this rigid-body will no longer translate due to torques and impulses, along the Y coordinate axis.
-     * @param enableZ - If `false`, this rigid-body will no longer translate due to torques and impulses, along the Z coordinate axis.
+     * @param enableX - If `false`, this rigid-body will no longer translate due to forces and impulses, along the X coordinate axis.
+     * @param enableY - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Y coordinate axis.
+     * @param enableZ - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Z coordinate axis.
      * @param wakeUp - If `true`, this rigid-body will be automatically awaken if it is currently asleep.
      */
     public setEnabledTranslations(
@@ -182,9 +182,9 @@ export class RigidBody {
     /**
      * Locks or unlocks the ability of this rigid-body to translate along individual coordinate axes.
      *
-     * @param enableX - If `false`, this rigid-body will no longer translate due to torques and impulses, along the X coordinate axis.
-     * @param enableY - If `false`, this rigid-body will no longer translate due to torques and impulses, along the Y coordinate axis.
-     * @param enableZ - If `false`, this rigid-body will no longer translate due to torques and impulses, along the Z coordinate axis.
+     * @param enableX - If `false`, this rigid-body will no longer translate due to forces and impulses, along the X coordinate axis.
+     * @param enableY - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Y coordinate axis.
+     * @param enableZ - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Z coordinate axis.
      * @param wakeUp - If `true`, this rigid-body will be automatically awaken if it is currently asleep.
      * @deprecated use `this.setEnabledTranslations` with the same arguments instead.
      */
