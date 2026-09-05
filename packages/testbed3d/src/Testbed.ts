@@ -111,6 +111,11 @@ export class Testbed {
         this.physicsHooks = hooks;
     }
 
+    /** Shows a demo's own readings on screen, the way upstream's example settings do. */
+    setDemoText(text: string) {
+        this.gui.setDemoText(text);
+    }
+
     setWorld(world: RAPIER.World) {
         document.onkeydown = null; // Reset key events.
         document.onkeyup = null; // Reset key events.
@@ -118,6 +123,7 @@ export class Testbed {
         this.preTimestepAction = undefined;
         this.postTimestepAction = undefined;
         this.physicsHooks = undefined;
+        this.gui.setDemoText("");
         this.world = world;
         this.world.numSolverIterations = this.parameters.numSolverIters;
         this.demoToken += 1;
