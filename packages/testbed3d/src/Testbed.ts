@@ -54,6 +54,8 @@ export class Testbed {
     // Assigned by `setWorld()`, which every demo builder calls.
     world!: RAPIER.World;
     preTimestepAction?: (gfx: Graphics) => void;
+    postTimestepAction?: (gfx: Graphics) => void;
+    physicsHooks?: RAPIER.PhysicsHooks;
     stepId: number;
     prevDemo?: string;
     lastMessageTime: number;
@@ -100,11 +102,28 @@ export class Testbed {
         this.preTimestepAction = action;
     }
 
+    /** Runs right after each `world.step()`, e.g. to drain the event queue. */
+    setpostTimestepAction(action: (gfx: Graphics) => void) {
+        this.postTimestepAction = action;
+    }
+
+    setPhysicsHooks(hooks: RAPIER.PhysicsHooks) {
+        this.physicsHooks = hooks;
+    }
+
+    /** Shows a demo's own readings on screen, the way upstream's example settings do. */
+    setDemoText(text: string) {
+        this.gui.setDemoText(text);
+    }
+
     setWorld(world: RAPIER.World) {
         document.onkeydown = null; // Reset key events.
         document.onkeyup = null; // Reset key events.
 
         this.preTimestepAction = undefined;
+        this.postTimestepAction = undefined;
+        this.physicsHooks = undefined;
+        this.gui.setDemoText("");
         this.world = world;
         this.world.numSolverIterations = this.parameters.numSolverIters;
         this.demoToken += 1;
@@ -193,9 +212,13 @@ export class Testbed {
                 }
 
                 let t0 = performance.now();
-                this.world.step(this.events);
+                this.world.step(this.events, this.physicsHooks);
                 totalStepTime += performance.now() - t0;
                 stepCount += 1;
+
+                if (!!this.postTimestepAction) {
+                    this.postTimestepAction(this.graphics);
+                }
 
                 this.stepId += 1;
                 this.accumulator -= fixedStep;

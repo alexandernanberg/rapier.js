@@ -34,6 +34,7 @@ export class Gui {
     stepTimePanel: Stats.Panel;
     gui: GUI;
     debugText: HTMLDivElement;
+    demoText: HTMLDivElement;
 
     constructor(testbed: Testbed, simulationParameters: Testbed["parameters"]) {
         // Timings
@@ -93,6 +94,23 @@ export class Gui {
         this.debugText.style.visibility = "visible";
         this.debugText.style.color = "#fff";
         document.body.appendChild(this.debugText);
+
+        /*
+         * Block of text a demo can write its own readings into.
+         */
+        this.demoText = document.createElement("div");
+        this.demoText.style.position = "absolute";
+        this.demoText.style.bottom = 10 + "px";
+        this.demoText.style.left = 10 + "px";
+        this.demoText.style.color = "#fff";
+        this.demoText.style.font = "12px monospace";
+        this.demoText.style.whiteSpace = "pre";
+        document.body.appendChild(this.demoText);
+    }
+
+    /** Shows a demo's own status text, or clears it when given nothing. */
+    setDemoText(text: string) {
+        this.demoText.textContent = text;
     }
 
     setDebugInfos(infos: DebugInfos) {

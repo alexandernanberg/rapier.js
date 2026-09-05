@@ -2,10 +2,36 @@ import RAPIER from "@alexandernanberg/rapier3d";
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 
-const BOX_INSTANCE_INDEX = 0;
-const BALL_INSTANCE_INDEX = 1;
-const CYLINDER_INSTANCE_INDEX = 2;
-const CONE_INSTANCE_INDEX = 3;
+/** Capacity an instanced mesh starts at, before it doubles on demand. */
+const INITIAL_INSTANCES = 256;
+/**
+ * Vertex count above which a mesh shape gets a mesh of its own instead of being
+ * instanced. Hashing the vertex buffer to find its instance group costs more than
+ * it saves for a shape that only appears once, and the big ones (heightfields,
+ * scenery trimeshes) always do.
+ */
+const MAX_INSTANCED_VERTICES = 1024;
+
+/** Palette slot used for colliders on a fixed body (or on no body at all). */
+const FIXED_COLOR = 0;
+/**
+ * How many palette slots `addCollider` hands out to dynamic bodies, starting at
+ * slot 1. The slots past those are only used when a demo asks for them by index,
+ * so adding one doesn't shift the colors of every other demo.
+ */
+const DYNAMIC_COLORS = 3;
+/** Palette slot of the mouse-over highlight. */
+const HIGHLIGHT_COLOR = 4;
+/**
+ * Palette slot left to demos that recolor bodies themselves (e.g. `sensor`
+ * flagging the boxes currently inside its sensor).
+ */
+export const ACCENT_COLOR = 5;
+/**
+ * Palette slot of sensor colliders, drawn as wireframes so what they overlap
+ * stays visible.
+ */
+const SENSOR_COLOR = 6;
 
 var dummy = new THREE.Object3D();
 var kk = 0;
@@ -22,13 +48,22 @@ const _prevQuaternion = new THREE.Quaternion();
 const _matrix = new THREE.Matrix4();
 
 interface InstanceDesc {
-    groupId: number;
+    /** Key of the instance group, i.e. of the geometry the collider is drawn with. */
+    groupId: string;
     instanceId: number;
     elementId: number;
     highlighted: boolean;
     scale: THREE.Vector3;
     // Interpolation state, populated on the first frame the instance is drawn.
     interpolation?: Interpolation;
+}
+
+/** How one collider is drawn: which instanced geometry, and the scale to apply to it. */
+interface InstancedShape {
+    key: string;
+    /** Called only the first time `key` is seen, to build the shared geometry. */
+    geometry: () => THREE.BufferGeometry;
+    scale: THREE.Vector3;
 }
 
 interface Interpolation {
@@ -123,7 +158,7 @@ function genSubShapeGeometry(shape: RAPIER.Shape): THREE.BufferGeometry | null {
         case RAPIER.ShapeType.RoundConvexPolyhedron: {
             let mesh = shape as RAPIER.TriMesh;
             let geometry = new THREE.BufferGeometry();
-            geometry.setIndex(Array.from(mesh.indices));
+            geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
             geometry.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
             return geometry;
         }
@@ -231,6 +266,109 @@ function genHeightfieldGeometry(collider: RAPIER.Collider) {
     };
 }
 
+/**
+ * FNV-1a over the raw bytes, so colliders built from the same vertex buffer land
+ * in the same instance group. Scenes that reuse one shape thousands of times (the
+ * box3d junkyard, for instance) then draw in a single call instead of one each.
+ */
+function hashBuffer(buffer: Float32Array): string {
+    let bytes = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    let hash = 0x811c9dc5;
+
+    for (let i = 0; i < bytes.length; ++i) {
+        hash ^= bytes[i];
+        hash = Math.imul(hash, 0x01000193);
+    }
+
+    return (hash >>> 0).toString(16);
+}
+
+/**
+ * The instanced geometry a collider is drawn with, or `null` for the shapes that
+ * need a mesh of their own (heightfields, voxels, compounds, big meshes).
+ *
+ * Shapes that are a scaled unit primitive share one geometry; the ones that aren't
+ * (a capsule, a convex hull) are keyed by their dimensions or their vertices, so
+ * identical ones still share.
+ */
+function instancedShape(RAPIER: RAPIER_API, collider: RAPIER.Collider): InstancedShape | null {
+    switch (collider.shapeType()) {
+        case RAPIER.ShapeType.Cuboid:
+        case RAPIER.ShapeType.RoundCuboid: {
+            let ext = collider.halfExtents()!;
+            return {
+                key: "cuboid",
+                geometry: () => new THREE.BoxGeometry(2.0, 2.0, 2.0),
+                scale: new THREE.Vector3(ext.x, ext.y, ext.z),
+            };
+        }
+        case RAPIER.ShapeType.Ball: {
+            let rad = collider.radius();
+            return {
+                key: "ball",
+                geometry: () => new THREE.SphereGeometry(1.0),
+                scale: new THREE.Vector3(rad, rad, rad),
+            };
+        }
+        case RAPIER.ShapeType.Cylinder:
+        case RAPIER.ShapeType.RoundCylinder: {
+            let rad = collider.radius();
+            let height = collider.halfHeight() * 2.0;
+            return {
+                key: "cylinder",
+                geometry: () => new THREE.CylinderGeometry(1.0, 1.0),
+                scale: new THREE.Vector3(rad, height, rad),
+            };
+        }
+        case RAPIER.ShapeType.Cone:
+        case RAPIER.ShapeType.RoundCone: {
+            let rad = collider.radius();
+            let height = collider.halfHeight() * 2.0;
+            return {
+                key: "cone",
+                geometry: () => new THREE.ConeGeometry(1.0, 1.0),
+                scale: new THREE.Vector3(rad, height, rad),
+            };
+        }
+        case RAPIER.ShapeType.Capsule: {
+            // A capsule is not a scaled unit capsule unless its radius and
+            // half-height happen to match, so each pair of dimensions is its own
+            // geometry. Scenes tend to use one size throughout, so that is still a
+            // single group.
+            let rad = collider.radius();
+            let halfHeight = collider.halfHeight();
+            return {
+                key: `capsule:${rad}:${halfHeight}`,
+                geometry: () => new THREE.CapsuleGeometry(rad, halfHeight * 2.0),
+                scale: new THREE.Vector3(1.0, 1.0, 1.0),
+            };
+        }
+        case RAPIER.ShapeType.TriMesh:
+        case RAPIER.ShapeType.ConvexPolyhedron:
+        case RAPIER.ShapeType.RoundConvexPolyhedron: {
+            let vertices = collider.vertices();
+            let indices = collider.indices();
+
+            if (indices === undefined || vertices.length > MAX_INSTANCED_VERTICES * 3) {
+                return null;
+            }
+
+            return {
+                key: `mesh:${vertices.length}:${hashBuffer(vertices)}`,
+                geometry: () => {
+                    let geometry = new THREE.BufferGeometry();
+                    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+                    geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+                    return geometry;
+                },
+                scale: new THREE.Vector3(1.0, 1.0, 1.0),
+            };
+        }
+        default:
+            return null;
+    }
+}
+
 export class Graphics {
     raycaster: THREE.Raycaster;
     highlightedCollider: null | number;
@@ -247,8 +385,8 @@ export class Graphics {
     controls: OrbitControls;
     /** Reused across frames so debug rendering allocates nothing per frame. */
     debugBuffers?: RAPIER.DebugRenderBuffers;
-    // Assigned by `initInstances()`, called at the end of the constructor.
-    instanceGroups!: Array<Array<THREE.InstancedMesh>>;
+    /** Geometry key -> one instanced mesh per palette slot, created on first use. */
+    instanceGroups: Map<string, Array<THREE.InstancedMesh>>;
 
     constructor() {
         this.raycaster = new THREE.Raycaster();
@@ -256,8 +394,9 @@ export class Graphics {
         this.coll2instance = new Map();
         this.coll2mesh = new Map();
         this.rb2colls = new Map();
+        this.instanceGroups = new Map();
         this.colorIndex = 0;
-        this.colorPalette = [0xf3d9b1, 0x98c1d9, 0x053c5e, 0x1f7a8c, 0xff0000];
+        this.colorPalette = [0xf3d9b1, 0x98c1d9, 0x053c5e, 0x1f7a8c, 0xff0000, 0xffe066, 0xc8c8c8];
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(
             45,
@@ -306,62 +445,89 @@ export class Graphics {
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.2;
         this.controls.maxPolarAngle = Math.PI / 2;
-        this.initInstances();
     }
 
-    initInstances() {
-        this.instanceGroups = [];
-        this.instanceGroups.push(
-            this.colorPalette.map((color) => {
-                let box = new THREE.BoxGeometry(2.0, 2.0, 2.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
-                    flatShading: true,
-                });
-                return new THREE.InstancedMesh(box, mat, 1000);
-            }),
+    /**
+     * The instanced meshes of one geometry, one per palette slot.
+     *
+     * Groups are built the first time a shape needs them and thrown away on
+     * `reset()`, so a demo only pays for the shapes it actually uses.
+     */
+    private instancesFor(shape: InstancedShape): Array<THREE.InstancedMesh> {
+        let group = this.instanceGroups.get(shape.key);
+
+        if (group === undefined) {
+            let geometry = shape.geometry();
+            group = this.colorPalette.map((_, i) =>
+                this.newInstancedMesh(geometry, this.material(i), INITIAL_INSTANCES),
+            );
+            this.instanceGroups.set(shape.key, group);
+        }
+
+        return group;
+    }
+
+    private newInstancedMesh(
+        geometry: THREE.BufferGeometry,
+        material: THREE.Material,
+        capacity: number,
+    ) {
+        let instance = new THREE.InstancedMesh(geometry, material, capacity);
+        instance.userData.elementId2coll = new Map();
+        instance.count = 0;
+        instance.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        // Instances sit wherever their bodies are, which says nothing about where
+        // the instanced mesh's own origin is, so the sphere three would cull
+        // against is meaningless and can hide the whole batch.
+        instance.frustumCulled = false;
+        this.scene.add(instance);
+        return instance;
+    }
+
+    /**
+     * Doubles the capacity of one instanced mesh, keeping the instances it holds.
+     *
+     * `THREE.InstancedMesh` takes its capacity at construction and silently ignores
+     * writes past it, so growing means building a bigger one and moving the
+     * instance matrices over. The geometry and material are shared, not rebuilt.
+     */
+    private growInstances(groupId: string, colorIndex: number): THREE.InstancedMesh {
+        let group = this.instanceGroups.get(groupId)!;
+        let previous = group[colorIndex];
+        let grown = this.newInstancedMesh(
+            previous.geometry,
+            previous.material as THREE.Material,
+            previous.instanceMatrix.count * 2,
         );
 
-        this.instanceGroups.push(
-            this.colorPalette.map((color) => {
-                let ball = new THREE.SphereGeometry(1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
-                    flatShading: true,
-                });
-                return new THREE.InstancedMesh(ball, mat, 1000);
-            }),
-        );
+        grown.userData.elementId2coll = previous.userData.elementId2coll;
+        grown.count = previous.count;
+        grown.instanceMatrix.array.set(previous.instanceMatrix.array);
+        grown.instanceMatrix.needsUpdate = true;
 
-        this.instanceGroups.push(
-            this.colorPalette.map((color) => {
-                let cylinder = new THREE.CylinderGeometry(1.0, 1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
-                    flatShading: true,
-                });
-                return new THREE.InstancedMesh(cylinder, mat, 100);
-            }),
-        );
+        this.scene.remove(previous);
+        // Frees the instance attributes only: the geometry and material live on in
+        // the mesh that just replaced this one.
+        previous.dispose();
 
-        this.instanceGroups.push(
-            this.colorPalette.map((color) => {
-                let cone = new THREE.ConeGeometry(1.0, 1.0);
-                let mat = new THREE.MeshPhongMaterial({
-                    color: color,
-                    flatShading: true,
-                });
-                return new THREE.InstancedMesh(cone, mat, 100);
-            }),
-        );
+        group[colorIndex] = grown;
+        return grown;
+    }
 
-        this.instanceGroups.forEach((groups) => {
-            groups.forEach((instance) => {
-                instance.userData.elementId2coll = new Map();
-                instance.count = 0;
-                instance.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-                this.scene.add(instance);
-            });
+    /**
+     * The material of one palette slot.
+     *
+     * @param doubleSided - For the shapes that aren't closed surfaces (a heightfield,
+     *                      an open trimesh), whose back faces have to be drawn too.
+     */
+    private material(colorIndex: number, doubleSided: boolean = false) {
+        return new THREE.MeshPhongMaterial({
+            color: this.colorPalette[colorIndex],
+            side: doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+            flatShading: true,
+            // Sensors don't collide with anything, so drawing them solid would only
+            // hide the bodies passing through them.
+            wireframe: colorIndex == SENSOR_COLOR,
         });
     }
 
@@ -416,7 +582,7 @@ export class Graphics {
     }
 
     highlightInstanceId() {
-        return this.colorPalette.length - 1;
+        return HIGHLIGHT_COLOR;
     }
 
     highlightCollider(handle: number) {
@@ -429,7 +595,7 @@ export class Graphics {
 
             if (!!desc) {
                 desc.highlighted = false;
-                this.instanceGroups[desc.groupId][this.highlightInstanceId()].count = 0;
+                this.instanceGroups.get(desc.groupId)![this.highlightInstanceId()].count = 0;
             }
         }
         if (handle != null) {
@@ -454,7 +620,8 @@ export class Graphics {
             _quaternion.set(_rotation.x, _rotation.y, _rotation.z, _rotation.w);
 
             if (!!gfx) {
-                let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
+                let group = this.instanceGroups.get(gfx.groupId)!;
+                let instance = group[gfx.instanceId];
 
                 let interp = gfx.interpolation;
                 if (interp === undefined) {
@@ -481,8 +648,7 @@ export class Graphics {
                 dummy.updateMatrix();
                 instance.setMatrixAt(gfx.elementId, dummy.matrix);
 
-                let highlightInstance =
-                    this.instanceGroups[gfx.groupId][this.highlightInstanceId()];
+                let highlightInstance = group[this.highlightInstanceId()];
                 if (gfx.highlighted) {
                     highlightInstance.count = 1;
                     highlightInstance.setMatrixAt(0, dummy.matrix);
@@ -524,17 +690,31 @@ export class Graphics {
     }
 
     reset() {
+        // Groups are keyed by geometry, and a demo's capsule sizes or convex hulls
+        // are its own, so they go with it rather than piling up across demos. The
+        // next demo rebuilds the handful it needs on its first collider.
         this.instanceGroups.forEach((groups) => {
-            groups.forEach((instance) => {
-                instance.userData.elementId2coll = new Map();
-                instance.count = 0;
+            groups.forEach((instance, i) => {
+                this.scene.remove(instance);
+                instance.dispose();
+                (instance.material as THREE.Material).dispose();
+
+                // One geometry is shared by every color of the group.
+                if (i == 0) {
+                    instance.geometry.dispose();
+                }
             });
         });
 
+        this.instanceGroups = new Map();
+
         this.coll2mesh.forEach((mesh) => {
             this.scene.remove(mesh);
+            mesh.geometry.dispose();
+            (mesh.material as THREE.Material).dispose();
         });
 
+        this.coll2mesh = new Map();
         this.coll2instance = new Map();
         this.rb2colls = new Map();
         this.colorIndex = 0;
@@ -565,14 +745,25 @@ export class Graphics {
     }
 
     removeCollider(collider: RAPIER.Collider) {
+        // Shapes drawn as their own mesh (trimesh, heightfield, capsule, …) have
+        // no instance, and are removed from the scene instead.
+        let mesh = this.coll2mesh.get(collider.handle);
+
+        if (mesh !== undefined) {
+            this.scene.remove(mesh);
+            mesh.geometry.dispose();
+            (mesh.material as THREE.Material).dispose();
+            this.coll2mesh.delete(collider.handle);
+            return;
+        }
+
         let gfx = this.coll2instance.get(collider.handle);
 
-        // Shapes drawn as their own mesh (trimesh, heightfield, …) have no instance.
         if (gfx === undefined) {
             return;
         }
 
-        let instance = this.instanceGroups[gfx.groupId][gfx.instanceId];
+        let instance = this.instanceGroups.get(gfx.groupId)![gfx.instanceId];
 
         if (instance.count > 1) {
             let coll2 = instance.userData.elementId2coll.get(instance.count - 1);
@@ -589,121 +780,86 @@ export class Graphics {
         this.coll2instance.delete(collider.handle);
     }
 
-    addCollider(RAPIER: RAPIER_API, world: RAPIER.World, collider: RAPIER.Collider) {
-        this.colorIndex = (this.colorIndex + 1) % (this.colorPalette.length - 2);
+    /**
+     * Redraws a collider with another palette slot (see `ACCENT_COLOR`).
+     *
+     * The color of an instanced shape is the instanced mesh it belongs to, so
+     * recoloring means dropping the collider and adding it back to another one.
+     */
+    setColliderColor(
+        RAPIER: RAPIER_API,
+        world: RAPIER.World,
+        collider: RAPIER.Collider,
+        colorIndex: number,
+    ) {
+        this.removeCollider(collider);
+        this.addCollider(RAPIER, world, collider, colorIndex);
+    }
+
+    /**
+     * @param colorIndex - Palette slot to draw the collider with. Defaults to the
+     *                     next one in the rotation used for dynamic bodies.
+     */
+    addCollider(
+        RAPIER: RAPIER_API,
+        world: RAPIER.World,
+        collider: RAPIER.Collider,
+        colorIndex?: number,
+    ) {
         let parent = collider.parent();
+
+        if (colorIndex === undefined) {
+            this.colorIndex = (this.colorIndex + 1) % DYNAMIC_COLORS;
+
+            if (collider.isSensor()) {
+                colorIndex = SENSOR_COLOR;
+            } else {
+                // A collider without a parent body is static, so color it like a fixed
+                // one. The dynamic slots are the `DYNAMIC_COLORS` right after that one.
+                colorIndex =
+                    parent === null || parent.isFixed() ? FIXED_COLOR : this.colorIndex + 1;
+            }
+        }
 
         if (parent !== null) {
             let colls = this.rb2colls.get(parent.handle);
 
             if (colls === undefined) {
                 this.rb2colls.set(parent.handle, [collider]);
-            } else {
+            } else if (!colls.some((coll) => coll.handle === collider.handle)) {
+                // A recolored collider is added back to a body that already tracks it.
                 colls.push(collider);
             }
         }
 
-        let instance;
+        let shape = instancedShape(RAPIER, collider);
+
+        if (shape === null) {
+            this.addShapeMesh(RAPIER, collider, colorIndex);
+            return;
+        }
+
+        let group = this.instancesFor(shape);
+        let instance = group[colorIndex];
+
+        // An instanced mesh ignores writes past the capacity it was built with, so
+        // it has to be replaced by a bigger one before it fills up.
+        if (instance.count == instance.instanceMatrix.count) {
+            instance = this.growInstances(shape.key, colorIndex);
+        }
+
         let instanceDesc: InstanceDesc = {
-            groupId: 0,
-            // A collider without a parent body is static, so colour it like a fixed one.
-            instanceId: parent === null || parent.isFixed() ? 0 : this.colorIndex + 1,
-            elementId: 0,
+            groupId: shape.key,
+            instanceId: colorIndex,
+            elementId: instance.count,
             highlighted: false,
-            scale: new THREE.Vector3(1.0, 1.0, 1.0),
+            scale: shape.scale,
         };
 
-        switch (collider.shapeType()) {
-            case RAPIER.ShapeType.Cuboid:
-                let hext = collider.halfExtents()!;
-                instance = this.instanceGroups[BOX_INSTANCE_INDEX][instanceDesc.instanceId];
-                instanceDesc.groupId = BOX_INSTANCE_INDEX;
-                instanceDesc.scale = new THREE.Vector3(hext.x, hext.y, hext.z);
-                break;
-            case RAPIER.ShapeType.Ball:
-                let rad = collider.radius();
-                instance = this.instanceGroups[BALL_INSTANCE_INDEX][instanceDesc.instanceId];
-                instanceDesc.groupId = BALL_INSTANCE_INDEX;
-                instanceDesc.scale = new THREE.Vector3(rad, rad, rad);
-                break;
-            case RAPIER.ShapeType.Cylinder:
-            case RAPIER.ShapeType.RoundCylinder:
-                let cyl_rad = collider.radius();
-                let cyl_height = collider.halfHeight() * 2.0;
-                instance = this.instanceGroups[CYLINDER_INSTANCE_INDEX][instanceDesc.instanceId];
-                instanceDesc.groupId = CYLINDER_INSTANCE_INDEX;
-                instanceDesc.scale = new THREE.Vector3(cyl_rad, cyl_height, cyl_rad);
-                break;
-            case RAPIER.ShapeType.Cone:
-                let cone_rad = collider.radius();
-                let cone_height = collider.halfHeight() * 2.0;
-                instance = this.instanceGroups[CONE_INSTANCE_INDEX][instanceDesc.instanceId];
-                instanceDesc.groupId = CONE_INSTANCE_INDEX;
-                instanceDesc.scale = new THREE.Vector3(cone_rad, cone_height, cone_rad);
-                break;
-            case RAPIER.ShapeType.TriMesh:
-            case RAPIER.ShapeType.HeightField:
-            case RAPIER.ShapeType.ConvexPolyhedron:
-            case RAPIER.ShapeType.RoundConvexPolyhedron:
-            case RAPIER.ShapeType.Voxels:
-            case RAPIER.ShapeType.Compound:
-                let geometry = new THREE.BufferGeometry();
-                let vertices;
-                let indices;
+        instance.userData.elementId2coll.set(instance.count, collider);
+        instance.count += 1;
 
-                if (collider.shapeType() == RAPIER.ShapeType.HeightField) {
-                    let g = genHeightfieldGeometry(collider);
-                    vertices = g.vertices;
-                    indices = g.indices;
-                } else if (collider.shapeType() == RAPIER.ShapeType.Voxels) {
-                    let g = genVoxelsGeometry(collider);
-                    vertices = g.vertices;
-                    indices = g.indices;
-                } else if (collider.shapeType() == RAPIER.ShapeType.Compound) {
-                    // Compounds have no vertex buffer of their own; the mesh is
-                    // built by flattening their sub-shapes.
-                    let g = genCompoundGeometry(collider);
-                    vertices = g.vertices;
-                    indices = g.indices;
-                } else {
-                    vertices = collider.vertices();
-                    indices = collider.indices();
-                }
-
-                // `Collider.indices()` is undefined for shapes that aren't indexed.
-                if (indices === undefined) {
-                    console.log("Shape has no index buffer to render: ", collider.shapeType());
-                    return;
-                }
-
-                geometry.setIndex(Array.from(indices));
-                geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-                let color = parent !== null && !parent.isFixed() ? this.colorIndex + 1 : 0;
-
-                let material = new THREE.MeshPhongMaterial({
-                    color: this.colorPalette[color],
-                    side: THREE.DoubleSide,
-                    flatShading: true,
-                });
-
-                let mesh = new THREE.Mesh(geometry, material);
-                this.scene.add(mesh);
-                this.coll2mesh.set(collider.handle, mesh);
-                return;
-            default:
-                console.log("Unknown shape to render.");
-                return;
-        }
-
-        if (!!instance) {
-            instanceDesc.elementId = instance.count;
-            instance.userData.elementId2coll.set(instance.count, collider);
-            instance.count += 1;
-        }
-
-        let highlightInstance =
-            this.instanceGroups[instanceDesc.groupId][this.highlightInstanceId()];
-        highlightInstance.count = 0;
+        group[this.highlightInstanceId()].count = 0;
 
         collider.translation(_translation);
         collider.rotation(_rotation);
@@ -715,5 +871,65 @@ export class Graphics {
         instance.instanceMatrix.needsUpdate = true;
 
         this.coll2instance.set(collider.handle, instanceDesc);
+    }
+
+    /** Draws the shapes that can't be instanced: heightfields, voxels, compounds, big meshes. */
+    private addShapeMesh(RAPIER: RAPIER_API, collider: RAPIER.Collider, colorIndex: number) {
+        let vertices;
+        let indices;
+
+        switch (collider.shapeType()) {
+            case RAPIER.ShapeType.HeightField: {
+                let g = genHeightfieldGeometry(collider);
+                vertices = g.vertices;
+                indices = g.indices;
+                break;
+            }
+            case RAPIER.ShapeType.Voxels: {
+                let g = genVoxelsGeometry(collider);
+                vertices = g.vertices;
+                indices = g.indices;
+                break;
+            }
+            case RAPIER.ShapeType.Compound: {
+                // Compounds have no vertex buffer of their own; the mesh is
+                // built by flattening their sub-shapes.
+                let g = genCompoundGeometry(collider);
+                vertices = g.vertices;
+                indices = g.indices;
+                break;
+            }
+            case RAPIER.ShapeType.TriMesh:
+            case RAPIER.ShapeType.ConvexPolyhedron:
+            case RAPIER.ShapeType.RoundConvexPolyhedron: {
+                // Only the meshes too big to be worth instancing reach this.
+                vertices = collider.vertices();
+                indices = collider.indices();
+                break;
+            }
+            default:
+                console.log("Unknown shape to render: ", collider.shapeType());
+                return;
+        }
+
+        // `Collider.indices()` is undefined for shapes that aren't indexed.
+        if (indices === undefined) {
+            console.log("Shape has no index buffer to render: ", collider.shapeType());
+            return;
+        }
+
+        let geometry = new THREE.BufferGeometry();
+        // Straight from the index buffer: `Array.from` on the million-index meshes
+        // some scenes build would be far more expensive than the draw itself.
+        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+        this.addMesh(collider, geometry, colorIndex);
+    }
+
+    /** Draws a collider with a mesh of its own, for the shapes that aren't instanced. */
+    private addMesh(collider: RAPIER.Collider, geometry: THREE.BufferGeometry, colorIndex: number) {
+        let mesh = new THREE.Mesh(geometry, this.material(colorIndex, true));
+        this.scene.add(mesh);
+        this.coll2mesh.set(collider.handle, mesh);
     }
 }

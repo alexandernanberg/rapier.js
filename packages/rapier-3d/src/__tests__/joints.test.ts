@@ -79,6 +79,51 @@ describe("impulse joints", () => {
         world.free();
     });
 
+    test("a generic joint is limited and motorized one axis at a time", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const anchor = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+        const slider = world.createRigidBody(
+            RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 0, 0).setCanSleep(false),
+        );
+        world.createCollider(RAPIER.ColliderDesc.ball(0.2), slider);
+
+        // Everything is locked but the vertical translation, which is what the
+        // limit and the motor below act on.
+        const lockedAxes =
+            RAPIER.JointAxesMask.LinX |
+            RAPIER.JointAxesMask.LinZ |
+            RAPIER.JointAxesMask.AngX |
+            RAPIER.JointAxesMask.AngY |
+            RAPIER.JointAxesMask.AngZ;
+        const joint = world.createImpulseJoint(
+            RAPIER.JointData.generic(
+                {x: 0, y: 0, z: 0},
+                {x: 0, y: 0, z: 0},
+                {x: 1, y: 0, z: 0},
+                lockedAxes,
+            ),
+            anchor,
+            slider,
+            true,
+        ) as RAPIER.GenericImpulseJoint;
+
+        joint.setLimits(RAPIER.JointAxis.LinY, -1, 1);
+        expect(joint.limitsEnabled(RAPIER.JointAxis.LinY)).toBe(true);
+        expect(joint.limitsMin(RAPIER.JointAxis.LinY)).toBeCloseTo(-1);
+        expect(joint.limitsMax(RAPIER.JointAxis.LinY)).toBeCloseTo(1);
+
+        // Gravity alone would push it against the lower limit.
+        for (let i = 0; i < 120; i++) world.step();
+        expect(slider.translation().y).toBeCloseTo(-1, 1);
+
+        // The motor then drives it back up to its target position.
+        joint.configureMotorPosition(RAPIER.JointAxis.LinY, 0.5, 1.0e4, 1.0e3);
+        for (let i = 0; i < 120; i++) world.step();
+        expect(slider.translation().y).toBeCloseTo(0.5, 1);
+
+        world.free();
+    });
+
     test("an impulse joint is reachable by handle until it is removed", () => {
         const world = new RAPIER.World(GRAVITY);
         const a = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
