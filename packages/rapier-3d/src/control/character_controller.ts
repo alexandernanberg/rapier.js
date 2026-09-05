@@ -303,7 +303,6 @@ export class KinematicCharacterController {
         filterGroups?: InteractionGroups,
         filterPredicate?: (collider: Collider) => boolean,
     ) {
-        let rawTranslationDelta = VectorOps.intoRaw(desiredTranslationDelta);
         this.raw.computeColliderMovement(
             this.params.dt,
             this.broadPhase.raw,
@@ -311,14 +310,16 @@ export class KinematicCharacterController {
             this.bodies.raw,
             this.colliders.raw,
             collider.handle,
-            rawTranslationDelta,
+            desiredTranslationDelta.x,
+            desiredTranslationDelta.y,
+            desiredTranslationDelta.z,
             this._applyImpulsesToDynamicBodies,
             this._characterMass,
             filterFlags ?? 0,
             filterGroups,
             this.colliders.castClosure(filterPredicate) as unknown as Function,
         );
-        rawTranslationDelta.free();
+        this.colliders.rethrowCallbackError();
     }
 
     /**

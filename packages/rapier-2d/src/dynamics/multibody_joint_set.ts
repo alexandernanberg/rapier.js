@@ -67,13 +67,14 @@ export class MultibodyJointSet {
         wakeUp: boolean,
     ): MultibodyJoint {
         const rawParams = desc.intoRaw();
-        const handle = this.raw.createJoint(rawParams, parent1, parent2, wakeUp);
+        const handle = this.raw.createJoint(bodies.raw, rawParams, parent1, parent2, wakeUp);
         rawParams.free();
 
         if (handle === undefined) {
             throw new Error(
-                "could not create the multibody joint: `parent2` already has a parent joint, " +
-                    "or both bodies already belong to the same multibody",
+                "could not create the multibody joint: a body is not part of the world (it may " +
+                    "have been removed), `parent2` already has a parent joint, or both bodies " +
+                    "already belong to the same multibody",
             );
         }
 
@@ -89,8 +90,11 @@ export class MultibodyJointSet {
      * @param wake_up - If `true`, the rigid-bodies attached by the removed joint will be woken-up automatically.
      */
     public remove(handle: MultibodyJointHandle, wake_up: boolean) {
+        // Already removed (or a stale handle whose index was recycled): nothing
+        // to do, and the joint that owns the index now must be left alone.
+        if (!this.map.get(handle)) return;
         this.raw.remove(handle, wake_up);
-        this.map.delete(handle);
+        this.unmap(handle);
     }
 
     /**
@@ -98,7 +102,11 @@ export class MultibodyJointSet {
      * @param handle
      */
     public unmap(handle: MultibodyJointHandle) {
-        this.map.delete(handle);
+        const joint = this.map.get(handle);
+        if (joint) {
+            joint._markRemoved();
+            this.map.delete(handle);
+        }
     }
 
     /**

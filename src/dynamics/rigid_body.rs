@@ -316,11 +316,17 @@ impl RawRigidBodySet {
     ) {
         let q = utils::unit_rotation(rx, ry, rz, rw);
         self.map_mut(handle, |rb| {
-            // Wake on the translation so a rejected (zero) quaternion does not
-            // also drop the requested wake-up.
+            // Rapier only wakes the body from inside its "component actually
+            // changed" branch, so the wake-up has to ride on both calls: a
+            // body given a new rotation at its current translation (or the
+            // other way around) would otherwise stay asleep. `wake_up` is
+            // idempotent, so passing it twice costs nothing.
             rb.set_translation(Vector::new(tx, ty, tz), wakeUp);
             if let Some(q) = q {
-                rb.set_rotation(q, false);
+                rb.set_rotation(q, wakeUp);
+            } else if wakeUp {
+                // A rejected (zero) quaternion still must not drop the wake-up.
+                rb.wake_up(true);
             }
         })
     }
@@ -341,7 +347,8 @@ impl RawRigidBodySet {
         wakeUp: bool,
     ) {
         self.map_mut(handle, |rb| {
-            rb.set_translation(Vector::new(tx, ty), false);
+            // See the 3D variant: the wake-up has to ride on both calls.
+            rb.set_translation(Vector::new(tx, ty), wakeUp);
             rb.set_rotation(Rotation::new(angle), wakeUp);
         })
     }
@@ -711,7 +718,11 @@ impl RawRigidBodySet {
     /// This method forces a sleeping rigid-body to wake-up. This is useful, e.g., before modifying
     /// the position of a dynamic body so that it is properly simulated afterwards.
     pub fn rbWakeUp(&mut self, handle: FlatHandle) {
-        self.map_mut(handle, |rb| rb.wake_up(true))
+        // Waking only flips the activation flags; pose and velocity are
+        // untouched, so this need not count toward the incremental-sync budget
+        // (a game keeping a hundred bodies awake by hand every frame would
+        // otherwise force a full re-sync each step).
+        self.map_mut_untracked(handle, |rb| rb.wake_up(true))
     }
 
     /// Is Continuous Collision Detection enabled for this rigid-body?

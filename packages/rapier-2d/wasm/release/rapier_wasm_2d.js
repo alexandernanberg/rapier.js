@@ -74,12 +74,20 @@ export class RawBroadPhase {
         }
     }
     /**
+     * Casts a shape against every collider and, on a hit, writes the hit into
+     * the scratch buffer (`[time_of_impact, witness1, witness2, normal1,
+     * normal2]`) and returns the handle of the collider hit.
+     *
+     * The pose and velocity are passed component-wise so the JS side allocates
+     * nothing but the shape per call.
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
-     * @param {RawVector} shapePos
-     * @param {RawRotation} shapeRot
-     * @param {RawVector} shapeVel
+     * @param {number} pos_x
+     * @param {number} pos_y
+     * @param {number} rot
+     * @param {number} vel_x
+     * @param {number} vel_y
      * @param {RawShape} shape
      * @param {number} target_distance
      * @param {number} maxToi
@@ -89,20 +97,21 @@ export class RawBroadPhase {
      * @param {number | null | undefined} filter_exclude_collider
      * @param {number | null | undefined} filter_exclude_rigid_body
      * @param {Function} filter_predicate
-     * @returns {RawColliderShapeCastHit | undefined}
+     * @returns {number | undefined}
      */
-    castShape(narrow_phase, bodies, colliders, shapePos, shapeRot, shapeVel, shape, target_distance, maxToi, stop_at_penetration, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
+    castShape(narrow_phase, bodies, colliders, pos_x, pos_y, rot, vel_x, vel_y, shape, target_distance, maxToi, stop_at_penetration, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
         try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(shapePos, RawVector);
-            _assertClass(shapeRot, RawRotation);
-            _assertClass(shapeVel, RawVector);
             _assertClass(shape, RawShape);
-            const ret = wasm.rawbroadphase_castShape(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shapeVel.__wbg_ptr, shape.__wbg_ptr, target_distance, maxToi, stop_at_penetration, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
-            return ret === 0 ? undefined : RawColliderShapeCastHit.__wrap(ret);
+            wasm.rawbroadphase_castShape(retptr, this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, pos_x, pos_y, rot, vel_x, vel_y, shape.__wbg_ptr, target_distance, maxToi, stop_at_penetration, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
         } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
             heap[stack_pointer++] = undefined;
         }
     }
@@ -110,28 +119,32 @@ export class RawBroadPhase {
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
-     * @param {RawVector} aabbCenter
-     * @param {RawVector} aabbHalfExtents
+     * @param {number} center_x
+     * @param {number} center_y
+     * @param {number} half_extents_x
+     * @param {number} half_extents_y
      * @param {Function} callback
      */
-    collidersWithAabbIntersectingAabb(narrow_phase, bodies, colliders, aabbCenter, aabbHalfExtents, callback) {
+    collidersWithAabbIntersectingAabb(narrow_phase, bodies, colliders, center_x, center_y, half_extents_x, half_extents_y, callback) {
         try {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(aabbCenter, RawVector);
-            _assertClass(aabbHalfExtents, RawVector);
-            wasm.rawbroadphase_collidersWithAabbIntersectingAabb(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, aabbCenter.__wbg_ptr, aabbHalfExtents.__wbg_ptr, addBorrowedObject(callback));
+            wasm.rawbroadphase_collidersWithAabbIntersectingAabb(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, center_x, center_y, half_extents_x, half_extents_y, addBorrowedObject(callback));
         } finally {
             heap[stack_pointer++] = undefined;
         }
     }
     /**
+     * The handle of the first collider found intersecting the shape, if any.
+     * The pose is passed component-wise so the JS side allocates nothing but
+     * the shape per call.
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
-     * @param {RawVector} shapePos
-     * @param {RawRotation} shapeRot
+     * @param {number} pos_x
+     * @param {number} pos_y
+     * @param {number} rot
      * @param {RawShape} shape
      * @param {number} filter_flags
      * @param {number | null | undefined} filter_groups
@@ -140,16 +153,14 @@ export class RawBroadPhase {
      * @param {Function} filter_predicate
      * @returns {number | undefined}
      */
-    intersectionWithShape(narrow_phase, bodies, colliders, shapePos, shapeRot, shape, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
+    intersectionWithShape(narrow_phase, bodies, colliders, pos_x, pos_y, rot, shape, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(shapePos, RawVector);
-            _assertClass(shapeRot, RawRotation);
             _assertClass(shape, RawShape);
-            wasm.rawbroadphase_intersectionWithShape(retptr, this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shape.__wbg_ptr, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            wasm.rawbroadphase_intersectionWithShape(retptr, this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, pos_x, pos_y, rot, shape.__wbg_ptr, filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
             return r0 === 0 ? undefined : r2;
@@ -214,8 +225,9 @@ export class RawBroadPhase {
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
-     * @param {RawVector} shapePos
-     * @param {RawRotation} shapeRot
+     * @param {number} pos_x
+     * @param {number} pos_y
+     * @param {number} rot
      * @param {RawShape} shape
      * @param {Function} callback
      * @param {number} filter_flags
@@ -224,15 +236,13 @@ export class RawBroadPhase {
      * @param {number | null | undefined} filter_exclude_rigid_body
      * @param {Function} filter_predicate
      */
-    intersectionsWithShape(narrow_phase, bodies, colliders, shapePos, shapeRot, shape, callback, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
+    intersectionsWithShape(narrow_phase, bodies, colliders, pos_x, pos_y, rot, shape, callback, filter_flags, filter_groups, filter_exclude_collider, filter_exclude_rigid_body, filter_predicate) {
         try {
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(shapePos, RawVector);
-            _assertClass(shapeRot, RawRotation);
             _assertClass(shape, RawShape);
-            wasm.rawbroadphase_intersectionsWithShape(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, shape.__wbg_ptr, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
+            wasm.rawbroadphase_intersectionsWithShape(this.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, pos_x, pos_y, rot, shape.__wbg_ptr, addBorrowedObject(callback), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, !isLikeNone(filter_exclude_collider), isLikeNone(filter_exclude_collider) ? 0 : filter_exclude_collider, !isLikeNone(filter_exclude_rigid_body), isLikeNone(filter_exclude_rigid_body) ? 0 : filter_exclude_rigid_body, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
             heap[stack_pointer++] = undefined;
@@ -414,20 +424,22 @@ export class RawColliderSet {
         return ret >>> 0;
     }
     /**
+     * Casts this collider against another one and, on a hit, writes it into the
+     * scratch buffer. A removed second collider is a miss, not a trap.
      * @param {number} handle
-     * @param {RawVector} collider1Vel
+     * @param {number} vel1_x
+     * @param {number} vel1_y
      * @param {number} collider2handle
-     * @param {RawVector} collider2Vel
+     * @param {number} vel2_x
+     * @param {number} vel2_y
      * @param {number} target_distance
      * @param {number} max_toi
      * @param {boolean} stop_at_penetration
-     * @returns {RawColliderShapeCastHit | undefined}
+     * @returns {boolean}
      */
-    coCastCollider(handle, collider1Vel, collider2handle, collider2Vel, target_distance, max_toi, stop_at_penetration) {
-        _assertClass(collider1Vel, RawVector);
-        _assertClass(collider2Vel, RawVector);
-        const ret = wasm.rawcolliderset_coCastCollider(this.__wbg_ptr, handle, collider1Vel.__wbg_ptr, collider2handle, collider2Vel.__wbg_ptr, target_distance, max_toi, stop_at_penetration);
-        return ret === 0 ? undefined : RawColliderShapeCastHit.__wrap(ret);
+    coCastCollider(handle, vel1_x, vel1_y, collider2handle, vel2_x, vel2_y, target_distance, max_toi, stop_at_penetration) {
+        const ret = wasm.rawcolliderset_coCastCollider(this.__wbg_ptr, handle, vel1_x, vel1_y, collider2handle, vel2_x, vel2_y, target_distance, max_toi, stop_at_penetration);
+        return ret !== 0;
     }
     /**
      * Casts a ray on this collider. Returns the time of impact, or a negative
@@ -463,25 +475,29 @@ export class RawColliderSet {
         return ret !== 0;
     }
     /**
+     * Casts this collider's shape against `shape2` and, on a hit, writes it into
+     * the scratch buffer (`[time_of_impact, witness1, witness2, normal1, normal2]`).
+     *
+     * The pose and velocities are passed component-wise so the JS side
+     * allocates nothing but `shape2` per call.
      * @param {number} handle
-     * @param {RawVector} colliderVel
+     * @param {number} vel1_x
+     * @param {number} vel1_y
      * @param {RawShape} shape2
-     * @param {RawVector} shape2Pos
-     * @param {RawRotation} shape2Rot
-     * @param {RawVector} shape2Vel
+     * @param {number} pos2_x
+     * @param {number} pos2_y
+     * @param {number} rot2
+     * @param {number} vel2_x
+     * @param {number} vel2_y
      * @param {number} target_distance
      * @param {number} maxToi
      * @param {boolean} stop_at_penetration
-     * @returns {RawShapeCastHit | undefined}
+     * @returns {boolean}
      */
-    coCastShape(handle, colliderVel, shape2, shape2Pos, shape2Rot, shape2Vel, target_distance, maxToi, stop_at_penetration) {
-        _assertClass(colliderVel, RawVector);
+    coCastShape(handle, vel1_x, vel1_y, shape2, pos2_x, pos2_y, rot2, vel2_x, vel2_y, target_distance, maxToi, stop_at_penetration) {
         _assertClass(shape2, RawShape);
-        _assertClass(shape2Pos, RawVector);
-        _assertClass(shape2Rot, RawRotation);
-        _assertClass(shape2Vel, RawVector);
-        const ret = wasm.rawcolliderset_coCastShape(this.__wbg_ptr, handle, colliderVel.__wbg_ptr, shape2.__wbg_ptr, shape2Pos.__wbg_ptr, shape2Rot.__wbg_ptr, shape2Vel.__wbg_ptr, target_distance, maxToi, stop_at_penetration);
-        return ret === 0 ? undefined : RawShapeCastHit.__wrap(ret);
+        const ret = wasm.rawcolliderset_coCastShape(this.__wbg_ptr, handle, vel1_x, vel1_y, shape2.__wbg_ptr, pos2_x, pos2_y, rot2, vel2_x, vel2_y, target_distance, maxToi, stop_at_penetration);
+        return ret !== 0;
     }
     /**
      * The collision groups of this collider.
@@ -502,14 +518,17 @@ export class RawColliderSet {
         wasm.rawcolliderset_coCombineVoxelStates(this.__wbg_ptr, handle1, handle2, shift_x, shift_y);
     }
     /**
+     * Computes the contact between two colliders and, if there is one within
+     * `prediction`, writes it into the scratch buffer. A removed second
+     * collider is a miss, not a trap.
      * @param {number} handle
      * @param {number} collider2handle
      * @param {number} prediction
-     * @returns {RawShapeContact | undefined}
+     * @returns {boolean}
      */
     coContactCollider(handle, collider2handle, prediction) {
         const ret = wasm.rawcolliderset_coContactCollider(this.__wbg_ptr, handle, collider2handle, prediction);
-        return ret === 0 ? undefined : RawShapeContact.__wrap(ret);
+        return ret !== 0;
     }
     /**
      * The total force magnitude beyond which a contact force event can be emitted.
@@ -521,19 +540,21 @@ export class RawColliderSet {
         return ret;
     }
     /**
+     * Computes the contact between this collider and `shape2` and, if there is
+     * one within `prediction`, writes it into the scratch buffer
+     * (`[distance, point1, point2, normal1, normal2]`).
      * @param {number} handle
      * @param {RawShape} shape2
-     * @param {RawVector} shapePos2
-     * @param {RawRotation} shapeRot2
+     * @param {number} pos2_x
+     * @param {number} pos2_y
+     * @param {number} rot2
      * @param {number} prediction
-     * @returns {RawShapeContact | undefined}
+     * @returns {boolean}
      */
-    coContactShape(handle, shape2, shapePos2, shapeRot2, prediction) {
+    coContactShape(handle, shape2, pos2_x, pos2_y, rot2, prediction) {
         _assertClass(shape2, RawShape);
-        _assertClass(shapePos2, RawVector);
-        _assertClass(shapeRot2, RawRotation);
-        const ret = wasm.rawcolliderset_coContactShape(this.__wbg_ptr, handle, shape2.__wbg_ptr, shapePos2.__wbg_ptr, shapeRot2.__wbg_ptr, prediction);
-        return ret === 0 ? undefined : RawShapeContact.__wrap(ret);
+        const ret = wasm.rawcolliderset_coContactShape(this.__wbg_ptr, handle, shape2.__wbg_ptr, pos2_x, pos2_y, rot2, prediction);
+        return ret !== 0;
     }
     /**
      * @param {number} handle
@@ -666,15 +687,14 @@ export class RawColliderSet {
     /**
      * @param {number} handle
      * @param {RawShape} shape2
-     * @param {RawVector} shapePos2
-     * @param {RawRotation} shapeRot2
+     * @param {number} pos2_x
+     * @param {number} pos2_y
+     * @param {number} rot2
      * @returns {boolean}
      */
-    coIntersectsShape(handle, shape2, shapePos2, shapeRot2) {
+    coIntersectsShape(handle, shape2, pos2_x, pos2_y, rot2) {
         _assertClass(shape2, RawShape);
-        _assertClass(shapePos2, RawVector);
-        _assertClass(shapeRot2, RawRotation);
-        const ret = wasm.rawcolliderset_coIntersectsShape(this.__wbg_ptr, handle, shape2.__wbg_ptr, shapePos2.__wbg_ptr, shapeRot2.__wbg_ptr);
+        const ret = wasm.rawcolliderset_coIntersectsShape(this.__wbg_ptr, handle, shape2.__wbg_ptr, pos2_x, pos2_y, rot2);
         return ret !== 0;
     }
     /**
@@ -864,12 +884,14 @@ export class RawColliderSet {
     }
     /**
      * Set the half-extents of this collider if it has a cuboid shape.
+     * Sets the half-extents of a cuboid or round cuboid collider, passed
+     * component-wise so the JS side allocates no `RawVector` per call.
      * @param {number} handle
-     * @param {RawVector} newHalfExtents
+     * @param {number} x
+     * @param {number} y
      */
-    coSetHalfExtents(handle, newHalfExtents) {
-        _assertClass(newHalfExtents, RawVector);
-        wasm.rawcolliderset_coSetHalfExtents(this.__wbg_ptr, handle, newHalfExtents.__wbg_ptr);
+    coSetHalfExtents(handle, x, y) {
+        wasm.rawcolliderset_coSetHalfExtents(this.__wbg_ptr, handle, x, y);
     }
     /**
      * Set the half height of this collider if it is a capsule, cylinder, or cone shape.
@@ -1188,41 +1210,6 @@ export class RawColliderSet {
     }
 }
 if (Symbol.dispose) RawColliderSet.prototype[Symbol.dispose] = RawColliderSet.prototype.free;
-
-export class RawColliderShapeCastHit {
-    static __wrap(ptr) {
-        const obj = Object.create(RawColliderShapeCastHit.prototype);
-        obj.__wbg_ptr = ptr;
-        RawColliderShapeCastHitFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawColliderShapeCastHitFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawcollidershapecasthit_free(ptr, 0);
-    }
-    /**
-     * @returns {number}
-     */
-    colliderHandle() {
-        const ret = wasm.rawcollidershapecasthit_colliderHandle(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * Writes this hit into the shared scratch buffer, in a single call.
-     *
-     * Layout: `[time_of_impact, witness1, witness2, normal1, normal2]`.
-     */
-    getComponents() {
-        wasm.rawcollidershapecasthit_getComponents(this.__wbg_ptr);
-    }
-}
-if (Symbol.dispose) RawColliderShapeCastHit.prototype[Symbol.dispose] = RawColliderShapeCastHit.prototype.free;
 
 export class RawContactManifold {
     static __wrap(ptr) {
@@ -2082,16 +2069,33 @@ export class RawImpulseJointSet {
         return ret !== 0;
     }
     /**
+     * Creates a joint between two bodies, or returns `None` if either body is
+     * not (or no longer) part of `bodies`.
+     *
+     * Rapier's `insert` takes the handles on trust; a joint attached to a
+     * removed body would then index the body arena from inside the next
+     * `step()`, and on wasm32 that panic is a module-wide trap far away from
+     * the call that caused it. The JS side turns the `None` into an exception
+     * at the creation site instead.
+     * @param {RawRigidBodySet} bodies
      * @param {RawGenericJoint} params
      * @param {number} parent1
      * @param {number} parent2
      * @param {boolean} wake_up
-     * @returns {number}
+     * @returns {number | undefined}
      */
-    createJoint(params, parent1, parent2, wake_up) {
-        _assertClass(params, RawGenericJoint);
-        const ret = wasm.rawimpulsejointset_createJoint(this.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wake_up);
-        return ret;
+    createJoint(bodies, params, parent1, parent2, wake_up) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            _assertClass(bodies, RawRigidBodySet);
+            _assertClass(params, RawGenericJoint);
+            wasm.rawimpulsejointset_createJoint(retptr, this.__wbg_ptr, bodies.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wake_up);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
+            return r0 === 0 ? undefined : r2;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
     }
     /**
      * Applies the given JavaScript function to the integer handle of each joint attached to the given rigid-body.
@@ -2793,27 +2797,29 @@ export class RawKinematicCharacterController {
         return ret === Number.MAX_SAFE_INTEGER ? undefined : ret;
     }
     /**
+     * See [`Self::do_compute_collider_movement`]; the desired translation is
+     * passed component-wise so the JS side allocates no `RawVector` per call.
      * @param {number} dt
      * @param {RawBroadPhase} broad_phase
      * @param {RawNarrowPhase} narrow_phase
      * @param {RawRigidBodySet} bodies
      * @param {RawColliderSet} colliders
      * @param {number} collider_handle
-     * @param {RawVector} desired_translation_delta
+     * @param {number} desired_translation_x
+     * @param {number} desired_translation_y
      * @param {boolean} apply_impulses_to_dynamic_bodies
      * @param {number | null | undefined} character_mass
      * @param {number} filter_flags
      * @param {number | null | undefined} filter_groups
      * @param {Function} filter_predicate
      */
-    computeColliderMovement(dt, broad_phase, narrow_phase, bodies, colliders, collider_handle, desired_translation_delta, apply_impulses_to_dynamic_bodies, character_mass, filter_flags, filter_groups, filter_predicate) {
+    computeColliderMovement(dt, broad_phase, narrow_phase, bodies, colliders, collider_handle, desired_translation_x, desired_translation_y, apply_impulses_to_dynamic_bodies, character_mass, filter_flags, filter_groups, filter_predicate) {
         try {
             _assertClass(broad_phase, RawBroadPhase);
             _assertClass(narrow_phase, RawNarrowPhase);
             _assertClass(bodies, RawRigidBodySet);
             _assertClass(colliders, RawColliderSet);
-            _assertClass(desired_translation_delta, RawVector);
-            wasm.rawkinematiccharactercontroller_computeColliderMovement(this.__wbg_ptr, dt, broad_phase.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, collider_handle, desired_translation_delta.__wbg_ptr, apply_impulses_to_dynamic_bodies, isLikeNone(character_mass) ? Number.MAX_SAFE_INTEGER : Math.fround(character_mass), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, addBorrowedObject(filter_predicate));
+            wasm.rawkinematiccharactercontroller_computeColliderMovement(this.__wbg_ptr, dt, broad_phase.__wbg_ptr, narrow_phase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, collider_handle, desired_translation_x, desired_translation_y, apply_impulses_to_dynamic_bodies, isLikeNone(character_mass) ? Number.MAX_SAFE_INTEGER : Math.fround(character_mass), filter_flags, isLikeNone(filter_groups) ? Number.MAX_SAFE_INTEGER : (filter_groups) >>> 0, addBorrowedObject(filter_predicate));
         } finally {
             heap[stack_pointer++] = undefined;
         }
@@ -3015,17 +3021,19 @@ export class RawMultibodyJointSet {
      * real handle — the very next accessor looked it up and hit the "Invalid Joint
      * reference" `expect` in [`Self::map`], i.e. a WASM trap for what is an
      * ordinary rejected-topology error.
+     * @param {RawRigidBodySet} bodies
      * @param {RawGenericJoint} params
      * @param {number} parent1
      * @param {number} parent2
      * @param {boolean} wakeUp
      * @returns {number | undefined}
      */
-    createJoint(params, parent1, parent2, wakeUp) {
+    createJoint(bodies, params, parent1, parent2, wakeUp) {
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            _assertClass(bodies, RawRigidBodySet);
             _assertClass(params, RawGenericJoint);
-            wasm.rawmultibodyjointset_createJoint(retptr, this.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wakeUp);
+            wasm.rawmultibodyjointset_createJoint(retptr, this.__wbg_ptr, bodies.__wbg_ptr, params.__wbg_ptr, parent1, parent2, wakeUp);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r2 = getDataViewMemory0().getFloat64(retptr + 8 * 1, true);
             return r0 === 0 ? undefined : r2;
@@ -3590,30 +3598,35 @@ export class RawPidController {
         wasm.rawpidcontroller_apply_angular_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_rotation, target_angvel);
     }
     /**
+     * Applies the linear correction to the body's velocity.
+     *
+     * The targets are passed component-wise so the JS side allocates no
+     * `RawVector` per call (this runs once per controlled body per frame).
      * @param {number} dt
      * @param {RawRigidBodySet} bodies
      * @param {number} rb_handle
-     * @param {RawVector} target_translation
-     * @param {RawVector} target_linvel
+     * @param {number} target_x
+     * @param {number} target_y
+     * @param {number} target_linvel_x
+     * @param {number} target_linvel_y
      */
-    apply_linear_correction(dt, bodies, rb_handle, target_translation, target_linvel) {
+    apply_linear_correction(dt, bodies, rb_handle, target_x, target_y, target_linvel_x, target_linvel_y) {
         _assertClass(bodies, RawRigidBodySet);
-        _assertClass(target_translation, RawVector);
-        _assertClass(target_linvel, RawVector);
-        wasm.rawpidcontroller_apply_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_translation.__wbg_ptr, target_linvel.__wbg_ptr);
+        wasm.rawpidcontroller_apply_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_x, target_y, target_linvel_x, target_linvel_y);
     }
     /**
+     * Writes the linear correction into the scratch buffer.
      * @param {number} dt
      * @param {RawRigidBodySet} bodies
      * @param {number} rb_handle
-     * @param {RawVector} target_translation
-     * @param {RawVector} target_linvel
+     * @param {number} target_x
+     * @param {number} target_y
+     * @param {number} target_linvel_x
+     * @param {number} target_linvel_y
      */
-    linear_correction(dt, bodies, rb_handle, target_translation, target_linvel) {
+    linear_correction(dt, bodies, rb_handle, target_x, target_y, target_linvel_x, target_linvel_y) {
         _assertClass(bodies, RawRigidBodySet);
-        _assertClass(target_translation, RawVector);
-        _assertClass(target_linvel, RawVector);
-        wasm.rawpidcontroller_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_translation.__wbg_ptr, target_linvel.__wbg_ptr);
+        wasm.rawpidcontroller_linear_correction(this.__wbg_ptr, dt, bodies.__wbg_ptr, rb_handle, target_x, target_y, target_linvel_x, target_linvel_y);
     }
     /**
      * @param {number} kp
@@ -4609,62 +4622,64 @@ export class RawShape {
         return RawShape.__wrap(ret);
     }
     /**
-     * @param {RawVector} shapePos
-     * @param {RawRotation} shapeRot
-     * @param {RawVector} rayOrig
-     * @param {RawVector} rayDir
+     * @param {number} pos_x
+     * @param {number} pos_y
+     * @param {number} rot
+     * @param {number} orig_x
+     * @param {number} orig_y
+     * @param {number} dir_x
+     * @param {number} dir_y
      * @param {number} maxToi
      * @param {boolean} solid
      * @returns {number}
      */
-    castRay(shapePos, shapeRot, rayOrig, rayDir, maxToi, solid) {
-        _assertClass(shapePos, RawVector);
-        _assertClass(shapeRot, RawRotation);
-        _assertClass(rayOrig, RawVector);
-        _assertClass(rayDir, RawVector);
-        const ret = wasm.rawshape_castRay(this.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, rayOrig.__wbg_ptr, rayDir.__wbg_ptr, maxToi, solid);
+    castRay(pos_x, pos_y, rot, orig_x, orig_y, dir_x, dir_y, maxToi, solid) {
+        const ret = wasm.rawshape_castRay(this.__wbg_ptr, pos_x, pos_y, rot, orig_x, orig_y, dir_x, dir_y, maxToi, solid);
         return ret;
     }
     /**
-     * @param {RawVector} shapePos
-     * @param {RawRotation} shapeRot
-     * @param {RawVector} rayOrig
-     * @param {RawVector} rayDir
+     * Casts a ray and, on a hit, writes the intersection into the scratch buffer.
+     * @param {number} pos_x
+     * @param {number} pos_y
+     * @param {number} rot
+     * @param {number} orig_x
+     * @param {number} orig_y
+     * @param {number} dir_x
+     * @param {number} dir_y
      * @param {number} maxToi
      * @param {boolean} solid
      * @returns {boolean}
      */
-    castRayAndGetNormal(shapePos, shapeRot, rayOrig, rayDir, maxToi, solid) {
-        _assertClass(shapePos, RawVector);
-        _assertClass(shapeRot, RawRotation);
-        _assertClass(rayOrig, RawVector);
-        _assertClass(rayDir, RawVector);
-        const ret = wasm.rawshape_castRayAndGetNormal(this.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, rayOrig.__wbg_ptr, rayDir.__wbg_ptr, maxToi, solid);
+    castRayAndGetNormal(pos_x, pos_y, rot, orig_x, orig_y, dir_x, dir_y, maxToi, solid) {
+        const ret = wasm.rawshape_castRayAndGetNormal(this.__wbg_ptr, pos_x, pos_y, rot, orig_x, orig_y, dir_x, dir_y, maxToi, solid);
         return ret !== 0;
     }
     /**
-     * @param {RawVector} shapePos1
-     * @param {RawRotation} shapeRot1
-     * @param {RawVector} shapeVel1
+     * Casts this shape against `shape2` and, on a hit, writes it into the
+     * scratch buffer (`[time_of_impact, witness1, witness2, normal1, normal2]`).
+     *
+     * Poses and velocities are passed component-wise so the JS side allocates
+     * nothing but the two shapes per call.
+     * @param {number} pos1_x
+     * @param {number} pos1_y
+     * @param {number} rot1
+     * @param {number} vel1_x
+     * @param {number} vel1_y
      * @param {RawShape} shape2
-     * @param {RawVector} shapePos2
-     * @param {RawRotation} shapeRot2
-     * @param {RawVector} shapeVel2
+     * @param {number} pos2_x
+     * @param {number} pos2_y
+     * @param {number} rot2
+     * @param {number} vel2_x
+     * @param {number} vel2_y
      * @param {number} target_distance
      * @param {number} maxToi
      * @param {boolean} stop_at_penetration
-     * @returns {RawShapeCastHit | undefined}
+     * @returns {boolean}
      */
-    castShape(shapePos1, shapeRot1, shapeVel1, shape2, shapePos2, shapeRot2, shapeVel2, target_distance, maxToi, stop_at_penetration) {
-        _assertClass(shapePos1, RawVector);
-        _assertClass(shapeRot1, RawRotation);
-        _assertClass(shapeVel1, RawVector);
+    castShape(pos1_x, pos1_y, rot1, vel1_x, vel1_y, shape2, pos2_x, pos2_y, rot2, vel2_x, vel2_y, target_distance, maxToi, stop_at_penetration) {
         _assertClass(shape2, RawShape);
-        _assertClass(shapePos2, RawVector);
-        _assertClass(shapeRot2, RawRotation);
-        _assertClass(shapeVel2, RawVector);
-        const ret = wasm.rawshape_castShape(this.__wbg_ptr, shapePos1.__wbg_ptr, shapeRot1.__wbg_ptr, shapeVel1.__wbg_ptr, shape2.__wbg_ptr, shapePos2.__wbg_ptr, shapeRot2.__wbg_ptr, shapeVel2.__wbg_ptr, target_distance, maxToi, stop_at_penetration);
-        return ret === 0 ? undefined : RawShapeCastHit.__wrap(ret);
+        const ret = wasm.rawshape_castShape(this.__wbg_ptr, pos1_x, pos1_y, rot1, vel1_x, vel1_y, shape2.__wbg_ptr, pos2_x, pos2_y, rot2, vel2_x, vel2_y, target_distance, maxToi, stop_at_penetration);
+        return ret !== 0;
     }
     /**
      * Builds a compound shape from the given sub-shapes and their local poses, or
@@ -4726,34 +4741,34 @@ export class RawShape {
         return ret === 0 ? undefined : RawVector.__wrap(ret);
     }
     /**
-     * @param {RawVector} shapePos1
-     * @param {RawRotation} shapeRot1
+     * Computes the contact between this shape and `shape2` and, if there is one
+     * within `prediction`, writes it into the scratch buffer
+     * (`[distance, point1, point2, normal1, normal2]`).
+     * @param {number} pos1_x
+     * @param {number} pos1_y
+     * @param {number} rot1
      * @param {RawShape} shape2
-     * @param {RawVector} shapePos2
-     * @param {RawRotation} shapeRot2
+     * @param {number} pos2_x
+     * @param {number} pos2_y
+     * @param {number} rot2
      * @param {number} prediction
-     * @returns {RawShapeContact | undefined}
-     */
-    contactShape(shapePos1, shapeRot1, shape2, shapePos2, shapeRot2, prediction) {
-        _assertClass(shapePos1, RawVector);
-        _assertClass(shapeRot1, RawRotation);
-        _assertClass(shape2, RawShape);
-        _assertClass(shapePos2, RawVector);
-        _assertClass(shapeRot2, RawRotation);
-        const ret = wasm.rawshape_contactShape(this.__wbg_ptr, shapePos1.__wbg_ptr, shapeRot1.__wbg_ptr, shape2.__wbg_ptr, shapePos2.__wbg_ptr, shapeRot2.__wbg_ptr, prediction);
-        return ret === 0 ? undefined : RawShapeContact.__wrap(ret);
-    }
-    /**
-     * @param {RawVector} shapePos
-     * @param {RawRotation} shapeRot
-     * @param {RawVector} point
      * @returns {boolean}
      */
-    containsPoint(shapePos, shapeRot, point) {
-        _assertClass(shapePos, RawVector);
-        _assertClass(shapeRot, RawRotation);
-        _assertClass(point, RawVector);
-        const ret = wasm.rawshape_containsPoint(this.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, point.__wbg_ptr);
+    contactShape(pos1_x, pos1_y, rot1, shape2, pos2_x, pos2_y, rot2, prediction) {
+        _assertClass(shape2, RawShape);
+        const ret = wasm.rawshape_contactShape(this.__wbg_ptr, pos1_x, pos1_y, rot1, shape2.__wbg_ptr, pos2_x, pos2_y, rot2, prediction);
+        return ret !== 0;
+    }
+    /**
+     * @param {number} pos_x
+     * @param {number} pos_y
+     * @param {number} rot
+     * @param {number} point_x
+     * @param {number} point_y
+     * @returns {boolean}
+     */
+    containsPoint(pos_x, pos_y, rot, point_x, point_y) {
+        const ret = wasm.rawshape_containsPoint(this.__wbg_ptr, pos_x, pos_y, rot, point_x, point_y);
         return ret !== 0;
     }
     /**
@@ -4916,36 +4931,33 @@ export class RawShape {
         }
     }
     /**
-     * @param {RawVector} shapePos
-     * @param {RawRotation} shapeRot
-     * @param {RawVector} rayOrig
-     * @param {RawVector} rayDir
+     * @param {number} pos_x
+     * @param {number} pos_y
+     * @param {number} rot
+     * @param {number} orig_x
+     * @param {number} orig_y
+     * @param {number} dir_x
+     * @param {number} dir_y
      * @param {number} maxToi
      * @returns {boolean}
      */
-    intersectsRay(shapePos, shapeRot, rayOrig, rayDir, maxToi) {
-        _assertClass(shapePos, RawVector);
-        _assertClass(shapeRot, RawRotation);
-        _assertClass(rayOrig, RawVector);
-        _assertClass(rayDir, RawVector);
-        const ret = wasm.rawshape_intersectsRay(this.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, rayOrig.__wbg_ptr, rayDir.__wbg_ptr, maxToi);
+    intersectsRay(pos_x, pos_y, rot, orig_x, orig_y, dir_x, dir_y, maxToi) {
+        const ret = wasm.rawshape_intersectsRay(this.__wbg_ptr, pos_x, pos_y, rot, orig_x, orig_y, dir_x, dir_y, maxToi);
         return ret !== 0;
     }
     /**
-     * @param {RawVector} shapePos1
-     * @param {RawRotation} shapeRot1
+     * @param {number} pos1_x
+     * @param {number} pos1_y
+     * @param {number} rot1
      * @param {RawShape} shape2
-     * @param {RawVector} shapePos2
-     * @param {RawRotation} shapeRot2
+     * @param {number} pos2_x
+     * @param {number} pos2_y
+     * @param {number} rot2
      * @returns {boolean}
      */
-    intersectsShape(shapePos1, shapeRot1, shape2, shapePos2, shapeRot2) {
-        _assertClass(shapePos1, RawVector);
-        _assertClass(shapeRot1, RawRotation);
+    intersectsShape(pos1_x, pos1_y, rot1, shape2, pos2_x, pos2_y, rot2) {
         _assertClass(shape2, RawShape);
-        _assertClass(shapePos2, RawVector);
-        _assertClass(shapeRot2, RawRotation);
-        const ret = wasm.rawshape_intersectsShape(this.__wbg_ptr, shapePos1.__wbg_ptr, shapeRot1.__wbg_ptr, shape2.__wbg_ptr, shapePos2.__wbg_ptr, shapeRot2.__wbg_ptr);
+        const ret = wasm.rawshape_intersectsShape(this.__wbg_ptr, pos1_x, pos1_y, rot1, shape2.__wbg_ptr, pos2_x, pos2_y, rot2);
         return ret !== 0;
     }
     /**
@@ -4965,16 +4977,15 @@ export class RawShape {
     }
     /**
      * Projects a point on this shape, writing `point, isInside` to the scratch buffer.
-     * @param {RawVector} shapePos
-     * @param {RawRotation} shapeRot
-     * @param {RawVector} point
+     * @param {number} pos_x
+     * @param {number} pos_y
+     * @param {number} rot
+     * @param {number} point_x
+     * @param {number} point_y
      * @param {boolean} solid
      */
-    projectPoint(shapePos, shapeRot, point, solid) {
-        _assertClass(shapePos, RawVector);
-        _assertClass(shapeRot, RawRotation);
-        _assertClass(point, RawVector);
-        wasm.rawshape_projectPoint(this.__wbg_ptr, shapePos.__wbg_ptr, shapeRot.__wbg_ptr, point.__wbg_ptr, solid);
+    projectPoint(pos_x, pos_y, rot, point_x, point_y, solid) {
+        wasm.rawshape_projectPoint(this.__wbg_ptr, pos_x, pos_y, rot, point_x, point_y, solid);
     }
     /**
      * The radius of this shape if it is a ball, capsule, cylinder or cone.
@@ -5145,87 +5156,35 @@ export class RawShape {
         return ret === 0 ? undefined : RawVector.__wrap(ret);
     }
     /**
+     * Builds a voxel shape from grid coordinates, or returns `None` if the
+     * buffer is ragged (its length is not a multiple of the dimension).
      * @param {RawVector} voxel_size
      * @param {Int32Array} grid_coords
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static voxels(voxel_size, grid_coords) {
         _assertClass(voxel_size, RawVector);
         const ptr0 = passArray32ToWasm0(grid_coords, wasm.__wbindgen_export3);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.rawshape_voxels(voxel_size.__wbg_ptr, ptr0, len0);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
     /**
+     * Builds a voxel shape from the points it must cover, or returns `None` if
+     * the point buffer is ragged.
      * @param {RawVector} voxel_size
      * @param {Float32Array} points
-     * @returns {RawShape}
+     * @returns {RawShape | undefined}
      */
     static voxelsFromPoints(voxel_size, points) {
         _assertClass(voxel_size, RawVector);
         const ptr0 = passArrayF32ToWasm0(points, wasm.__wbindgen_export3);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.rawshape_voxelsFromPoints(voxel_size.__wbg_ptr, ptr0, len0);
-        return RawShape.__wrap(ret);
+        return ret === 0 ? undefined : RawShape.__wrap(ret);
     }
 }
 if (Symbol.dispose) RawShape.prototype[Symbol.dispose] = RawShape.prototype.free;
-
-export class RawShapeCastHit {
-    static __wrap(ptr) {
-        const obj = Object.create(RawShapeCastHit.prototype);
-        obj.__wbg_ptr = ptr;
-        RawShapeCastHitFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawShapeCastHitFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawshapecasthit_free(ptr, 0);
-    }
-    /**
-     * Writes this hit into the shared scratch buffer, in a single call.
-     *
-     * Layout: `[time_of_impact, witness1, witness2, normal1, normal2]`.
-     */
-    getComponents() {
-        wasm.rawshapecasthit_getComponents(this.__wbg_ptr);
-    }
-}
-if (Symbol.dispose) RawShapeCastHit.prototype[Symbol.dispose] = RawShapeCastHit.prototype.free;
-
-export class RawShapeContact {
-    static __wrap(ptr) {
-        const obj = Object.create(RawShapeContact.prototype);
-        obj.__wbg_ptr = ptr;
-        RawShapeContactFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawShapeContactFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawshapecontact_free(ptr, 0);
-    }
-    /**
-     * Writes this contact into the shared scratch buffer, in a single call.
-     *
-     * Layout: `[distance, point1, point2, normal1, normal2]`.
-     */
-    getComponents() {
-        wasm.rawshapecontact_getComponents(this.__wbg_ptr);
-    }
-}
-if (Symbol.dispose) RawShapeContact.prototype[Symbol.dispose] = RawShapeContact.prototype.free;
 
 /**
  * @enum {0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14}
@@ -5635,9 +5594,6 @@ const RawCharacterCollisionFinalization = (typeof FinalizationRegistry === 'unde
 const RawColliderSetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcolliderset_free(ptr, 1));
-const RawColliderShapeCastHitFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcollidershapecasthit_free(ptr, 1));
 const RawContactManifoldFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactmanifold_free(ptr, 1));
@@ -5695,12 +5651,6 @@ const RawSerializationPipelineFinalization = (typeof FinalizationRegistry === 'u
 const RawShapeFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawshape_free(ptr, 1));
-const RawShapeCastHitFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawshapecasthit_free(ptr, 1));
-const RawShapeContactFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawshapecontact_free(ptr, 1));
 const RawVHACDParametersFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawvhacdparameters_free(ptr, 1));

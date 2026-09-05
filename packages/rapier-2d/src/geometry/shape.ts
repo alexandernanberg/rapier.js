@@ -173,44 +173,31 @@ export abstract class Shape {
         stopAtPenetration: boolean,
         target?: ShapeCastHit,
     ): ShapeCastHit | null {
-        let rawPos1 = VectorOps.intoRaw(shapePos1);
-        let rawRot1 = RotationOps.intoRaw(shapeRot1);
-        let rawVel1 = VectorOps.intoRaw(shapeVel1);
-        let rawPos2 = VectorOps.intoRaw(shapePos2);
-        let rawRot2 = RotationOps.intoRaw(shapeRot2);
-        let rawVel2 = VectorOps.intoRaw(shapeVel2);
-
-        let rawShape1 = this.intoRaw();
-        let rawShape2 = shape2.intoRaw();
-
-        let result = ShapeCastHit.fromRaw(
-            null!,
-            rawShape1.castShape(
-                rawPos1,
-                rawRot1,
-                rawVel1,
+        const rawShape1 = this.intoRaw();
+        let rawShape2: RawShape | null = null;
+        try {
+            rawShape2 = shape2.intoRaw();
+            const hit = rawShape1.castShape(
+                shapePos1.x,
+                shapePos1.y,
+                shapeRot1,
+                shapeVel1.x,
+                shapeVel1.y,
                 rawShape2,
-                rawPos2,
-                rawRot2,
-                rawVel2,
+                shapePos2.x,
+                shapePos2.y,
+                shapeRot2,
+                shapeVel2.x,
+                shapeVel2.y,
                 targetDistance,
                 maxToi,
                 stopAtPenetration,
-            )!,
-            target,
-        );
-
-        rawPos1.free();
-        rawRot1.free();
-        rawVel1.free();
-        rawPos2.free();
-        rawRot2.free();
-        rawVel2.free();
-
-        rawShape1.free();
-        rawShape2.free();
-
-        return result;
+            );
+            return hit ? ShapeCastHit.fromBuffer(scratch(), target) : null;
+        } finally {
+            rawShape1.free();
+            rawShape2?.free();
+        }
     }
 
     /**
@@ -230,25 +217,23 @@ export abstract class Shape {
         shapePos2: Vector,
         shapeRot2: Rotation,
     ): boolean {
-        let rawPos1 = VectorOps.intoRaw(shapePos1);
-        let rawRot1 = RotationOps.intoRaw(shapeRot1);
-        let rawPos2 = VectorOps.intoRaw(shapePos2);
-        let rawRot2 = RotationOps.intoRaw(shapeRot2);
-
-        let rawShape1 = this.intoRaw();
-        let rawShape2 = shape2.intoRaw();
-
-        let result = rawShape1.intersectsShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2);
-
-        rawPos1.free();
-        rawRot1.free();
-        rawPos2.free();
-        rawRot2.free();
-
-        rawShape1.free();
-        rawShape2.free();
-
-        return result;
+        const rawShape1 = this.intoRaw();
+        let rawShape2: RawShape | null = null;
+        try {
+            rawShape2 = shape2.intoRaw();
+            return rawShape1.intersectsShape(
+                shapePos1.x,
+                shapePos1.y,
+                shapeRot1,
+                rawShape2,
+                shapePos2.x,
+                shapePos2.y,
+                shapeRot2,
+            );
+        } finally {
+            rawShape1.free();
+            rawShape2?.free();
+        }
     }
 
     /**
@@ -271,44 +256,34 @@ export abstract class Shape {
         prediction: number,
         target?: ShapeContact,
     ): ShapeContact | null {
-        let rawPos1 = VectorOps.intoRaw(shapePos1);
-        let rawRot1 = RotationOps.intoRaw(shapeRot1);
-        let rawPos2 = VectorOps.intoRaw(shapePos2);
-        let rawRot2 = RotationOps.intoRaw(shapeRot2);
-
-        let rawShape1 = this.intoRaw();
-        let rawShape2 = shape2.intoRaw();
-
-        let result = ShapeContact.fromRaw(
-            rawShape1.contactShape(rawPos1, rawRot1, rawShape2, rawPos2, rawRot2, prediction)!,
-            target,
-        );
-
-        rawPos1.free();
-        rawRot1.free();
-        rawPos2.free();
-        rawRot2.free();
-
-        rawShape1.free();
-        rawShape2.free();
-
-        return result;
+        const rawShape1 = this.intoRaw();
+        let rawShape2: RawShape | null = null;
+        try {
+            rawShape2 = shape2.intoRaw();
+            const hit = rawShape1.contactShape(
+                shapePos1.x,
+                shapePos1.y,
+                shapeRot1,
+                rawShape2,
+                shapePos2.x,
+                shapePos2.y,
+                shapeRot2,
+                prediction,
+            );
+            return hit ? ShapeContact.fromBuffer(scratch(), target) : null;
+        } finally {
+            rawShape1.free();
+            rawShape2?.free();
+        }
     }
 
     containsPoint(shapePos: Vector, shapeRot: Rotation, point: Vector): boolean {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawPoint = VectorOps.intoRaw(point);
-        let rawShape = this.intoRaw();
-
-        let result = rawShape.containsPoint(rawPos, rawRot, rawPoint);
-
-        rawPos.free();
-        rawRot.free();
-        rawPoint.free();
-        rawShape.free();
-
-        return result;
+        const rawShape = this.intoRaw();
+        try {
+            return rawShape.containsPoint(shapePos.x, shapePos.y, shapeRot, point.x, point.y);
+        } finally {
+            rawShape.free();
+        }
     }
 
     projectPoint(
@@ -318,38 +293,31 @@ export abstract class Shape {
         solid: boolean,
         target?: PointProjection,
     ): PointProjection {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawPoint = VectorOps.intoRaw(point);
-        let rawShape = this.intoRaw();
-
-        rawShape.projectPoint(rawPos, rawRot, rawPoint, solid);
-        let result = PointProjection.fromBuffer(scratch(), target);
-
-        rawPos.free();
-        rawRot.free();
-        rawPoint.free();
-        rawShape.free();
-
-        return result;
+        const rawShape = this.intoRaw();
+        try {
+            rawShape.projectPoint(shapePos.x, shapePos.y, shapeRot, point.x, point.y, solid);
+            return PointProjection.fromBuffer(scratch(), target);
+        } finally {
+            rawShape.free();
+        }
     }
 
     intersectsRay(ray: Ray, shapePos: Vector, shapeRot: Rotation, maxToi: number): boolean {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawRayOrig = VectorOps.intoRaw(ray.origin);
-        let rawRayDir = VectorOps.intoRaw(ray.dir);
-        let rawShape = this.intoRaw();
-
-        let result = rawShape.intersectsRay(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi);
-
-        rawPos.free();
-        rawRot.free();
-        rawRayOrig.free();
-        rawRayDir.free();
-        rawShape.free();
-
-        return result;
+        const rawShape = this.intoRaw();
+        try {
+            return rawShape.intersectsRay(
+                shapePos.x,
+                shapePos.y,
+                shapeRot,
+                ray.origin.x,
+                ray.origin.y,
+                ray.dir.x,
+                ray.dir.y,
+                maxToi,
+            );
+        } finally {
+            rawShape.free();
+        }
     }
 
     castRay(
@@ -359,21 +327,22 @@ export abstract class Shape {
         maxToi: number,
         solid: boolean,
     ): number {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawRayOrig = VectorOps.intoRaw(ray.origin);
-        let rawRayDir = VectorOps.intoRaw(ray.dir);
-        let rawShape = this.intoRaw();
-
-        let result = rawShape.castRay(rawPos, rawRot, rawRayOrig, rawRayDir, maxToi, solid);
-
-        rawPos.free();
-        rawRot.free();
-        rawRayOrig.free();
-        rawRayDir.free();
-        rawShape.free();
-
-        return result;
+        const rawShape = this.intoRaw();
+        try {
+            return rawShape.castRay(
+                shapePos.x,
+                shapePos.y,
+                shapeRot,
+                ray.origin.x,
+                ray.origin.y,
+                ray.dir.x,
+                ray.dir.y,
+                maxToi,
+                solid,
+            );
+        } finally {
+            rawShape.free();
+        }
     }
 
     castRayAndGetNormal(
@@ -384,30 +353,23 @@ export abstract class Shape {
         solid: boolean,
         target?: RayIntersection,
     ): RayIntersection | null {
-        let rawPos = VectorOps.intoRaw(shapePos);
-        let rawRot = RotationOps.intoRaw(shapeRot);
-        let rawRayOrig = VectorOps.intoRaw(ray.origin);
-        let rawRayDir = VectorOps.intoRaw(ray.dir);
-        let rawShape = this.intoRaw();
-
-        let result = rawShape.castRayAndGetNormal(
-            rawPos,
-            rawRot,
-            rawRayOrig,
-            rawRayDir,
-            maxToi,
-            solid,
-        )
-            ? RayIntersection.fromBuffer(scratch(), scratchU32(), target)
-            : null;
-
-        rawPos.free();
-        rawRot.free();
-        rawRayOrig.free();
-        rawRayDir.free();
-        rawShape.free();
-
-        return result;
+        const rawShape = this.intoRaw();
+        try {
+            const hit = rawShape.castRayAndGetNormal(
+                shapePos.x,
+                shapePos.y,
+                shapeRot,
+                ray.origin.x,
+                ray.origin.y,
+                ray.dir.x,
+                ray.dir.y,
+                maxToi,
+                solid,
+            );
+            return hit ? RayIntersection.fromBuffer(scratch(), scratchU32(), target) : null;
+        } finally {
+            rawShape.free();
+        }
     }
 }
 
@@ -867,14 +829,22 @@ export class Voxels extends Shape {
         let voxelSize = VectorOps.intoRaw(this.voxelSize);
 
         let result;
-        if (this.data instanceof Int32Array) {
-            result = RawShape.voxels(voxelSize, this.data);
-        } else {
-            result = RawShape.voxelsFromPoints(voxelSize, this.data);
+        try {
+            if (this.data instanceof Int32Array) {
+                result = RawShape.voxels(voxelSize, this.data);
+            } else {
+                result = RawShape.voxelsFromPoints(voxelSize, this.data);
+            }
+        } finally {
+            voxelSize.free();
         }
 
-        voxelSize.free();
-        return result;
+        return expectRawShape(
+            result,
+            "Voxels data must hold a whole number of " +
+                (this.data instanceof Int32Array ? "grid coordinates" : "points") +
+                ".",
+        );
     }
 }
 

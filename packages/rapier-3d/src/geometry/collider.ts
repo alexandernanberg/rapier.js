@@ -3,6 +3,7 @@ import {CoefficientCombineRule, RigidBody, RigidBodySet} from "../dynamics";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {ActiveHooks, ActiveEvents} from "../pipeline";
 import {RawShape, RawVHACDParameters} from "../raw";
+import {removedRef} from "../removed";
 import {scratch, scratchU32} from "../scratch";
 import {
     DEAD_TRANSFORM_BUFFER_REF,
@@ -99,6 +100,10 @@ export enum ActiveCollisionTypes {
  * The integer identifier of a collider added to a `ColliderSet`.
  */
 export type ColliderHandle = number;
+
+const REMOVED_COLLIDER_SET = removedRef<ColliderSet>(
+    "Invalid Collider reference. It may have been removed from the physics World.",
+);
 
 /**
  * Number of f32 values per collider in the world-space transform buffer.
@@ -197,7 +202,20 @@ export class Collider {
      * not been deleted from the collider set yet).
      */
     public isValid(): boolean {
-        return this.colliderSet.raw.contains(this.handle);
+        return (
+            this.colliderSet !== REMOVED_COLLIDER_SET && this.colliderSet.raw.contains(this.handle)
+        );
+    }
+
+    /**
+     * Detaches this object from the world it was removed from; see
+     * `RigidBody._markRemoved`.
+     *
+     * @internal
+     */
+    public _markRemoved() {
+        this._bufferRef = DEAD_TRANSFORM_BUFFER_REF;
+        this.colliderSet = REMOVED_COLLIDER_SET;
     }
 
     /**
@@ -602,9 +620,12 @@ export class Collider {
      * @param newHalfExtents - desired half extents.
      */
     public setHalfExtents(newHalfExtents: Vector) {
-        const rawPoint = VectorOps.intoRaw(newHalfExtents);
-        this.colliderSet.raw.coSetHalfExtents(this.handle, rawPoint);
-        rawPoint.free();
+        this.colliderSet.raw.coSetHalfExtents(
+            this.handle,
+            newHalfExtents.x,
+            newHalfExtents.y,
+            newHalfExtents.z,
+        );
         this._shape = null!;
     }
 
@@ -938,35 +959,32 @@ export class Collider {
         stopAtPenetration: boolean,
         target?: ShapeCastHit,
     ): ShapeCastHit | null {
-        let rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
-        let rawShape2Pos = VectorOps.intoRaw(shape2Pos);
-        let rawShape2Rot = RotationOps.intoRaw(shape2Rot);
-        let rawShape2Vel = VectorOps.intoRaw(shape2Vel);
-        let rawShape2 = shape2.intoRaw();
-
-        let result = ShapeCastHit.fromRaw(
-            this.colliderSet,
-            this.colliderSet.raw.coCastShape(
+        const rawShape2 = shape2.intoRaw();
+        try {
+            const hit = this.colliderSet.raw.coCastShape(
                 this.handle,
-                rawCollider1Vel,
+                collider1Vel.x,
+                collider1Vel.y,
+                collider1Vel.z,
                 rawShape2,
-                rawShape2Pos,
-                rawShape2Rot,
-                rawShape2Vel,
+                shape2Pos.x,
+                shape2Pos.y,
+                shape2Pos.z,
+                shape2Rot.x,
+                shape2Rot.y,
+                shape2Rot.z,
+                shape2Rot.w,
+                shape2Vel.x,
+                shape2Vel.y,
+                shape2Vel.z,
                 targetDistance,
                 maxToi,
                 stopAtPenetration,
-            )!,
-            target,
-        );
-
-        rawCollider1Vel.free();
-        rawShape2Pos.free();
-        rawShape2Rot.free();
-        rawShape2Vel.free();
-        rawShape2.free();
-
-        return result;
+            );
+            return hit ? ShapeCastHit.fromBuffer(scratch(), target) : null;
+        } finally {
+            rawShape2.free();
+        }
     }
 
     /*
@@ -993,46 +1011,41 @@ export class Collider {
         stopAtPenetration: boolean,
         target?: ColliderShapeCastHit,
     ): ColliderShapeCastHit | null {
-        let rawCollider1Vel = VectorOps.intoRaw(collider1Vel);
-        let rawCollider2Vel = VectorOps.intoRaw(collider2Vel);
-
-        let result = ColliderShapeCastHit.fromRaw(
-            this.colliderSet,
-            this.colliderSet.raw.coCastCollider(
-                this.handle,
-                rawCollider1Vel,
-                collider2.handle,
-                rawCollider2Vel,
-                targetDistance,
-                maxToi,
-                stopAtPenetration,
-            )!,
-            target,
+        const hit = this.colliderSet.raw.coCastCollider(
+            this.handle,
+            collider1Vel.x,
+            collider1Vel.y,
+            collider1Vel.z,
+            collider2.handle,
+            collider2Vel.x,
+            collider2Vel.y,
+            collider2Vel.z,
+            targetDistance,
+            maxToi,
+            stopAtPenetration,
         );
-
-        rawCollider1Vel.free();
-        rawCollider2Vel.free();
-
-        return result;
+        return hit
+            ? ColliderShapeCastHit.fromBufferWithCollider(collider2, scratch(), target)
+            : null;
     }
 
     public intersectsShape(shape2: Shape, shapePos2: Vector, shapeRot2: Rotation): boolean {
-        let rawPos2 = VectorOps.intoRaw(shapePos2);
-        let rawRot2 = RotationOps.intoRaw(shapeRot2);
-        let rawShape2 = shape2.intoRaw();
-
-        let result = this.colliderSet.raw.coIntersectsShape(
-            this.handle,
-            rawShape2,
-            rawPos2,
-            rawRot2,
-        );
-
-        rawPos2.free();
-        rawRot2.free();
-        rawShape2.free();
-
-        return result;
+        const rawShape2 = shape2.intoRaw();
+        try {
+            return this.colliderSet.raw.coIntersectsShape(
+                this.handle,
+                rawShape2,
+                shapePos2.x,
+                shapePos2.y,
+                shapePos2.z,
+                shapeRot2.x,
+                shapeRot2.y,
+                shapeRot2.z,
+                shapeRot2.w,
+            );
+        } finally {
+            rawShape2.free();
+        }
     }
 
     /**
@@ -1052,26 +1065,24 @@ export class Collider {
         prediction: number,
         target?: ShapeContact,
     ): ShapeContact | null {
-        let rawPos2 = VectorOps.intoRaw(shape2Pos);
-        let rawRot2 = RotationOps.intoRaw(shape2Rot);
-        let rawShape2 = shape2.intoRaw();
-
-        let result = ShapeContact.fromRaw(
-            this.colliderSet.raw.coContactShape(
+        const rawShape2 = shape2.intoRaw();
+        try {
+            const hit = this.colliderSet.raw.coContactShape(
                 this.handle,
                 rawShape2,
-                rawPos2,
-                rawRot2,
+                shape2Pos.x,
+                shape2Pos.y,
+                shape2Pos.z,
+                shape2Rot.x,
+                shape2Rot.y,
+                shape2Rot.z,
+                shape2Rot.w,
                 prediction,
-            )!,
-            target,
-        );
-
-        rawPos2.free();
-        rawRot2.free();
-        rawShape2.free();
-
-        return result;
+            );
+            return hit ? ShapeContact.fromBuffer(scratch(), target) : null;
+        } finally {
+            rawShape2.free();
+        }
     }
 
     /**
@@ -1086,10 +1097,12 @@ export class Collider {
         prediction: number,
         target?: ShapeContact,
     ): ShapeContact | null {
-        return ShapeContact.fromRaw(
-            this.colliderSet.raw.coContactCollider(this.handle, collider2.handle, prediction)!,
-            target,
+        const hit = this.colliderSet.raw.coContactCollider(
+            this.handle,
+            collider2.handle,
+            prediction,
         );
+        return hit ? ShapeContact.fromBuffer(scratch(), target) : null;
     }
 
     /**
@@ -1817,8 +1830,11 @@ export class ColliderDesc {
             if (params.convexHullApproximation !== undefined)
                 rawParams.convex_hull_approximation = params.convexHullApproximation;
 
-            rawShape = RawShape.convexDecompositionWithParams(vertices, indices, rawParams);
-            rawParams.free();
+            try {
+                rawShape = RawShape.convexDecompositionWithParams(vertices, indices, rawParams);
+            } finally {
+                rawParams.free();
+            }
         } else {
             rawShape = RawShape.convexDecomposition(vertices, indices);
         }

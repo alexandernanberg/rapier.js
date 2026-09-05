@@ -2,13 +2,13 @@
 
 pub use self::broad_phase::*;
 pub use self::collider_set::*;
-pub use self::contact::*;
+pub(crate) use self::contact::*;
 pub use self::feature::*;
 pub use self::narrow_phase::*;
 pub(crate) use self::point::*;
 pub(crate) use self::ray::*;
 pub use self::shape::*;
-pub use self::toi::*;
+pub(crate) use self::toi::*;
 
 mod broad_phase;
 mod collider;

@@ -58,9 +58,17 @@ impl RawRotation {
 #[cfg(feature = "dim3")]
 /// A unit quaternion describing the orientation of a Rapier entity.
 impl RawRotation {
+    /// Builds a rotation from quaternion components.
+    ///
+    /// Same policy as every other quaternion entry point (see
+    /// `utils::unit_rotation`): a quaternion that drifted off unit length is
+    /// normalized, and a zero or non-finite one falls back to the identity.
+    /// glam's rotation ops assume a unit quaternion, so passing a drifted one
+    /// through as-is would scale whatever it rotates (a shape query, a joint
+    /// frame) by its squared length.
     #[wasm_bindgen(constructor)]
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
-        RawRotation(Rotation::from_xyzw(x, y, z, w))
+        RawRotation(crate::utils::unit_rotation(x, y, z, w).unwrap_or(Rotation::IDENTITY))
     }
 
     /// The identity quaternion.
@@ -256,4 +264,34 @@ impl RawSdpMatrix3 {
 #[inline]
 pub(crate) fn write_sdp_matrix3(m: SdpMatrix3<Real>) {
     crate::scratch::write(&[m.m11, m.m12, m.m13, m.m22, m.m23, m.m33]);
+}
+
+/// Builds a pose from the components JS passes instead of a `RawVector` and a
+/// `RawRotation`: allocating those temporaries costs far more than a few extra
+/// arguments (each is a WASM allocation plus a `FinalizationRegistry`
+/// registration, then a free).
+#[cfg(feature = "dim2")]
+#[inline]
+pub(crate) fn pose_from_scalars(x: f32, y: f32, angle: f32) -> rapier::math::Pose {
+    rapier::math::Pose::from_parts(Vector::new(x, y), Rotation::new(angle))
+}
+
+/// Builds a pose from the components JS passes instead of a `RawVector` and a
+/// `RawRotation`; see the 2D variant. The quaternion follows the usual
+/// normalization policy (`utils::unit_rotation`).
+#[cfg(feature = "dim3")]
+#[inline]
+pub(crate) fn pose_from_scalars(
+    x: f32,
+    y: f32,
+    z: f32,
+    qx: f32,
+    qy: f32,
+    qz: f32,
+    qw: f32,
+) -> rapier::math::Pose {
+    rapier::math::Pose::from_parts(
+        Vector::new(x, y, z),
+        crate::utils::unit_rotation(qx, qy, qz, qw).unwrap_or(Rotation::IDENTITY),
+    )
 }

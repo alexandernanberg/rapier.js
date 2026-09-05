@@ -3,7 +3,6 @@ import {ColliderSet} from "../geometry";
 import {RawRigidBodySet, RawRigidBodyType, wasmMemory} from "../raw";
 import {
     createTransformBufferRef,
-    DEAD_TRANSFORM_BUFFER_REF,
     invalidateTransformBuffer,
     refreshTransformBuffer,
     type TransformBufferRef,
@@ -154,6 +153,12 @@ export class RigidBodySet {
         impulseJoints: ImpulseJointSet,
         multibodyJoints: MultibodyJointSet,
     ) {
+        const body = this.map.get(handle);
+        // Already removed (or a stale handle whose index was recycled): nothing
+        // to do, and the body that owns the index now must be left alone. The
+        // Rust side would trap on the stale handle below.
+        if (!body) return;
+
         // Unmap the entities that will be removed automatically because of the rigid-body removals.
         const numColliders = this.raw.rbNumColliders(handle);
         for (let i = 0; i < numColliders; i += 1) {
@@ -169,11 +174,9 @@ export class RigidBodySet {
 
         // Remove the rigid-body.
         this.raw.remove(handle, islands.raw, colliders.raw, impulseJoints.raw, multibodyJoints.raw);
-        const body = this.map.get(handle);
-        if (body) {
-            // See `DEAD_TRANSFORM_BUFFER_REF`: the slot outlives the body.
-            body._bufferRef = DEAD_TRANSFORM_BUFFER_REF;
-        }
+        // The arena slot and the raw set both outlive the body; see
+        // `RigidBody._markRemoved`.
+        body._markRemoved();
         this.map.delete(handle);
     }
 

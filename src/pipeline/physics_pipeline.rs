@@ -11,6 +11,22 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct RawPhysicsPipeline(pub(crate) PhysicsPipeline);
 
+/// Refreshes both transform buffers after a step. The body pass runs first and
+/// tells the collider pass which bodies moved, if it kept track.
+fn sync_transforms(
+    islands: &RawIslandManager,
+    bodies: &mut RawRigidBodySet,
+    colliders: &mut RawColliderSet,
+) {
+    let synced_all_bodies = bodies.sync_transform_data(&islands.0, colliders.0.len());
+    let moved_bodies = if synced_all_bodies {
+        None
+    } else {
+        Some(bodies.synced.as_slice())
+    };
+    colliders.sync_transform_data(&bodies.bodies, moved_bodies);
+}
+
 #[wasm_bindgen]
 impl RawPhysicsPipeline {
     #[wasm_bindgen(constructor)]
@@ -124,13 +140,7 @@ impl RawPhysicsPipeline {
             &(),
         );
 
-        let synced_all_bodies = bodies.sync_transform_data(&islands.0);
-        let moved_bodies = if synced_all_bodies {
-            None
-        } else {
-            Some(bodies.synced.as_slice())
-        };
-        colliders.sync_transform_data(&bodies.bodies, moved_bodies);
+        sync_transforms(islands, bodies, colliders);
     }
 
     /// Steps with physics hooks but without an event queue.
@@ -176,13 +186,7 @@ impl RawPhysicsPipeline {
             &(),
         );
 
-        let synced_all_bodies = bodies.sync_transform_data(&islands.0);
-        let moved_bodies = if synced_all_bodies {
-            None
-        } else {
-            Some(bodies.synced.as_slice())
-        };
-        colliders.sync_transform_data(&bodies.bodies, moved_bodies);
+        sync_transforms(islands, bodies, colliders);
     }
 
     pub fn stepWithEvents(
@@ -229,12 +233,6 @@ impl RawPhysicsPipeline {
             &eventQueue.collector,
         );
 
-        let synced_all_bodies = bodies.sync_transform_data(&islands.0);
-        let moved_bodies = if synced_all_bodies {
-            None
-        } else {
-            Some(bodies.synced.as_slice())
-        };
-        colliders.sync_transform_data(&bodies.bodies, moved_bodies);
+        sync_transforms(islands, bodies, colliders);
     }
 }

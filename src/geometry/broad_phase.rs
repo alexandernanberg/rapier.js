@@ -1,7 +1,7 @@
 use crate::dynamics::RawRigidBodySet;
 use crate::geometry::feature::IntoTypeValue;
-use crate::geometry::{RawColliderSet, RawColliderShapeCastHit, RawNarrowPhase, RawShape};
-use crate::math::{RawRotation, RawVector};
+use crate::geometry::{write_hit, RawColliderSet, RawNarrowPhase, RawShape};
+use crate::math::pose_from_scalars;
 use crate::utils::{self, FlatHandle};
 use rapier::geometry::DefaultBroadPhase;
 use rapier::geometry::{Aabb, ColliderHandle, Ray, RayIntersection};
@@ -415,13 +415,19 @@ impl RawBroadPhase {
         });
     }
 
+    /// The handle of the first collider found intersecting the shape, if any.
+    /// The pose is passed component-wise so the JS side allocates nothing but
+    /// the shape per call.
+    #[cfg(feature = "dim2")]
+    #[allow(clippy::too_many_arguments)]
     pub fn intersectionWithShape(
         &self,
         narrow_phase: &RawNarrowPhase,
         bodies: &RawRigidBodySet,
         colliders: &RawColliderSet,
-        shapePos: &RawVector,
-        shapeRot: &RawRotation,
+        pos_x: f32,
+        pos_y: f32,
+        rot: f32,
         shape: &RawShape,
         filter_flags: u32,
         filter_groups: Option<u32>,
@@ -429,32 +435,56 @@ impl RawBroadPhase {
         filter_exclude_rigid_body: Option<FlatHandle>,
         filter_predicate: &js_sys::Function,
     ) -> Option<FlatHandle> {
-        utils::with_filter(filter_predicate, |predicate| {
-            let query_filter = QueryFilter {
-                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
-                groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
-                exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
-                exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
-                predicate,
-            };
+        self.do_intersection_with_shape(
+            narrow_phase,
+            bodies,
+            colliders,
+            pose_from_scalars(pos_x, pos_y, rot),
+            shape,
+            filter_flags,
+            filter_groups,
+            filter_exclude_collider,
+            filter_exclude_rigid_body,
+            filter_predicate,
+        )
+    }
 
-            let query_pipeline = self.0.as_query_pipeline(
-                narrow_phase.0.query_dispatcher(),
-                &bodies.bodies,
-                &colliders.0,
-                query_filter,
-            );
-
-            let pos = Pose::from_parts(shapePos.0, shapeRot.0);
-
-            // TODO: take a callback as argument so we can yield all the intersecting shapes?
-            for (handle, _) in query_pipeline.intersect_shape(pos, &*shape.0) {
-                // Return the first intersection we find.
-                return Some(utils::flat_handle(handle.0));
-            }
-
-            None
-        })
+    /// The handle of the first collider found intersecting the shape, if any.
+    /// The pose is passed component-wise so the JS side allocates nothing but
+    /// the shape per call.
+    #[cfg(feature = "dim3")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn intersectionWithShape(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+        shape: &RawShape,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) -> Option<FlatHandle> {
+        self.do_intersection_with_shape(
+            narrow_phase,
+            bodies,
+            colliders,
+            pose_from_scalars(pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, rot_w),
+            shape,
+            filter_flags,
+            filter_groups,
+            filter_exclude_collider,
+            filter_exclude_rigid_body,
+            filter_predicate,
+        )
     }
 
     #[cfg(feature = "dim2")]
@@ -775,14 +805,24 @@ impl RawBroadPhase {
 
 #[wasm_bindgen]
 impl RawBroadPhase {
+    /// Casts a shape against every collider and, on a hit, writes the hit into
+    /// the scratch buffer (`[time_of_impact, witness1, witness2, normal1,
+    /// normal2]`) and returns the handle of the collider hit.
+    ///
+    /// The pose and velocity are passed component-wise so the JS side allocates
+    /// nothing but the shape per call.
+    #[cfg(feature = "dim2")]
+    #[allow(clippy::too_many_arguments)]
     pub fn castShape(
         &self,
         narrow_phase: &RawNarrowPhase,
         bodies: &RawRigidBodySet,
         colliders: &RawColliderSet,
-        shapePos: &RawVector,
-        shapeRot: &RawRotation,
-        shapeVel: &RawVector,
+        pos_x: f32,
+        pos_y: f32,
+        rot: f32,
+        vel_x: f32,
+        vel_y: f32,
         shape: &RawShape,
         target_distance: f32,
         maxToi: f32,
@@ -792,7 +832,212 @@ impl RawBroadPhase {
         filter_exclude_collider: Option<FlatHandle>,
         filter_exclude_rigid_body: Option<FlatHandle>,
         filter_predicate: &js_sys::Function,
-    ) -> Option<RawColliderShapeCastHit> {
+    ) -> Option<FlatHandle> {
+        self.do_cast_shape(
+            narrow_phase,
+            bodies,
+            colliders,
+            pose_from_scalars(pos_x, pos_y, rot),
+            Vector::new(vel_x, vel_y),
+            shape,
+            target_distance,
+            maxToi,
+            stop_at_penetration,
+            filter_flags,
+            filter_groups,
+            filter_exclude_collider,
+            filter_exclude_rigid_body,
+            filter_predicate,
+        )
+    }
+
+    /// Casts a shape against every collider and, on a hit, writes the hit into
+    /// the scratch buffer (`[time_of_impact, witness1, witness2, normal1,
+    /// normal2]`) and returns the handle of the collider hit.
+    ///
+    /// The pose and velocity are passed component-wise so the JS side allocates
+    /// nothing but the shape per call.
+    #[cfg(feature = "dim3")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn castShape(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+        vel_x: f32,
+        vel_y: f32,
+        vel_z: f32,
+        shape: &RawShape,
+        target_distance: f32,
+        maxToi: f32,
+        stop_at_penetration: bool,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) -> Option<FlatHandle> {
+        self.do_cast_shape(
+            narrow_phase,
+            bodies,
+            colliders,
+            pose_from_scalars(pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, rot_w),
+            Vector::new(vel_x, vel_y, vel_z),
+            shape,
+            target_distance,
+            maxToi,
+            stop_at_penetration,
+            filter_flags,
+            filter_groups,
+            filter_exclude_collider,
+            filter_exclude_rigid_body,
+            filter_predicate,
+        )
+    }
+
+    // The callback has type (u32) => boolean
+    #[cfg(feature = "dim2")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn intersectionsWithShape(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        pos_x: f32,
+        pos_y: f32,
+        rot: f32,
+        shape: &RawShape,
+        callback: &js_sys::Function,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) {
+        self.do_intersections_with_shape(
+            narrow_phase,
+            bodies,
+            colliders,
+            pose_from_scalars(pos_x, pos_y, rot),
+            shape,
+            callback,
+            filter_flags,
+            filter_groups,
+            filter_exclude_collider,
+            filter_exclude_rigid_body,
+            filter_predicate,
+        )
+    }
+
+    // The callback has type (u32) => boolean
+    #[cfg(feature = "dim3")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn intersectionsWithShape(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        pos_x: f32,
+        pos_y: f32,
+        pos_z: f32,
+        rot_x: f32,
+        rot_y: f32,
+        rot_z: f32,
+        rot_w: f32,
+        shape: &RawShape,
+        callback: &js_sys::Function,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) {
+        self.do_intersections_with_shape(
+            narrow_phase,
+            bodies,
+            colliders,
+            pose_from_scalars(pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, rot_w),
+            shape,
+            callback,
+            filter_flags,
+            filter_groups,
+            filter_exclude_collider,
+            filter_exclude_rigid_body,
+            filter_predicate,
+        )
+    }
+
+    #[cfg(feature = "dim2")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn collidersWithAabbIntersectingAabb(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        center_x: f32,
+        center_y: f32,
+        half_extents_x: f32,
+        half_extents_y: f32,
+        callback: &js_sys::Function,
+    ) {
+        self.do_colliders_with_aabb_intersecting_aabb(
+            narrow_phase,
+            bodies,
+            colliders,
+            Vector::new(center_x, center_y),
+            Vector::new(half_extents_x, half_extents_y),
+            callback,
+        )
+    }
+
+    #[cfg(feature = "dim3")]
+    #[allow(clippy::too_many_arguments)]
+    pub fn collidersWithAabbIntersectingAabb(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        center_x: f32,
+        center_y: f32,
+        center_z: f32,
+        half_extents_x: f32,
+        half_extents_y: f32,
+        half_extents_z: f32,
+        callback: &js_sys::Function,
+    ) {
+        self.do_colliders_with_aabb_intersecting_aabb(
+            narrow_phase,
+            bodies,
+            colliders,
+            Vector::new(center_x, center_y, center_z),
+            Vector::new(half_extents_x, half_extents_y, half_extents_z),
+            callback,
+        )
+    }
+}
+
+impl RawBroadPhase {
+    #[allow(clippy::too_many_arguments)]
+    fn do_intersection_with_shape(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        pos: Pose,
+        shape: &RawShape,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) -> Option<FlatHandle> {
         utils::with_filter(filter_predicate, |predicate| {
             let query_filter = QueryFilter {
                 flags: QueryFilterFlags::from_bits_truncate(filter_flags),
@@ -809,31 +1054,73 @@ impl RawBroadPhase {
                 query_filter,
             );
 
-            let pos = Pose::from_parts(shapePos.0, shapeRot.0);
-            query_pipeline
-                .cast_shape(
-                    &pos,
-                    shapeVel.0,
-                    &*shape.0,
-                    ShapeCastOptions {
-                        max_time_of_impact: maxToi,
-                        stop_at_penetration,
-                        compute_impact_geometry_on_penetration: true,
-                        target_distance,
-                    },
-                )
-                .map(|(handle, hit)| RawColliderShapeCastHit { handle, hit })
+            // TODO: take a callback as argument so we can yield all the intersecting shapes?
+            for (handle, _) in query_pipeline.intersect_shape(pos, &*shape.0) {
+                // Return the first intersection we find.
+                return Some(utils::flat_handle(handle.0));
+            }
+
+            None
         })
     }
 
-    // The callback has type (u32) => boolean
-    pub fn intersectionsWithShape(
+    #[allow(clippy::too_many_arguments)]
+    fn do_cast_shape(
         &self,
         narrow_phase: &RawNarrowPhase,
         bodies: &RawRigidBodySet,
         colliders: &RawColliderSet,
-        shapePos: &RawVector,
-        shapeRot: &RawRotation,
+        pos: Pose,
+        vel: Vector,
+        shape: &RawShape,
+        target_distance: f32,
+        max_toi: f32,
+        stop_at_penetration: bool,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_exclude_collider: Option<FlatHandle>,
+        filter_exclude_rigid_body: Option<FlatHandle>,
+        filter_predicate: &js_sys::Function,
+    ) -> Option<FlatHandle> {
+        utils::with_filter(filter_predicate, |predicate| {
+            let query_filter = QueryFilter {
+                flags: QueryFilterFlags::from_bits_truncate(filter_flags),
+                groups: filter_groups.map(crate::geometry::unpack_interaction_groups),
+                exclude_collider: filter_exclude_collider.map(crate::utils::collider_handle),
+                exclude_rigid_body: filter_exclude_rigid_body.map(crate::utils::body_handle),
+                predicate,
+            };
+
+            let query_pipeline = self.0.as_query_pipeline(
+                narrow_phase.0.query_dispatcher(),
+                &bodies.bodies,
+                &colliders.0,
+                query_filter,
+            );
+
+            let (handle, hit) = query_pipeline.cast_shape(
+                &pos,
+                vel,
+                &*shape.0,
+                ShapeCastOptions {
+                    max_time_of_impact: max_toi,
+                    stop_at_penetration,
+                    compute_impact_geometry_on_penetration: true,
+                    target_distance,
+                },
+            )?;
+            write_hit(&hit);
+            Some(utils::flat_handle(handle.0))
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn do_intersections_with_shape(
+        &self,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &RawRigidBodySet,
+        colliders: &RawColliderSet,
+        pos: Pose,
         shape: &RawShape,
         callback: &js_sys::Function,
         filter_flags: u32,
@@ -866,7 +1153,6 @@ impl RawBroadPhase {
                 Ok(val) => val.as_bool().unwrap_or(true),
             };
 
-            let pos = Pose::from_parts(shapePos.0, shapeRot.0);
             for (handle, _) in query_pipeline.intersect_shape(pos, &*shape.0) {
                 if !rcallback(handle) {
                     break;
@@ -875,13 +1161,13 @@ impl RawBroadPhase {
         })
     }
 
-    pub fn collidersWithAabbIntersectingAabb(
+    fn do_colliders_with_aabb_intersecting_aabb(
         &self,
         narrow_phase: &RawNarrowPhase,
         bodies: &RawRigidBodySet,
         colliders: &RawColliderSet,
-        aabbCenter: &RawVector,
-        aabbHalfExtents: &RawVector,
+        center: Vector,
+        half_extents: Vector,
         callback: &js_sys::Function,
     ) {
         let rcallback = |handle: &ColliderHandle| match callback.call1(
@@ -899,8 +1185,7 @@ impl RawBroadPhase {
             Default::default(),
         );
 
-        let center = aabbCenter.0;
-        let aabb = Aabb::new(center - aabbHalfExtents.0, center + aabbHalfExtents.0);
+        let aabb = Aabb::new(center - half_extents, center + half_extents);
 
         for (handle, _) in query_pipeline.intersect_aabb_conservative(aabb) {
             if !rcallback(&handle) {

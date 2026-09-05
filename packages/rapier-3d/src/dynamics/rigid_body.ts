@@ -3,6 +3,7 @@ import {Collider, ColliderSet} from "../geometry";
 import {Rotation, RotationOps, Vector, VectorOps} from "../math";
 import {SdpMatrix3, SdpMatrix3Ops} from "../math";
 import {RawRigidBodySet, RawRigidBodyType} from "../raw";
+import {removedRef} from "../removed";
 import {scratch} from "../scratch";
 import {
     DEAD_TRANSFORM_BUFFER_REF,
@@ -22,6 +23,10 @@ export const BODY_TRANSFORM_STRIDE = 13;
  * The integer identifier of a collider added to a `ColliderSet`.
  */
 export type RigidBodyHandle = number;
+
+const REMOVED_RAW_SET = removedRef<RawRigidBodySet>(
+    "Invalid RigidBody reference. It may have been removed from the physics World.",
+);
 
 /**
  * The simulation status of a rigid-body.
@@ -61,6 +66,8 @@ export enum RigidBodyType {
  */
 export class RigidBody {
     private rawSet: RawRigidBodySet; // The RigidBody won't need to free this.
+    // Set to `REMOVED_RAW_SET` once the body is removed from its world, so that
+    // every accessor throws a JS error rather than trapping the module.
     private colliderSet: ColliderSet;
     readonly handle: RigidBodyHandle;
     /** @internal */
@@ -118,7 +125,21 @@ export class RigidBody {
      * not been deleted from the rigid-body set yet.
      */
     public isValid(): boolean {
-        return this.rawSet.contains(this.handle);
+        return this.rawSet !== REMOVED_RAW_SET && this.rawSet.contains(this.handle);
+    }
+
+    /**
+     * Detaches this object from the world it was removed from.
+     *
+     * The arena index outlives the body (see `DEAD_TRANSFORM_BUFFER_REF`) and so
+     * does the raw set, so both are swapped for stand-ins that reject any
+     * further use instead of reading another body's data or trapping WASM.
+     *
+     * @internal
+     */
+    public _markRemoved() {
+        this._bufferRef = DEAD_TRANSFORM_BUFFER_REF;
+        this.rawSet = REMOVED_RAW_SET;
     }
 
     /**
@@ -144,9 +165,9 @@ export class RigidBody {
     /**
      * Locks or unlocks the ability of this rigid-body to translate along individual coordinate axes.
      *
-     * @param enableX - If `false`, this rigid-body will no longer translate due to torques and impulses, along the X coordinate axis.
-     * @param enableY - If `false`, this rigid-body will no longer translate due to torques and impulses, along the Y coordinate axis.
-     * @param enableZ - If `false`, this rigid-body will no longer translate due to torques and impulses, along the Z coordinate axis.
+     * @param enableX - If `false`, this rigid-body will no longer translate due to forces and impulses, along the X coordinate axis.
+     * @param enableY - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Y coordinate axis.
+     * @param enableZ - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Z coordinate axis.
      * @param wakeUp - If `true`, this rigid-body will be automatically awaken if it is currently asleep.
      */
     public setEnabledTranslations(
@@ -161,9 +182,9 @@ export class RigidBody {
     /**
      * Locks or unlocks the ability of this rigid-body to translate along individual coordinate axes.
      *
-     * @param enableX - If `false`, this rigid-body will no longer translate due to torques and impulses, along the X coordinate axis.
-     * @param enableY - If `false`, this rigid-body will no longer translate due to torques and impulses, along the Y coordinate axis.
-     * @param enableZ - If `false`, this rigid-body will no longer translate due to torques and impulses, along the Z coordinate axis.
+     * @param enableX - If `false`, this rigid-body will no longer translate due to forces and impulses, along the X coordinate axis.
+     * @param enableY - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Y coordinate axis.
+     * @param enableZ - If `false`, this rigid-body will no longer translate due to forces and impulses, along the Z coordinate axis.
      * @param wakeUp - If `true`, this rigid-body will be automatically awaken if it is currently asleep.
      * @deprecated use `this.setEnabledTranslations` with the same arguments instead.
      */

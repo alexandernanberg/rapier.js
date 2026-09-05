@@ -7,8 +7,10 @@ use rapier::control::{
     CharacterAutostep, CharacterCollision, CharacterLength, EffectiveCharacterMovement,
     KinematicCharacterController,
 };
+use rapier::dynamics::RigidBodyHandle;
 use rapier::geometry::{ColliderHandle, ShapeCastHit};
 use rapier::math::{Pose, Real, Vector, DIM};
+use rapier::parry::bounding_volume::BoundingVolume;
 use rapier::parry::query::ShapeCastStatus;
 use rapier::pipeline::{QueryFilter, QueryFilterFlags};
 use wasm_bindgen::prelude::*;
@@ -18,6 +20,9 @@ pub struct RawKinematicCharacterController {
     controller: KinematicCharacterController,
     result: EffectiveCharacterMovement,
     events: Vec<CharacterCollision>,
+    /// Bodies the last `computeColliderMovement` may have applied an impulse
+    /// to; kept around so the per-call collection does not allocate.
+    pushed: Vec<RigidBodyHandle>,
 }
 
 fn length_value(length: CharacterLength) -> Real {
@@ -45,6 +50,7 @@ impl RawKinematicCharacterController {
                 is_sliding_down_slope: false,
             },
             events: vec![],
+            pushed: vec![],
         }
     }
 
@@ -144,6 +150,9 @@ impl RawKinematicCharacterController {
         self.controller.snap_to_ground.is_some()
     }
 
+    /// See [`Self::do_compute_collider_movement`]; the desired translation is
+    /// passed component-wise so the JS side allocates no `RawVector` per call.
+    #[cfg(feature = "dim2")]
     pub fn computeColliderMovement(
         &mut self,
         dt: Real,
@@ -152,7 +161,103 @@ impl RawKinematicCharacterController {
         bodies: &mut RawRigidBodySet,
         colliders: &mut RawColliderSet,
         collider_handle: FlatHandle,
-        desired_translation_delta: &RawVector,
+        desired_translation_x: Real,
+        desired_translation_y: Real,
+        apply_impulses_to_dynamic_bodies: bool,
+        character_mass: Option<Real>,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_predicate: &js_sys::Function,
+    ) {
+        self.do_compute_collider_movement(
+            dt,
+            broad_phase,
+            narrow_phase,
+            bodies,
+            colliders,
+            collider_handle,
+            Vector::new(desired_translation_x, desired_translation_y),
+            apply_impulses_to_dynamic_bodies,
+            character_mass,
+            filter_flags,
+            filter_groups,
+            filter_predicate,
+        )
+    }
+
+    /// See [`Self::do_compute_collider_movement`]; the desired translation is
+    /// passed component-wise so the JS side allocates no `RawVector` per call.
+    #[cfg(feature = "dim3")]
+    pub fn computeColliderMovement(
+        &mut self,
+        dt: Real,
+        broad_phase: &RawBroadPhase,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &mut RawRigidBodySet,
+        colliders: &mut RawColliderSet,
+        collider_handle: FlatHandle,
+        desired_translation_x: Real,
+        desired_translation_y: Real,
+        desired_translation_z: Real,
+        apply_impulses_to_dynamic_bodies: bool,
+        character_mass: Option<Real>,
+        filter_flags: u32,
+        filter_groups: Option<u32>,
+        filter_predicate: &js_sys::Function,
+    ) {
+        self.do_compute_collider_movement(
+            dt,
+            broad_phase,
+            narrow_phase,
+            bodies,
+            colliders,
+            collider_handle,
+            Vector::new(
+                desired_translation_x,
+                desired_translation_y,
+                desired_translation_z,
+            ),
+            apply_impulses_to_dynamic_bodies,
+            character_mass,
+            filter_flags,
+            filter_groups,
+            filter_predicate,
+        )
+    }
+
+    /// The movement computed by the last `computeColliderMovement` call, written to
+    /// the scratch buffer.
+    pub fn computedMovement(&self) {
+        scratch::write_vector(self.result.translation);
+    }
+
+    pub fn computedGrounded(&self) -> bool {
+        self.result.grounded
+    }
+
+    pub fn numComputedCollisions(&self) -> usize {
+        self.events.len()
+    }
+
+    pub fn computedCollision(&self, i: usize, collision: &mut RawCharacterCollision) -> bool {
+        if let Some(coll) = self.events.get(i) {
+            collision.0 = *coll;
+        }
+
+        i < self.events.len()
+    }
+}
+
+impl RawKinematicCharacterController {
+    pub(crate) fn do_compute_collider_movement(
+        &mut self,
+        dt: Real,
+        broad_phase: &RawBroadPhase,
+        narrow_phase: &RawNarrowPhase,
+        bodies: &mut RawRigidBodySet,
+        colliders: &mut RawColliderSet,
+        collider_handle: FlatHandle,
+        desired_translation_delta: Vector,
         apply_impulses_to_dynamic_bodies: bool,
         character_mass: Option<Real>,
         filter_flags: u32,
@@ -196,7 +301,7 @@ impl RawKinematicCharacterController {
                     &query_pipeline.as_ref(),
                     &*collider_shape,
                     &collider_pose,
-                    desired_translation_delta.0,
+                    desired_translation_delta,
                     |event| events.push(event),
                 );
 
@@ -208,20 +313,50 @@ impl RawKinematicCharacterController {
                         character_mass,
                         self.events.iter(),
                     );
+
+                    // The impulses above went straight into rapier's bodies,
+                    // bypassing `map_mut`, so their new velocities have to be
+                    // published by hand below. Rapier does not only push the body
+                    // behind each reported hit: for every collision it runs a
+                    // contact query over the character's AABB (loosened by the
+                    // same margin as here, see `solve_single_character_collision_impulse`)
+                    // and applies an impulse to every dynamic body it finds, so
+                    // the same query is repeated to know which bodies to publish.
+                    // Over-collecting is harmless: a write-through of an
+                    // untouched body is a no-op.
+                    let queries = query_pipeline.as_ref();
+                    let up_extent = collider_shape
+                        .compute_local_aabb()
+                        .extents()
+                        .dot(self.controller.up.abs());
+                    let prediction = match self.controller.offset {
+                        CharacterLength::Absolute(offset) => offset,
+                        CharacterLength::Relative(offset) => offset * up_extent,
+                    } + 0.05;
+
+                    self.pushed.clear();
+                    for event in &self.events {
+                        let aabb = collider_shape
+                            .compute_aabb(&event.character_pos)
+                            .loosened(prediction);
+                        for (_, collider) in queries.intersect_aabb_conservative(aabb) {
+                            if let Some(parent) = collider.parent() {
+                                if queries.bodies.get(parent).is_some_and(|b| b.is_dynamic()) {
+                                    self.pushed.push(parent);
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
-            if apply_impulses_to_dynamic_bodies {
-                // The impulses above went straight into rapier's bodies, bypassing
-                // `map_mut`. Publish the new velocities so JS does not read the
-                // pre-impulse ones out of the buffer until the next step.
-                for event in &self.events {
-                    if let Some(parent) = colliders.0.get(event.handle).and_then(|c| c.parent()) {
-                        bodies.mark_pending(parent);
-                        bodies.write_through(parent);
-                    }
-                }
+            // Publish the new velocities so JS does not read the pre-impulse ones
+            // out of the buffer until the next step.
+            for &parent in &self.pushed {
+                bodies.mark_pending(parent);
+                bodies.write_through(parent);
             }
+            self.pushed.clear();
         } else {
             // The collider is gone: report no movement, no contacts, not grounded,
             // rather than leaving the previous call's results in place.
@@ -232,28 +367,6 @@ impl RawKinematicCharacterController {
                 is_sliding_down_slope: false,
             };
         }
-    }
-
-    /// The movement computed by the last `computeColliderMovement` call, written to
-    /// the scratch buffer.
-    pub fn computedMovement(&self) {
-        scratch::write_vector(self.result.translation);
-    }
-
-    pub fn computedGrounded(&self) -> bool {
-        self.result.grounded
-    }
-
-    pub fn numComputedCollisions(&self) -> usize {
-        self.events.len()
-    }
-
-    pub fn computedCollision(&self, i: usize, collision: &mut RawCharacterCollision) -> bool {
-        if let Some(coll) = self.events.get(i) {
-            collision.0 = *coll;
-        }
-
-        i < self.events.len()
     }
 }
 

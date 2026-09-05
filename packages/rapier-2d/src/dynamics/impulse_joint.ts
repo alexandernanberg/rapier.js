@@ -6,9 +6,14 @@ import {
     RawJointType,
     RawMotorModel,
 } from "../raw";
+import {removedRef} from "../removed";
 import {scratch} from "../scratch";
 import {RigidBody} from "./rigid_body";
 import {RigidBodySet} from "./rigid_body_set";
+
+const REMOVED_RAW_SET = removedRef<RawImpulseJointSet>(
+    "Invalid ImpulseJoint reference. It may have been removed from the physics World.",
+);
 
 /**
  * The integer identifier of a collider added to a `ColliderSet`.
@@ -23,8 +28,10 @@ export type ImpulseJointHandle = number;
  * - `Fixed`: A fixed joint that removes all relative degrees of freedom between the affected bodies.
  * - `Prismatic`: A prismatic joint that removes all degrees of freedom between the affected
  *                bodies except for the translation along one axis.
- * - `Spherical`: (3D only) A spherical joint that removes all relative linear degrees of freedom between the affected bodies.
- * - `Generic`: (3D only) A joint with customizable degrees of freedom, allowing any of the 6 axes to be locked.
+ * - `Rope`: A joint that keeps the distance between the anchors below a maximum.
+ * - `Spring`: A joint that acts as a spring between the anchors.
+ * - `Generic`: A joint whose configuration matches none of the above (a rope or spring
+ *              whose limit or motor was cleared, or a joint restored from a snapshot).
  */
 export enum JointType {
     Revolute,
@@ -32,6 +39,7 @@ export enum JointType {
     Prismatic,
     Rope,
     Spring,
+    Generic,
 }
 
 export enum MotorModel {
@@ -115,7 +123,17 @@ export class ImpulseJoint {
      * not been deleted from the joint set yet).
      */
     public isValid(): boolean {
-        return this.rawSet.contains(this.handle);
+        return this.rawSet !== REMOVED_RAW_SET && this.rawSet.contains(this.handle);
+    }
+
+    /**
+     * Detaches this object from the world it was removed from; see
+     * `RigidBody._markRemoved`.
+     *
+     * @internal
+     */
+    public _markRemoved() {
+        this.rawSet = REMOVED_RAW_SET;
     }
 
     /**

@@ -51,6 +51,43 @@ function shapeCastTarget() {
  * nested vectors are reused rather than replaced.
  */
 describe("zero-allocation query targets", () => {
+    test("world.castRay fills the target and leaves it alone on a miss", () => {
+        const {world, collider} = worldWithBall();
+        const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});
+
+        const target = new RAPIER.RayColliderHit(null!, -1);
+        const hit = world.castRay(
+            ray,
+            100,
+            true,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            target,
+        );
+        expect(hit).toBe(target);
+        expect(target.collider).toBe(collider);
+        expect(target.timeOfImpact).toBeCloseTo(9, 3);
+
+        target.timeOfImpact = -1;
+        const miss = world.castRay(
+            ray,
+            1,
+            true,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            target,
+        );
+        expect(miss).toBeNull();
+        expect(target.timeOfImpact).toBe(-1);
+        world.free();
+    });
+
     test("world.castRayAndGetNormal fills the target", () => {
         const {world, collider} = worldWithBall();
         const ray = new RAPIER.Ray({x: 0, y: 10}, {x: 0, y: -1});

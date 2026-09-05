@@ -1,8 +1,5 @@
 import {Vector, VectorOps} from "../math";
-import {RawShapeCastHit, RawColliderShapeCastHit} from "../raw";
-import {scratch} from "../scratch";
 import {Collider} from "./collider";
-import {ColliderSet} from "./collider_set";
 
 /**
  * The intersection between a ray and a collider.
@@ -53,17 +50,13 @@ export class ShapeCastHit {
      * @param raw - The raw hit. It is always freed before returning.
      * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public static fromRaw(
-        colliderSet: ColliderSet | null,
-        raw: RawShapeCastHit,
-        target?: ShapeCastHit,
-    ): ShapeCastHit | null {
-        if (!raw) return null;
-
-        raw.getComponents();
-        const s = scratch();
-        raw.free();
-
+    /**
+     * Reads the hit the last shape-cast wrote into the scratch buffer
+     * (`[time_of_impact, witness1, witness2, normal1, normal2]`).
+     *
+     * @internal
+     */
+    public static fromBuffer(s: Float32Array, target?: ShapeCastHit): ShapeCastHit {
         const result =
             target ??
             new ShapeCastHit(
@@ -73,7 +66,6 @@ export class ShapeCastHit {
                 VectorOps.zeros(),
                 VectorOps.zeros(),
             );
-
         result.time_of_impact = s[0];
         result.witness1 = VectorOps.set(result.witness1, s[1], s[2]);
         result.witness2 = VectorOps.set(result.witness2, s[3], s[4]);
@@ -110,18 +102,18 @@ export class ColliderShapeCastHit extends ShapeCastHit {
      * @param raw - The raw hit. It is always freed before returning.
      * @param target - Optional target object to write the result to (avoids allocation).
      */
-    public static fromRaw(
-        colliderSet: ColliderSet,
-        raw: RawColliderShapeCastHit,
+    /**
+     * Reads the hit the last shape-cast wrote into the scratch buffer, against
+     * `collider`. See `ShapeCastHit.fromBuffer`. (Named apart from it so the static
+     * side of the subclass stays compatible with the base class.)
+     *
+     * @internal
+     */
+    public static fromBufferWithCollider(
+        collider: Collider,
+        s: Float32Array,
         target?: ColliderShapeCastHit,
-    ): ColliderShapeCastHit | null {
-        if (!raw) return null;
-
-        const collider = colliderSet.get(raw.colliderHandle())!;
-        raw.getComponents();
-        const s = scratch();
-        raw.free();
-
+    ): ColliderShapeCastHit {
         const result =
             target ??
             new ColliderShapeCastHit(
@@ -132,7 +124,6 @@ export class ColliderShapeCastHit extends ShapeCastHit {
                 VectorOps.zeros(),
                 VectorOps.zeros(),
             );
-
         result.collider = collider;
         result.time_of_impact = s[0];
         result.witness1 = VectorOps.set(result.witness1, s[1], s[2]);

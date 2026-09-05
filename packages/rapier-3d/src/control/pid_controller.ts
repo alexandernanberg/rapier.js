@@ -1,5 +1,5 @@
 import {IntegrationParameters, RigidBody, RigidBodySet} from "../dynamics";
-import {Rotation, RotationOps, Vector, VectorOps} from "../math";
+import {Rotation, Vector, VectorOps} from "../math";
 import {RawPidController} from "../raw";
 import {scratch} from "../scratch";
 
@@ -85,31 +85,32 @@ export class PidController {
     }
 
     public applyLinearCorrection(body: RigidBody, targetPosition: Vector, targetLinvel: Vector) {
-        let rawPos = VectorOps.intoRaw(targetPosition);
-        let rawVel = VectorOps.intoRaw(targetLinvel);
         this.raw.apply_linear_correction(
             this.params.dt,
             this.bodies.raw,
             body.handle,
-            rawPos,
-            rawVel,
+            targetPosition.x,
+            targetPosition.y,
+            targetPosition.z,
+            targetLinvel.x,
+            targetLinvel.y,
+            targetLinvel.z,
         );
-        rawPos.free();
-        rawVel.free();
     }
 
     public applyAngularCorrection(body: RigidBody, targetRotation: Rotation, targetAngVel: Vector) {
-        let rawPos = RotationOps.intoRaw(targetRotation);
-        let rawVel = VectorOps.intoRaw(targetAngVel);
         this.raw.apply_angular_correction(
             this.params.dt,
             this.bodies.raw,
             body.handle,
-            rawPos,
-            rawVel,
+            targetRotation.x,
+            targetRotation.y,
+            targetRotation.z,
+            targetRotation.w,
+            targetAngVel.x,
+            targetAngVel.y,
+            targetAngVel.z,
         );
-        rawPos.free();
-        rawVel.free();
     }
 
     public linearCorrection(
@@ -118,11 +119,17 @@ export class PidController {
         targetLinvel: Vector,
         target?: Vector,
     ): Vector {
-        let rawPos = VectorOps.intoRaw(targetPosition);
-        let rawVel = VectorOps.intoRaw(targetLinvel);
-        this.raw.linear_correction(this.params.dt, this.bodies.raw, body.handle, rawPos, rawVel);
-        rawPos.free();
-        rawVel.free();
+        this.raw.linear_correction(
+            this.params.dt,
+            this.bodies.raw,
+            body.handle,
+            targetPosition.x,
+            targetPosition.y,
+            targetPosition.z,
+            targetLinvel.x,
+            targetLinvel.y,
+            targetLinvel.z,
+        );
 
         return VectorOps.fromBuffer(scratch(), target);
     }
@@ -133,11 +140,18 @@ export class PidController {
         targetAngVel: Vector,
         target?: Vector,
     ): Vector {
-        let rawPos = RotationOps.intoRaw(targetRotation);
-        let rawVel = VectorOps.intoRaw(targetAngVel);
-        this.raw.angular_correction(this.params.dt, this.bodies.raw, body.handle, rawPos, rawVel);
-        rawPos.free();
-        rawVel.free();
+        this.raw.angular_correction(
+            this.params.dt,
+            this.bodies.raw,
+            body.handle,
+            targetRotation.x,
+            targetRotation.y,
+            targetRotation.z,
+            targetRotation.w,
+            targetAngVel.x,
+            targetAngVel.y,
+            targetAngVel.z,
+        );
 
         return VectorOps.fromBuffer(scratch(), target);
     }

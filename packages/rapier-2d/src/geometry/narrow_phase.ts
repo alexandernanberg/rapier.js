@@ -13,6 +13,10 @@ import {ColliderHandle} from "./collider";
 export class NarrowPhase {
     raw: RawNarrowPhase;
     tempManifold: TempContactManifold;
+    // How many `contactPair` calls are on the stack: the shared `tempManifold`
+    // serves the outermost one, a nested call (from inside the callback) gets its
+    // own so it does not free the manifold the outer callback is still reading.
+    private _contactPairDepth = 0;
 
     /**
      * Release the WASM memory occupied by this narrow-phase.
@@ -68,27 +72,29 @@ export class NarrowPhase {
         f: (manifold: TempContactManifold, flipped: boolean) => void,
     ) {
         const rawPair = this.raw.contact_pair(collider1, collider2);
-
         if (!!rawPair) {
             const flipped = rawPair.collider1() != collider1;
-            this.tempManifold.bodies = bodies;
-
+            const manifold =
+                this._contactPairDepth === 0 ? this.tempManifold : new TempContactManifold(null!);
+            manifold.bodies = bodies;
+            this._contactPairDepth += 1;
             // SAFETY: The RawContactManifold and RawContactPair store raw pointers
             //         that are invalidated at the next timestep, so they must be
             //         freed here even if the callback throws.
             try {
                 const numManifolds = rawPair.numContactManifolds();
                 for (let i = 0; i < numManifolds; ++i) {
-                    this.tempManifold.raw = rawPair.contactManifold(i)!;
+                    manifold.raw = rawPair.contactManifold(i)!;
                     try {
-                        if (!!this.tempManifold.raw) {
-                            f(this.tempManifold, flipped);
+                        if (!!manifold.raw) {
+                            f(manifold, flipped);
                         }
                     } finally {
-                        this.tempManifold.free();
+                        manifold.free();
                     }
                 }
             } finally {
+                this._contactPairDepth -= 1;
                 rawPair.free();
             }
         }
