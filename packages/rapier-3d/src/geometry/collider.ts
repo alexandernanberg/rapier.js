@@ -629,10 +629,11 @@ export class Collider {
     }
 
     /**
-     * The radius of this collider if it is a ball, cylinder, capsule, or cone shape.
+     * The radius of this collider if it is a ball, cylinder, capsule, or cone shape,
+     * `null` otherwise.
      */
-    public radius(): number {
-        return this.colliderSet.raw.coRadius(this.handle)!;
+    public radius(): number | null {
+        return this.colliderSet.raw.coRadius(this.handle) ?? null;
     }
 
     /**
@@ -646,10 +647,11 @@ export class Collider {
     }
 
     /**
-     * The radius of the round edges of this collider if it is a round cylinder.
+     * The radius of the round edges of this collider if it is a round shape, `null`
+     * otherwise.
      */
-    public roundRadius(): number {
-        return this.colliderSet.raw.coRoundRadius(this.handle)!;
+    public roundRadius(): number | null {
+        return this.colliderSet.raw.coRoundRadius(this.handle) ?? null;
     }
 
     /**
@@ -663,10 +665,11 @@ export class Collider {
     }
 
     /**
-     * The half height of this collider if it is a cylinder, capsule, or cone shape.
+     * The half height of this collider if it is a cylinder, capsule, or cone shape,
+     * `null` otherwise.
      */
-    public halfHeight(): number {
-        return this.colliderSet.raw.coHalfHeight(this.handle)!;
+    public halfHeight(): number | null {
+        return this.colliderSet.raw.coHalfHeight(this.handle) ?? null;
     }
 
     /**
@@ -783,8 +786,8 @@ export class Collider {
      * If this collider has a triangle mesh, polyline, convex polygon, or convex polyhedron shape,
      * this returns the vertex buffer of said shape.
      */
-    public vertices(): Float32Array {
-        return this.colliderSet.raw.coVertices(this.handle)!;
+    public vertices(): Float32Array | null {
+        return this.colliderSet.raw.coVertices(this.handle) ?? null;
     }
 
     /**
@@ -800,8 +803,8 @@ export class Collider {
      * the heightfield.
      * In 3D, the returned height matrix is provided in column-major order.
      */
-    public heightfieldHeights(): Float32Array {
-        return this.colliderSet.raw.coHeightfieldHeights(this.handle)!;
+    public heightfieldHeights(): Float32Array | null {
+        return this.colliderSet.raw.coHeightfieldHeights(this.handle) ?? null;
     }
 
     /**
@@ -817,16 +820,16 @@ export class Collider {
      * If this collider has a heightfield shape, this returns the number of
      * rows of its height matrix.
      */
-    public heightfieldNRows(): number {
-        return this.colliderSet.raw.coHeightfieldNRows(this.handle)!;
+    public heightfieldNRows(): number | null {
+        return this.colliderSet.raw.coHeightfieldNRows(this.handle) ?? null;
     }
 
     /**
      * If this collider has a heightfield shape, this returns the number of
      * columns of its height matrix.
      */
-    public heightfieldNCols(): number {
-        return this.colliderSet.raw.coHeightfieldNCols(this.handle)!;
+    public heightfieldNCols(): number | null {
+        return this.colliderSet.raw.coHeightfieldNCols(this.handle) ?? null;
     }
 
     /**

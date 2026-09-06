@@ -40,7 +40,7 @@ export class IntegrationParameters {
     }
 
     /**
-     * The damping ratio of the spring-like contact constraints (default: `5.0`).
+     * The damping ratio of the spring-like contact constraints (default: `10.0`).
      */
     get contactDampingRatio(): number {
         return this.raw.contactDampingRatio;
@@ -56,7 +56,7 @@ export class IntegrationParameters {
 
     /**
      * The damping ratio of the spring-like contact constraints where one of the two
-     * colliders is attached to a fixed body (default: `5.0`).
+     * colliders is attached to a fixed body (default: `10.0`).
      */
     get staticContactDampingRatio(): number {
         return this.raw.staticContactDampingRatio;
@@ -71,7 +71,7 @@ export class IntegrationParameters {
     }
 
     /**
-     * Are impulse-joint constraints warm-started like contacts? (default: `true`).
+     * Are impulse-joint constraints warm-started like contacts? (default: `false`).
      */
     get warmstartJoints(): boolean {
         return this.raw.warmstartJoints;
@@ -102,7 +102,7 @@ export class IntegrationParameters {
 
     /**
      * The maximal normalized velocity at which the penetration of two objects is corrected
-     * by the biased solver pass (default: `10.0`).
+     * by the biased solver pass (default: `3.0`).
      *
      * This threshold considered by the physics engine is this value multiplied by the `lengthUnit`.
      */
@@ -121,7 +121,7 @@ export class IntegrationParameters {
 
     /**
      * The maximal normalized linear velocity a rigid-body can have after each solver
-     * substep (default: `100.0`).
+     * substep (default: `400.0`).
      *
      * This threshold considered by the physics engine is this value multiplied by the `lengthUnit`.
      */
@@ -144,7 +144,7 @@ export class IntegrationParameters {
     }
 
     /**
-     * The number of stabilization iterations run at each solver iteration (default: `2`).
+     * The number of stabilization iterations run at each solver iteration (default: `1`).
      */
     get numInternalStabilizationIterations(): number {
         return this.raw.numInternalStabilizationIterations;
@@ -179,7 +179,7 @@ export class IntegrationParameters {
 
     /**
      * The maximal normalized relative-pose drift below which a contact pair can be
-     * recycled instead of being recomputed (default: `0.002`).
+     * recycled instead of being recomputed (default: `0.05`).
      *
      * This threshold considered by the physics engine is this value multiplied by the `lengthUnit`.
      * Only has an effect if `contactRecycling` is enabled.
@@ -280,7 +280,7 @@ export class IntegrationParameters {
     }
 
     /**
-     * Sets the number of stabilization iterations run at each solver iteration (default: `2`).
+     * Sets the number of stabilization iterations run at each solver iteration (default: `1`).
      */
     set numInternalStabilizationIterations(value: number) {
         this.raw.numInternalStabilizationIterations = value;

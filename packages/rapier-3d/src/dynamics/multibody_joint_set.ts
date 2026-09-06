@@ -67,8 +67,14 @@ export class MultibodyJointSet {
         wakeUp: boolean,
     ): MultibodyJoint {
         const rawParams = desc.intoRaw();
-        const handle = this.raw.createJoint(bodies.raw, rawParams, parent1, parent2, wakeUp);
-        rawParams.free();
+        let handle;
+        try {
+            handle = this.raw.createJoint(bodies.raw, rawParams, parent1, parent2, wakeUp);
+        } finally {
+            // The call can throw before Rust runs (a freed set, or a re-entrant
+            // call from inside a query callback); the raw params go either way.
+            rawParams.free();
+        }
 
         if (handle === undefined) {
             throw new Error(

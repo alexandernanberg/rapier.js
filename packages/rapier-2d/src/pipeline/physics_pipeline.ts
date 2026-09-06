@@ -67,7 +67,7 @@ export class PhysicsPipeline {
         if (!!this.raw) {
             this.raw.free();
         }
-        this.raw = undefined!;
+        this.raw = undefined as unknown as RawPhysicsPipeline;
     }
 
     constructor(raw?: RawPhysicsPipeline) {
@@ -100,9 +100,12 @@ export class PhysicsPipeline {
     private guardHooks(hooks: PhysicsHooks) {
         if (this.hooksObject !== hooks) {
             this.hooksObject = hooks;
-            this.filterContactPairSource = undefined;
-            this.filterIntersectionPairSource = undefined;
-            this.modifySolverContactsSource = undefined;
+            // The wrappers close over the previous hooks object, so they go with
+            // it: an absent hook on the new object would otherwise compare equal
+            // to the cleared source below and keep the old object's wrapper.
+            this.filterContactPair = this.filterContactPairSource = undefined;
+            this.filterIntersectionPair = this.filterIntersectionPairSource = undefined;
+            this.modifySolverContacts = this.modifySolverContactsSource = undefined;
         }
 
         const filterContactPair = hooks.filterContactPair;
@@ -221,8 +224,8 @@ export class PhysicsPipeline {
             modifySolverContacts = this.modifySolverContacts;
         }
 
-        if (!!eventQueue) {
-            this.raw.stepWithEvents(
+        if (!!eventQueue && !!hooks) {
+            this.raw.stepWithEventsAndHooks(
                 this.cachedGravity,
                 integrationParameters.raw,
                 islands.raw,
@@ -238,6 +241,20 @@ export class PhysicsPipeline {
                 filterContactPair,
                 filterIntersectionPair,
                 modifySolverContacts,
+            );
+        } else if (!!eventQueue) {
+            this.raw.stepWithEvents(
+                this.cachedGravity,
+                integrationParameters.raw,
+                islands.raw,
+                broadPhase.raw,
+                narrowPhase.raw,
+                bodies.raw,
+                colliders.raw,
+                impulseJoints.raw,
+                multibodyJoints.raw,
+                ccdSolver.raw,
+                eventQueue.raw,
             );
         } else if (!!hooks) {
             this.raw.stepWithHooks(

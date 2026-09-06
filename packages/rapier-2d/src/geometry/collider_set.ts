@@ -116,27 +116,23 @@ export class ColliderSet {
     }
 
     /**
-     * Like {@link castClosure}, for callbacks whose return value means nothing to
-     * the caller: the wrapper answers `undefined` normally and `false` once the
-     * user's callback has thrown. The Rust enumerations stop on `false`, so the
-     * remaining items are not handed to a callback that has already failed —
-     * and whatever the user's callback happens to return (`Set.delete`'s
-     * boolean, `Array.push`'s length) can never end the walk by accident.
+     * Like {@link guardCallback}, for a callback that receives the handle of the
+     * collider the query found.
      *
      * @internal
      */
-    public castVoidClosure(
-        f: (collider: Collider) => void,
-    ): (handle: ColliderHandle) => boolean | void {
+    public guardHandleCallback<Res>(
+        f: (handle: ColliderHandle) => Res,
+    ): (handle: ColliderHandle) => Res {
         this._callbackFailed = false;
         return (handle) => {
-            if (this._callbackFailed) return false;
+            if (this._callbackFailed) return false as unknown as Res;
             try {
-                f(this.get(handle)!);
+                return f(handle);
             } catch (e) {
                 this._callbackFailed = true;
                 this._callbackError = e;
-                return false;
+                return false as unknown as Res;
             }
         };
     }

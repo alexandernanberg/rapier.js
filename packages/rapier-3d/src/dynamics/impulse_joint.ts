@@ -28,8 +28,12 @@ export type ImpulseJointHandle = number;
  * - `Fixed`: A fixed joint that removes all relative degrees of freedom between the affected bodies.
  * - `Prismatic`: A prismatic joint that removes all degrees of freedom between the affected
  *                bodies except for the translation along one axis.
- * - `Spherical`: (3D only) A spherical joint that removes all relative linear degrees of freedom between the affected bodies.
- * - `Generic`: (3D only) A joint with customizable degrees of freedom, allowing any of the 6 axes to be locked.
+ * - `Rope`: A joint that keeps the distance between the anchors below a maximum.
+ * - `Spring`: A joint that acts as a spring between the anchors.
+ * - `Spherical`: A spherical joint that removes all relative linear degrees of freedom between the affected bodies.
+ * - `Generic`: A joint with customizable degrees of freedom, allowing any of the 6 axes to be locked.
+ *              Also what a rope or spring whose limit or motor was cleared, or a joint restored
+ *              from a snapshot, reports as.
  */
 export enum JointType {
     Revolute,
@@ -301,7 +305,7 @@ export class UnitImpulseJoint extends ImpulseJoint {
      * The axis left free by this joint.
      */
     protected rawAxis(): RawJointAxis {
-        throw new Error("rawAxis must be implemented by subclasses");
+        throw new Error("rawAxis must be implemented by subclass");
     }
 
     /**

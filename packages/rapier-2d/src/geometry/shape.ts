@@ -111,7 +111,7 @@ export abstract class Shape {
                 case RawShapeType.TriMesh:
                     vs = rawShape.vertices()!;
                     indices = rawShape.indices()!;
-                    return new TriMesh(vs, indices, rawShape.triMeshFlags()!);
+                    return new TriMesh(vs, indices, rawShape.triMeshFlags());
 
                 case RawShapeType.HeightField:
                     return new Heightfield(

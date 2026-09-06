@@ -446,6 +446,7 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ) {
+        const rawCallback = colliders.guardHandleCallback(callback);
         this.raw.intersectionsWithPoint(
             narrowPhase.raw,
             bodies.raw,
@@ -453,7 +454,7 @@ export class BroadPhase {
             point.x,
             point.y,
             point.z,
-            callback,
+            rawCallback,
             filterFlags ?? 0,
             filterGroups,
             filterExcludeCollider,
@@ -572,6 +573,7 @@ export class BroadPhase {
         filterExcludeRigidBody?: RigidBodyHandle,
         filterPredicate?: (collider: ColliderHandle) => boolean,
     ) {
+        const rawCallback = colliders.guardHandleCallback(callback);
         const rawShape = shape.intoRaw();
         try {
             this.raw.intersectionsWithShape(
@@ -586,7 +588,7 @@ export class BroadPhase {
                 shapeRot.z,
                 shapeRot.w,
                 rawShape,
-                callback,
+                rawCallback,
                 filterFlags ?? 0,
                 filterGroups,
                 filterExcludeCollider,
@@ -615,6 +617,7 @@ export class BroadPhase {
         aabbHalfExtents: Vector,
         callback: (handle: ColliderHandle) => boolean,
     ) {
+        const rawCallback = colliders.guardHandleCallback(callback);
         this.raw.collidersWithAabbIntersectingAabb(
             narrowPhase.raw,
             bodies.raw,
@@ -625,7 +628,7 @@ export class BroadPhase {
             aabbHalfExtents.x,
             aabbHalfExtents.y,
             aabbHalfExtents.z,
-            callback,
+            rawCallback,
         );
         colliders.rethrowCallbackError();
     }

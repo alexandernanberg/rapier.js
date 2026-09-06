@@ -329,14 +329,14 @@ export class Graphics {
                 this.shapes.addChild(graphics);
                 break;
             case RAPIER.ShapeType.Ball:
-                let rad = collider.radius();
+                let rad = collider.radius()!;
                 instance = this.instanceGroups[BALL_INSTANCE_INDEX][instanceId];
                 graphics = instance.clone(true);
                 graphics.scale.set(rad, rad);
                 this.shapes.addChild(graphics);
                 break;
             case RAPIER.ShapeType.Polyline:
-                vertices = Array.from(collider.vertices());
+                vertices = Array.from(collider.vertices()!);
                 graphics = new PIXI.Graphics();
                 graphics.moveTo(vertices[0], -vertices[1]);
 
@@ -351,7 +351,7 @@ export class Graphics {
                 this.shapes.addChild(graphics);
                 break;
             case RAPIER.ShapeType.HeightField:
-                let heights = Array.from(collider.heightfieldHeights());
+                let heights = Array.from(collider.heightfieldHeights()!);
                 let scale = collider.heightfieldScale()!;
                 let step = scale.x / (heights.length - 1);
 
@@ -369,7 +369,7 @@ export class Graphics {
                 this.shapes.addChild(graphics);
                 break;
             case RAPIER.ShapeType.ConvexPolygon:
-                vertices = Array.from(collider.vertices());
+                vertices = Array.from(collider.vertices()!);
                 graphics = new PIXI.Graphics();
                 graphics.moveTo(vertices[0], -vertices[1]);
 

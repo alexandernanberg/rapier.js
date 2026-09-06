@@ -1,6 +1,5 @@
 use crate::dynamics::RawRigidBodySet;
 use crate::geometry::{RawBroadPhase, RawColliderSet, RawNarrowPhase};
-use crate::math::RawVector;
 use crate::utils::{self, FlatHandle};
 use rapier::control::{DynamicRayCastVehicleController, WheelTuning};
 use rapier::math::{Real, DIM};
@@ -50,18 +49,31 @@ impl RawDynamicRayCastVehicleController {
         }
     }
 
+    /// The vectors are passed component-wise so JS allocates no `RawVector`.
+    #[allow(clippy::too_many_arguments)]
     pub fn add_wheel(
         &mut self,
-        chassis_connection_cs: &RawVector,
-        direction_cs: &RawVector,
-        axle_cs: &RawVector,
+        chassis_connection_cs_x: Real,
+        chassis_connection_cs_y: Real,
+        chassis_connection_cs_z: Real,
+        direction_cs_x: Real,
+        direction_cs_y: Real,
+        direction_cs_z: Real,
+        axle_cs_x: Real,
+        axle_cs_y: Real,
+        axle_cs_z: Real,
         suspension_rest_length: Real,
         radius: Real,
     ) {
         self.controller.add_wheel(
-            chassis_connection_cs.0.into(),
-            direction_cs.0,
-            axle_cs.0,
+            [
+                chassis_connection_cs_x,
+                chassis_connection_cs_y,
+                chassis_connection_cs_z,
+            ]
+            .into(),
+            [direction_cs_x, direction_cs_y, direction_cs_z].into(),
+            [axle_cs_x, axle_cs_y, axle_cs_z].into(),
             suspension_rest_length,
             radius,
             &WheelTuning::default(),
@@ -130,9 +142,9 @@ impl RawDynamicRayCastVehicleController {
             .map(|w| crate::scratch::write_vector(w.chassis_connection_point_cs.into()))
             .is_some()
     }
-    pub fn set_wheel_chassis_connection_point_cs(&mut self, i: usize, value: &RawVector) {
+    pub fn set_wheel_chassis_connection_point_cs(&mut self, i: usize, x: Real, y: Real, z: Real) {
         if let Some(wheel) = self.controller.wheels_mut().get_mut(i) {
-            wheel.chassis_connection_point_cs = value.0.into();
+            wheel.chassis_connection_point_cs = [x, y, z].into();
         }
     }
 
@@ -252,9 +264,9 @@ impl RawDynamicRayCastVehicleController {
             .map(|w| crate::scratch::write_vector(w.direction_cs.into()))
             .is_some()
     }
-    pub fn set_wheel_direction_cs(&mut self, i: usize, value: &RawVector) {
+    pub fn set_wheel_direction_cs(&mut self, i: usize, x: Real, y: Real, z: Real) {
         if let Some(wheel) = self.controller.wheels_mut().get_mut(i) {
-            wheel.direction_cs = value.0;
+            wheel.direction_cs = [x, y, z].into();
         }
     }
 
@@ -266,9 +278,9 @@ impl RawDynamicRayCastVehicleController {
             .map(|w| crate::scratch::write_vector(w.axle_cs.into()))
             .is_some()
     }
-    pub fn set_wheel_axle_cs(&mut self, i: usize, value: &RawVector) {
+    pub fn set_wheel_axle_cs(&mut self, i: usize, x: Real, y: Real, z: Real) {
         if let Some(wheel) = self.controller.wheels_mut().get_mut(i) {
-            wheel.axle_cs = value.0;
+            wheel.axle_cs = [x, y, z].into();
         }
     }
 

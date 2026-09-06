@@ -1,8 +1,9 @@
 use crate::utils::{self, FlatHandle};
-use rapier::geometry::{CollisionEvent, ContactForceEvent};
-use rapier::math::DIM;
-use rapier::pipeline::ChannelEventCollector;
-use std::sync::mpsc::Receiver;
+use rapier::dynamics::RigidBodySet;
+use rapier::geometry::{ColliderSet, CollisionEvent, ContactForceEvent, ContactPair};
+use rapier::math::{Real, DIM};
+use rapier::pipeline::EventHandler;
+use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 
 /// `f32` slots one drained collision event occupies: the two collider handles,
@@ -28,18 +29,82 @@ pub fn contactForceEventStride() -> u32 {
     CONTACT_FORCE_EVENT_STRIDE as u32
 }
 
+/// The event buffers, behind a `RefCell` because rapier hands the handler out
+/// as `&dyn EventHandler` and calls it through a shared reference.
+struct EventBuffers {
+    /// Collision events, `COLLISION_EVENT_STRIDE` slots each.
+    collision: Vec<f32>,
+    /// Contact-force events, `CONTACT_FORCE_EVENT_STRIDE` slots each.
+    contact_force: Vec<f32>,
+    /// Set by a drain: JS has read the buffer, so the next event written to it
+    /// starts a fresh batch instead of appending to the one already delivered.
+    collision_drained: bool,
+    contact_force_drained: bool,
+}
+
 /// A structure responsible for collecting events generated
 /// by the physics engine.
+///
+/// The queue is the event handler itself: rapier calls it once per event and
+/// it writes the event straight into the buffer JS later walks, in its final
+/// layout. Routing the events through an `mpsc` channel first (the
+/// `ChannelEventCollector` way) cost a heap allocation and two copies per
+/// event; the `unsync-callbacks` feature lifts the `Sync` bound that made the
+/// channel necessary.
 #[wasm_bindgen]
 pub struct RawEventQueue {
-    pub(crate) collector: ChannelEventCollector,
-    collision_events: Receiver<CollisionEvent>,
-    contact_force_events: Receiver<ContactForceEvent>,
-    /// Drained collision events, `COLLISION_EVENT_STRIDE` slots each.
-    collision_buffer: Vec<f32>,
-    /// Drained contact-force events, `CONTACT_FORCE_EVENT_STRIDE` slots each.
-    contact_force_buffer: Vec<f32>,
+    buffers: RefCell<EventBuffers>,
     pub(crate) auto_drain: bool,
+}
+
+impl EventHandler for RawEventQueue {
+    fn handle_collision_event(
+        &self,
+        _bodies: &RigidBodySet,
+        _colliders: &ColliderSet,
+        event: CollisionEvent,
+        _contact_pair: Option<&ContactPair>,
+    ) {
+        let (co1, co2, started) = match event {
+            CollisionEvent::Started(co1, co2, _) => (co1, co2, true),
+            CollisionEvent::Stopped(co1, co2, _) => (co1, co2, false),
+        };
+
+        let mut buffers = self.buffers.borrow_mut();
+        if buffers.collision_drained {
+            buffers.collision.clear();
+            buffers.collision_drained = false;
+        }
+        let out = &mut buffers.collision;
+        push_handle(out, utils::flat_handle(co1.0));
+        push_handle(out, utils::flat_handle(co2.0));
+        out.push(if started { 1.0 } else { 0.0 });
+    }
+
+    fn handle_contact_force_event(
+        &self,
+        dt: Real,
+        _bodies: &RigidBodySet,
+        _colliders: &ColliderSet,
+        contact_pair: &ContactPair,
+        total_force_magnitude: Real,
+    ) {
+        let event = ContactForceEvent::from_contact_pair(dt, contact_pair, total_force_magnitude);
+
+        let mut buffers = self.buffers.borrow_mut();
+        if buffers.contact_force_drained {
+            buffers.contact_force.clear();
+            buffers.contact_force_drained = false;
+        }
+        let out = &mut buffers.contact_force;
+        push_handle(out, utils::flat_handle(event.collider1.0));
+        push_handle(out, utils::flat_handle(event.collider2.0));
+        out.extend_from_slice(event.total_force.as_ref());
+        out.push(event.total_force_magnitude);
+        out.extend_from_slice(event.max_force_direction.as_ref());
+        out.push(event.max_force_magnitude);
+        out.push(if event.started { 1.0 } else { 0.0 });
+    }
 }
 
 /// Packs a buffer's pointer and element count into one `f64`: low 32 bits the
@@ -75,22 +140,19 @@ impl RawEventQueue {
     /// RAM if no drain is performed.
     #[wasm_bindgen(constructor)]
     pub fn new(autoDrain: bool) -> Self {
-        let collision_channel = std::sync::mpsc::channel();
-        let contact_force_channel = std::sync::mpsc::channel();
-        let collector = ChannelEventCollector::new(collision_channel.0, contact_force_channel.0);
-
         Self {
-            collector,
-            collision_events: collision_channel.1,
-            contact_force_events: contact_force_channel.1,
-            collision_buffer: Vec::new(),
-            contact_force_buffer: Vec::new(),
+            buffers: RefCell::new(EventBuffers {
+                collision: Vec::new(),
+                contact_force: Vec::new(),
+                collision_drained: false,
+                contact_force_drained: false,
+            }),
             auto_drain: autoDrain,
         }
     }
 
-    /// Moves every pending collision event into this queue's collision buffer and
-    /// returns that buffer's pointer and length packed into a single `f64`.
+    /// Publishes the collision events collected since the last drain and returns
+    /// the buffer's pointer and length packed into a single `f64`.
     ///
     /// Each event takes `COLLISION_EVENT_STRIDE` slots: collider 1's arena index
     /// and generation, collider 2's, and `1` if the collision started or `0` if it
@@ -100,28 +162,24 @@ impl RawEventQueue {
     /// each boxing three values; JS now makes that call itself while walking a
     /// view onto the buffer, so the drain costs one boundary crossing in total.
     ///
-    /// The buffer may be reallocated by this call, so the returned pointer is only
-    /// valid until the next drain.
+    /// The buffer is reused (and may be reallocated) by the next step, so the
+    /// returned pointer is only valid until then.
     pub fn drainCollisionEvents(&mut self) -> f64 {
-        self.collision_buffer.clear();
-
-        while let Ok(event) = self.collision_events.try_recv() {
-            let (co1, co2, started) = match event {
-                CollisionEvent::Started(co1, co2, _) => (co1, co2, true),
-                CollisionEvent::Stopped(co1, co2, _) => (co1, co2, false),
-            };
-
-            push_handle(&mut self.collision_buffer, utils::flat_handle(co1.0));
-            push_handle(&mut self.collision_buffer, utils::flat_handle(co2.0));
-            self.collision_buffer.push(if started { 1.0 } else { 0.0 });
-        }
-
-        pack_buffer_info(&self.collision_buffer)
+        let buffers = self.buffers.get_mut();
+        // Already delivered: a drain removes the events it hands out, so the
+        // next one finds nothing until the step writes a new batch.
+        let len = if buffers.collision_drained {
+            0
+        } else {
+            buffers.collision.len()
+        };
+        buffers.collision_drained = true;
+        pack_buffer_info(&buffers.collision[..len])
     }
 
-    /// Moves every pending contact-force event into this queue's contact-force
-    /// buffer and returns that buffer's pointer and length packed into a single
-    /// `f64`, the same way as [`Self::drainCollisionEvents`].
+    /// Publishes the contact-force events collected since the last drain and
+    /// returns the buffer's pointer and length packed into a single `f64`, the
+    /// same way as [`Self::drainCollisionEvents`].
     ///
     /// Each event takes `CONTACT_FORCE_EVENT_STRIDE` slots: the two collider
     /// handles (split as above), the total force, the total force magnitude, the
@@ -133,32 +191,24 @@ impl RawEventQueue {
     /// four more calls, then freed. The whole drain is now one crossing and no
     /// allocation.
     pub fn drainContactForceEvents(&mut self) -> f64 {
-        self.contact_force_buffer.clear();
-
-        while let Ok(event) = self.contact_force_events.try_recv() {
-            let out = &mut self.contact_force_buffer;
-
-            push_handle(out, utils::flat_handle(event.collider1.0));
-            push_handle(out, utils::flat_handle(event.collider2.0));
-            out.extend_from_slice(event.total_force.as_ref());
-            out.push(event.total_force_magnitude);
-            out.extend_from_slice(event.max_force_direction.as_ref());
-            out.push(event.max_force_magnitude);
-            out.push(if event.started { 1.0 } else { 0.0 });
-        }
-
-        pack_buffer_info(&self.contact_force_buffer)
+        let buffers = self.buffers.get_mut();
+        let len = if buffers.contact_force_drained {
+            0
+        } else {
+            buffers.contact_force.len()
+        };
+        buffers.contact_force_drained = true;
+        pack_buffer_info(&buffers.contact_force[..len])
     }
 
     /// Removes all events contained by this collector.
     pub fn clear(&mut self) {
-        while self.collision_events.try_recv().is_ok() {}
-        while self.contact_force_events.try_recv().is_ok() {}
-
-        // The drain buffers hold whatever the last drain published. Dropping the
-        // contents (but not the capacity) keeps a stale event from being read back
-        // through a view that JS still holds.
-        self.collision_buffer.clear();
-        self.contact_force_buffer.clear();
+        // Contents only, not the capacity: a stale event must not be read back
+        // through a view JS still holds, and the next step should not reallocate.
+        let buffers = self.buffers.get_mut();
+        buffers.collision.clear();
+        buffers.contact_force.clear();
+        buffers.collision_drained = false;
+        buffers.contact_force_drained = false;
     }
 }

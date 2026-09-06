@@ -12,18 +12,16 @@ import {scratch} from "../scratch";
  *
  * Possible axes are:
  *
- * - `X`: X translation axis
- * - `Y`: Y translation axis
- * - `Z`: Z translation axis
- * - `AngX`: X angular rotation axis (3D only)
- * - `AngY`: Y angular rotation axis (3D only)
+ * - `LinX`: X translation axis
+ * - `LinY`: Y translation axis
  * - `AngZ`: Z angular rotation axis
+ *
+ * (`LinZ`, `AngX` and `AngY` exist in 3D only.)
  */
 export enum PidAxesMask {
     None = 0,
     LinX = 1 << 0,
     LinY = 1 << 1,
-    LinZ = 1 << 2,
     AngZ = 1 << 5,
     AllLin = PidAxesMask.LinX | PidAxesMask.LinY,
     AllAng = PidAxesMask.AngZ,

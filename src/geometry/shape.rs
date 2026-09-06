@@ -948,7 +948,9 @@ impl RawShape {
 
         let mut parts = Vec::with_capacity(num_shapes);
 
-        for (i, shape) in shapes.iter().enumerate() {
+        // `shapes` is owned (wasm-bindgen consumed the JS wrappers), so each
+        // `SharedShape` is moved into the compound rather than cloned.
+        for (i, shape) in shapes.into_iter().enumerate() {
             let translation = Vector::from_slice(&positions[i * DIM..(i + 1) * DIM]);
 
             #[cfg(feature = "dim2")]
@@ -966,7 +968,7 @@ impl RawShape {
                 .unwrap_or(Rotation::IDENTITY)
             };
 
-            parts.push((Pose::from_parts(translation, rotation), shape.0.clone()));
+            parts.push((Pose::from_parts(translation, rotation), shape.0));
         }
 
         Some(Self(SharedShape::compound(parts)))
