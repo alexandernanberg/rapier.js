@@ -148,21 +148,19 @@ export class DynamicRayCastVehicleController {
         suspensionRestLength: number,
         radius: number,
     ) {
-        let rawChassisConnectionCs = VectorOps.intoRaw(chassisConnectionCs);
-        let rawDirectionCs = VectorOps.intoRaw(directionCs);
-        let rawAxleCs = VectorOps.intoRaw(axleCs);
-
         this.raw.add_wheel(
-            rawChassisConnectionCs,
-            rawDirectionCs,
-            rawAxleCs,
+            chassisConnectionCs.x,
+            chassisConnectionCs.y,
+            chassisConnectionCs.z,
+            directionCs.x,
+            directionCs.y,
+            directionCs.z,
+            axleCs.x,
+            axleCs.y,
+            axleCs.z,
             suspensionRestLength,
             radius,
         );
-
-        rawChassisConnectionCs.free();
-        rawDirectionCs.free();
-        rawAxleCs.free();
     }
 
     /**
@@ -194,9 +192,7 @@ export class DynamicRayCastVehicleController {
      * Sets the position of the i-th wheel, relative to the chassis.
      */
     public setWheelChassisConnectionPointCs(i: number, value: Vector) {
-        let rawValue = VectorOps.intoRaw(value);
-        this.raw.set_wheel_chassis_connection_point_cs(i, rawValue);
-        rawValue.free();
+        this.raw.set_wheel_chassis_connection_point_cs(i, value.x, value.y, value.z);
     }
 
     /**
@@ -365,9 +361,7 @@ export class DynamicRayCastVehicleController {
      * The ray-casting will happen following this direction to detect the ground.
      */
     public setWheelDirectionCs(i: number, value: Vector) {
-        let rawValue = VectorOps.intoRaw(value);
-        this.raw.set_wheel_direction_cs(i, rawValue);
-        rawValue.free();
+        this.raw.set_wheel_direction_cs(i, value.x, value.y, value.z);
     }
 
     /**
@@ -388,9 +382,7 @@ export class DynamicRayCastVehicleController {
      * The axis index defined as 0 = X, 1 = Y, 2 = Z.
      */
     public setWheelAxleCs(i: number, value: Vector) {
-        let rawValue = VectorOps.intoRaw(value);
-        this.raw.set_wheel_axle_cs(i, rawValue);
-        rawValue.free();
+        this.raw.set_wheel_axle_cs(i, value.x, value.y, value.z);
     }
 
     /**

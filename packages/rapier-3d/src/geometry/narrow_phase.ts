@@ -39,8 +39,12 @@ export class NarrowPhase {
      * @param collider1 - The second collider involved in the contact.
      * @param f - Closure that will be called on each collider that is in contact with `collider1`.
      */
-    public contactPairsWith(collider1: ColliderHandle, f: (collider2: ColliderHandle) => void) {
-        this.raw.contact_pairs_with(collider1, f);
+    public contactPairsWith(
+        collider1: ColliderHandle,
+        f: (collider2: ColliderHandle) => boolean | void,
+    ) {
+        this.raw.contact_pairs_with(collider1, this.guard(f));
+        this.rethrowCallbackError();
     }
 
     /**
@@ -51,9 +55,47 @@ export class NarrowPhase {
      */
     public intersectionPairsWith(
         collider1: ColliderHandle,
-        f: (collider2: ColliderHandle) => void,
+        f: (collider2: ColliderHandle) => boolean | void,
     ) {
-        this.raw.intersection_pairs_with(collider1, f);
+        this.raw.intersection_pairs_with(collider1, this.guard(f));
+        this.rethrowCallbackError();
+    }
+
+    // A user callback that threw from inside an enumeration. The exception
+    // cannot cross the WASM boundary, so the wrapper below catches it, stops the
+    // walk, and keeps it for `rethrowCallbackError` once the walk has returned.
+    private _callbackError: unknown = undefined;
+    private _callbackFailed = false;
+
+    /**
+     * Wraps `f` so that an exception it throws ends the enumeration and reaches
+     * the caller. `f`'s own answer is passed through (an explicit `false` ends
+     * the enumeration early); once `f` has thrown the wrapper answers `false`
+     * itself so the remaining pairs are not handed to a failed callback.
+     */
+    private guard(
+        f: (collider2: ColliderHandle) => boolean | void,
+    ): (collider2: ColliderHandle) => boolean | void {
+        this._callbackFailed = false;
+        return (collider2) => {
+            if (this._callbackFailed) return false;
+            try {
+                return f(collider2);
+            } catch (e) {
+                this._callbackFailed = true;
+                this._callbackError = e;
+                return false;
+            }
+        };
+    }
+
+    private rethrowCallbackError() {
+        if (this._callbackFailed) {
+            const error = this._callbackError;
+            this._callbackFailed = false;
+            this._callbackError = undefined;
+            throw error;
+        }
     }
 
     /**

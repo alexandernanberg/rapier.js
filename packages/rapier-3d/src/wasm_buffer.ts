@@ -59,13 +59,21 @@ export class WasmBuffer {
      */
     public reset(info: number) {
         _infoF64[0] = info;
-        this._ptr = _infoU32[0];
-        this._len = _infoU32[1];
+        const ptr = _infoU32[0];
+        const len = _infoU32[1];
         this._memory ??= wasmMemory() as unknown as WebAssembly.Memory;
-        // The buffer may have been moved by the call that filled it, so both views
-        // are dropped and rebuilt lazily against the new address.
-        this._f32 = EMPTY_F32;
-        this._u32 = EMPTY_U32;
+        // The producing call may have grown and moved the buffer, in which case
+        // the views describe freed memory and are dropped (they are rebuilt
+        // lazily against the new address). In the steady state the buffer
+        // neither moves nor changes size, and the existing views stay valid, so
+        // a per-frame drain allocates nothing. A view detached by memory growth
+        // is caught by the `byteLength` check in `f32()`/`u32()` either way.
+        if (ptr !== this._ptr || len !== this._len) {
+            this._ptr = ptr;
+            this._len = len;
+            this._f32 = EMPTY_F32;
+            this._u32 = EMPTY_U32;
+        }
     }
 
     /** Forgets the buffer, for when the WASM object owning it has been freed. */

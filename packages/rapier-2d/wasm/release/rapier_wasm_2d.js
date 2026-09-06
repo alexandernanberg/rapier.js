@@ -1814,6 +1814,13 @@ if (Symbol.dispose) RawDeserializedWorld.prototype[Symbol.dispose] = RawDeserial
 /**
  * A structure responsible for collecting events generated
  * by the physics engine.
+ *
+ * The queue is the event handler itself: rapier calls it once per event and
+ * it writes the event straight into the buffer JS later walks, in its final
+ * layout. Routing the events through an `mpsc` channel first (the
+ * `ChannelEventCollector` way) cost a heap allocation and two copies per
+ * event; the `unsync-callbacks` feature lifts the `Sync` bound that made the
+ * channel necessary.
  */
 export class RawEventQueue {
     __destroy_into_raw() {
@@ -1833,8 +1840,8 @@ export class RawEventQueue {
         wasm.raweventqueue_clear(this.__wbg_ptr);
     }
     /**
-     * Moves every pending collision event into this queue's collision buffer and
-     * returns that buffer's pointer and length packed into a single `f64`.
+     * Publishes the collision events collected since the last drain and returns
+     * the buffer's pointer and length packed into a single `f64`.
      *
      * Each event takes `COLLISION_EVENT_STRIDE` slots: collider 1's arena index
      * and generation, collider 2's, and `1` if the collision started or `0` if it
@@ -1844,8 +1851,8 @@ export class RawEventQueue {
      * each boxing three values; JS now makes that call itself while walking a
      * view onto the buffer, so the drain costs one boundary crossing in total.
      *
-     * The buffer may be reallocated by this call, so the returned pointer is only
-     * valid until the next drain.
+     * The buffer is reused (and may be reallocated) by the next step, so the
+     * returned pointer is only valid until then.
      * @returns {number}
      */
     drainCollisionEvents() {
@@ -1853,9 +1860,9 @@ export class RawEventQueue {
         return ret;
     }
     /**
-     * Moves every pending contact-force event into this queue's contact-force
-     * buffer and returns that buffer's pointer and length packed into a single
-     * `f64`, the same way as [`Self::drainCollisionEvents`].
+     * Publishes the contact-force events collected since the last drain and
+     * returns the buffer's pointer and length packed into a single `f64`, the
+     * same way as [`Self::drainCollisionEvents`].
      *
      * Each event takes `CONTACT_FORCE_EVENT_STRIDE` slots: the two collider
      * handles (split as above), the total force, the total force magnitude, the
@@ -3354,6 +3361,38 @@ export class RawPhysicsPipeline {
         wasm.rawphysicspipeline_step(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr);
     }
     /**
+     * Steps with an event queue but without physics hooks: the common case
+     * for anyone consuming events, which used to marshal a hook object and
+     * three absent functions across the boundary on every step and hand
+     * rapier a hooks object that answered "no hook" for every flagged pair.
+     * @param {RawVector} gravity
+     * @param {RawIntegrationParameters} integrationParameters
+     * @param {RawIslandManager} islands
+     * @param {RawBroadPhase} broadPhase
+     * @param {RawNarrowPhase} narrowPhase
+     * @param {RawRigidBodySet} bodies
+     * @param {RawColliderSet} colliders
+     * @param {RawImpulseJointSet} joints
+     * @param {RawMultibodyJointSet} articulations
+     * @param {RawCCDSolver} ccd_solver
+     * @param {RawEventQueue} eventQueue
+     */
+    stepWithEvents(gravity, integrationParameters, islands, broadPhase, narrowPhase, bodies, colliders, joints, articulations, ccd_solver, eventQueue) {
+        _assertClass(gravity, RawVector);
+        _assertClass(integrationParameters, RawIntegrationParameters);
+        _assertClass(islands, RawIslandManager);
+        _assertClass(broadPhase, RawBroadPhase);
+        _assertClass(narrowPhase, RawNarrowPhase);
+        _assertClass(bodies, RawRigidBodySet);
+        _assertClass(colliders, RawColliderSet);
+        _assertClass(joints, RawImpulseJointSet);
+        _assertClass(articulations, RawMultibodyJointSet);
+        _assertClass(ccd_solver, RawCCDSolver);
+        _assertClass(eventQueue, RawEventQueue);
+        wasm.rawphysicspipeline_stepWithEvents(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, eventQueue.__wbg_ptr);
+    }
+    /**
+     * Steps with both an event queue and physics hooks.
      * @param {RawVector} gravity
      * @param {RawIntegrationParameters} integrationParameters
      * @param {RawIslandManager} islands
@@ -3370,7 +3409,7 @@ export class RawPhysicsPipeline {
      * @param {Function | null} [hookFilterIntersectionPair]
      * @param {Function | null} [hookModifySolverContacts]
      */
-    stepWithEvents(gravity, integrationParameters, islands, broadPhase, narrowPhase, bodies, colliders, joints, articulations, ccd_solver, eventQueue, hookObject, hookFilterContactPair, hookFilterIntersectionPair, hookModifySolverContacts) {
+    stepWithEventsAndHooks(gravity, integrationParameters, islands, broadPhase, narrowPhase, bodies, colliders, joints, articulations, ccd_solver, eventQueue, hookObject, hookFilterContactPair, hookFilterIntersectionPair, hookModifySolverContacts) {
         _assertClass(gravity, RawVector);
         _assertClass(integrationParameters, RawIntegrationParameters);
         _assertClass(islands, RawIslandManager);
@@ -3382,7 +3421,7 @@ export class RawPhysicsPipeline {
         _assertClass(articulations, RawMultibodyJointSet);
         _assertClass(ccd_solver, RawCCDSolver);
         _assertClass(eventQueue, RawEventQueue);
-        wasm.rawphysicspipeline_stepWithEvents(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, eventQueue.__wbg_ptr, addHeapObject(hookObject), isLikeNone(hookFilterContactPair) ? 0 : addHeapObject(hookFilterContactPair), isLikeNone(hookFilterIntersectionPair) ? 0 : addHeapObject(hookFilterIntersectionPair), isLikeNone(hookModifySolverContacts) ? 0 : addHeapObject(hookModifySolverContacts));
+        wasm.rawphysicspipeline_stepWithEventsAndHooks(this.__wbg_ptr, gravity.__wbg_ptr, integrationParameters.__wbg_ptr, islands.__wbg_ptr, broadPhase.__wbg_ptr, narrowPhase.__wbg_ptr, bodies.__wbg_ptr, colliders.__wbg_ptr, joints.__wbg_ptr, articulations.__wbg_ptr, ccd_solver.__wbg_ptr, eventQueue.__wbg_ptr, addHeapObject(hookObject), isLikeNone(hookFilterContactPair) ? 0 : addHeapObject(hookFilterContactPair), isLikeNone(hookFilterIntersectionPair) ? 0 : addHeapObject(hookFilterIntersectionPair), isLikeNone(hookModifySolverContacts) ? 0 : addHeapObject(hookModifySolverContacts));
     }
     /**
      * Steps with physics hooks but without an event queue.

@@ -335,7 +335,9 @@ impl RawBroadPhase {
             let rcallback = |handle, inter: RayIntersection| {
                 Self::fill_ray_intersection(&self.1, handle, &inter);
                 match callback.call0(&JsValue::null()) {
-                    Err(_) => true,
+                    // A callback that failed is not called again: the
+                    // enumeration stops, like the narrow-phase ones.
+                    Err(_) => false,
                     Ok(val) => val.as_bool().unwrap_or(true),
                 }
             };
@@ -395,7 +397,9 @@ impl RawBroadPhase {
             let rcallback = |handle, inter: RayIntersection| {
                 Self::fill_ray_intersection(&self.1, handle, &inter);
                 match callback.call0(&JsValue::null()) {
-                    Err(_) => true,
+                    // A callback that failed is not called again: the
+                    // enumeration stops, like the narrow-phase ones.
+                    Err(_) => false,
                     Ok(val) => val.as_bool().unwrap_or(true),
                 }
             };
@@ -790,7 +794,9 @@ impl RawBroadPhase {
                 &JsValue::null(),
                 &JsValue::from(utils::flat_handle(handle.0)),
             ) {
-                Err(_) => true,
+                // A callback that failed is not called again: the enumeration
+                // stops, like the narrow-phase ones.
+                Err(_) => false,
                 Ok(val) => val.as_bool().unwrap_or(true),
             };
 
@@ -1149,7 +1155,9 @@ impl RawBroadPhase {
                 &JsValue::null(),
                 &JsValue::from(utils::flat_handle(handle.0)),
             ) {
-                Err(_) => true,
+                // A callback that failed is not called again: the enumeration
+                // stops, like the narrow-phase ones.
+                Err(_) => false,
                 Ok(val) => val.as_bool().unwrap_or(true),
             };
 
@@ -1174,7 +1182,9 @@ impl RawBroadPhase {
             &JsValue::null(),
             &JsValue::from(utils::flat_handle(handle.0)),
         ) {
-            Err(_) => true,
+            // A callback that failed is not called again: the enumeration stops,
+            // like the narrow-phase ones.
+            Err(_) => false,
             Ok(val) => val.as_bool().unwrap_or(true),
         };
 

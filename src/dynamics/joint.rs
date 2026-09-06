@@ -39,10 +39,16 @@ impl RawJointType {
     /// so the locked-axes mapping below can only ever call them `Generic`.
     pub(crate) fn from_generic(joint: &GenericJoint) -> Self {
         if joint.locked_axes.is_empty() && joint.coupled_axes == JointAxesMask::LIN_AXES {
-            if joint.motor_axes.contains(JointAxesMask::LIN_X) {
+            let motor = &joint.motors[JointAxis::LinX as usize];
+            let has_motor = joint.motor_axes.contains(JointAxesMask::LIN_X);
+            let has_limit = joint.limit_axes.contains(JointAxesMask::LIN_X);
+            // A spring is a position motor with a stiffness (or damping); a rope
+            // on which a velocity motor was configured has a motor too, but a
+            // stiffness-less one, and stays a rope.
+            if has_motor && (motor.stiffness != 0.0 || motor.damping != 0.0 || !has_limit) {
                 return RawJointType::Spring;
             }
-            if joint.limit_axes.contains(JointAxesMask::LIN_X) {
+            if has_limit {
                 return RawJointType::Rope;
             }
         }

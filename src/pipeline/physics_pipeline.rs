@@ -189,7 +189,48 @@ impl RawPhysicsPipeline {
         sync_transforms(islands, bodies, colliders);
     }
 
+    /// Steps with an event queue but without physics hooks: the common case
+    /// for anyone consuming events, which used to marshal a hook object and
+    /// three absent functions across the boundary on every step and hand
+    /// rapier a hooks object that answered "no hook" for every flagged pair.
     pub fn stepWithEvents(
+        &mut self,
+        gravity: &RawVector,
+        integrationParameters: &RawIntegrationParameters,
+        islands: &mut RawIslandManager,
+        broadPhase: &mut RawBroadPhase,
+        narrowPhase: &mut RawNarrowPhase,
+        bodies: &mut RawRigidBodySet,
+        colliders: &mut RawColliderSet,
+        joints: &mut RawImpulseJointSet,
+        articulations: &mut RawMultibodyJointSet,
+        ccd_solver: &mut RawCCDSolver,
+        eventQueue: &mut RawEventQueue,
+    ) {
+        if eventQueue.auto_drain {
+            eventQueue.clear();
+        }
+
+        self.0.step(
+            gravity.0,
+            &integrationParameters.0,
+            &mut islands.0,
+            &mut broadPhase.0,
+            &mut narrowPhase.0,
+            &mut bodies.bodies,
+            &mut colliders.0,
+            &mut joints.0,
+            &mut articulations.0,
+            &mut ccd_solver.0,
+            &(),
+            &*eventQueue,
+        );
+
+        sync_transforms(islands, bodies, colliders);
+    }
+
+    /// Steps with both an event queue and physics hooks.
+    pub fn stepWithEventsAndHooks(
         &mut self,
         gravity: &RawVector,
         integrationParameters: &RawIntegrationParameters,
@@ -230,7 +271,7 @@ impl RawPhysicsPipeline {
             &mut articulations.0,
             &mut ccd_solver.0,
             &hooks,
-            &eventQueue.collector,
+            &*eventQueue,
         );
 
         sync_transforms(islands, bodies, colliders);

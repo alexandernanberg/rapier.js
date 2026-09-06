@@ -231,8 +231,10 @@ impl RawRigidBodySet {
     // with unchanged values and, worse, count every kinematic body driven each
     // frame toward the pending list's `max(64, len / 2)` budget, after which the
     // incremental sync gives up and every step rewrites every body *and* collider
-    // slot. Nothing is lost: a kinematic body is never asleep, so it is always in
-    // the island manager's active set and the post-step sync refreshes it anyway.
+    // slot. Nothing is lost: rapier wakes a kinematic body whenever its next pose
+    // differs from its current one (a kinematic body *can* sleep in rapier 0.35,
+    // once both velocities are exactly zero), so a body that will move is in the
+    // island manager's active set and the post-step sync refreshes it anyway.
     #[cfg(feature = "dim3")]
     pub fn rbSetNextKinematicTranslation(&mut self, handle: FlatHandle, x: f32, y: f32, z: f32) {
         self.map_mut_untracked(handle, |rb| {

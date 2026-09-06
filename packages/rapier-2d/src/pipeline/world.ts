@@ -926,7 +926,7 @@ export class World {
             this.bodies,
             this.colliders,
             point,
-            this.colliders.castClosure(callback)!,
+            (handle) => callback(this.colliders.get(handle)!),
             filterFlags,
             filterGroups,
             filterExcludeCollider ? filterExcludeCollider.handle : undefined,
@@ -1018,7 +1018,7 @@ export class World {
             shapePos,
             shapeRot,
             shape,
-            this.colliders.castClosure(callback)!,
+            (handle) => callback(this.colliders.get(handle)!),
             filterFlags,
             filterGroups,
             filterExcludeCollider ? filterExcludeCollider.handle : undefined,
@@ -1046,7 +1046,7 @@ export class World {
             this.colliders,
             aabbCenter,
             aabbHalfExtents,
-            this.colliders.castClosure(callback)!,
+            (handle) => callback(this.colliders.get(handle)!),
         );
     }
 
@@ -1057,8 +1057,11 @@ export class World {
      * @param f - Closure that will be called on each collider that is in contact with `collider1`.
      */
     public contactPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
-        this.narrowPhase.contactPairsWith(collider1.handle, this.colliders.castVoidClosure(f));
-        this.colliders.rethrowCallbackError();
+        // The callback's return value is dropped so that a `Set.delete` or
+        // `Array.push` result can never cut the walk short.
+        this.narrowPhase.contactPairsWith(collider1.handle, (handle) => {
+            f(this.colliders.get(handle)!);
+        });
     }
 
     /**
@@ -1066,8 +1069,11 @@ export class World {
      * is a sensor.
      */
     public intersectionPairsWith(collider1: Collider, f: (collider2: Collider) => void) {
-        this.narrowPhase.intersectionPairsWith(collider1.handle, this.colliders.castVoidClosure(f));
-        this.colliders.rethrowCallbackError();
+        // The callback's return value is dropped so that a `Set.delete` or
+        // `Array.push` result can never cut the walk short.
+        this.narrowPhase.intersectionPairsWith(collider1.handle, (handle) => {
+            f(this.colliders.get(handle)!);
+        });
     }
 
     /**

@@ -129,7 +129,7 @@ export class TempContactForceEvent {
  * once you are done using it.
  */
 export class EventQueue {
-    raw!: RawEventQueue;
+    raw: RawEventQueue;
 
     private _collisions = new WasmBuffer();
     private _contactForces = new WasmBuffer();

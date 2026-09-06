@@ -44,6 +44,10 @@ pub const fn combine_rule_from_u32(rule: u32) -> CoefficientCombineRule {
         CoefficientCombineRule::Min
     } else if rule == CoefficientCombineRule::Multiply as u32 {
         CoefficientCombineRule::Multiply
+    } else if rule == CoefficientCombineRule::ClampedSum as u32 {
+        CoefficientCombineRule::ClampedSum
+    } else if rule == CoefficientCombineRule::GeometricMean as u32 {
+        CoefficientCombineRule::GeometricMean
     } else {
         CoefficientCombineRule::Max
     }

@@ -280,9 +280,9 @@ function genCompoundGeometry(collider: RAPIER.Collider) {
 }
 
 function genHeightfieldGeometry(collider: RAPIER.Collider) {
-    let heights = collider.heightfieldHeights();
-    let nrows = collider.heightfieldNRows();
-    let ncols = collider.heightfieldNCols();
+    let heights = collider.heightfieldHeights()!;
+    let nrows = collider.heightfieldNRows()!;
+    let ncols = collider.heightfieldNCols()!;
     let scale = collider.heightfieldScale()!;
 
     let vertices = [];
@@ -357,7 +357,7 @@ function instancedShape(RAPIER: RAPIER_API, collider: RAPIER.Collider): Instance
             };
         }
         case RAPIER.ShapeType.Ball: {
-            let rad = collider.radius();
+            let rad = collider.radius()!;
             return {
                 key: "ball",
                 geometry: () => new THREE.SphereGeometry(1.0),
@@ -366,8 +366,8 @@ function instancedShape(RAPIER: RAPIER_API, collider: RAPIER.Collider): Instance
         }
         case RAPIER.ShapeType.Cylinder:
         case RAPIER.ShapeType.RoundCylinder: {
-            let rad = collider.radius();
-            let height = collider.halfHeight() * 2.0;
+            let rad = collider.radius()!;
+            let height = collider.halfHeight()! * 2.0;
             return {
                 key: "cylinder",
                 geometry: () => new THREE.CylinderGeometry(1.0, 1.0),
@@ -376,8 +376,8 @@ function instancedShape(RAPIER: RAPIER_API, collider: RAPIER.Collider): Instance
         }
         case RAPIER.ShapeType.Cone:
         case RAPIER.ShapeType.RoundCone: {
-            let rad = collider.radius();
-            let height = collider.halfHeight() * 2.0;
+            let rad = collider.radius()!;
+            let height = collider.halfHeight()! * 2.0;
             return {
                 key: "cone",
                 geometry: () => new THREE.ConeGeometry(1.0, 1.0),
@@ -389,8 +389,8 @@ function instancedShape(RAPIER: RAPIER_API, collider: RAPIER.Collider): Instance
             // half-height happen to match, so each pair of dimensions is its own
             // geometry. Scenes tend to use one size throughout, so that is still a
             // single group.
-            let rad = collider.radius();
-            let halfHeight = collider.halfHeight();
+            let rad = collider.radius()!;
+            let halfHeight = collider.halfHeight()!;
             return {
                 key: `capsule:${rad}:${halfHeight}`,
                 geometry: () => new THREE.CapsuleGeometry(rad, halfHeight * 2.0),
@@ -400,7 +400,7 @@ function instancedShape(RAPIER: RAPIER_API, collider: RAPIER.Collider): Instance
         case RAPIER.ShapeType.TriMesh:
         case RAPIER.ShapeType.ConvexPolyhedron:
         case RAPIER.ShapeType.RoundConvexPolyhedron: {
-            let vertices = collider.vertices();
+            let vertices = collider.vertices()!;
             let indices = collider.indices();
 
             if (indices === undefined || vertices.length > MAX_INSTANCED_VERTICES * 3) {
@@ -1161,7 +1161,7 @@ export class Graphics {
             case RAPIER.ShapeType.ConvexPolyhedron:
             case RAPIER.ShapeType.RoundConvexPolyhedron: {
                 // Only the meshes too big to be worth instancing reach this.
-                vertices = collider.vertices();
+                vertices = collider.vertices()!;
                 indices = collider.indices();
                 break;
             }

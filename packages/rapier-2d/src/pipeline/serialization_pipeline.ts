@@ -55,20 +55,23 @@ export class SerializationPipeline {
         impulseJoints: ImpulseJointSet,
         multibodyJoints: MultibodyJointSet,
     ): Uint8Array {
-        let rawGra = VectorOps.intoRaw(gravity);
-
-        const res = this.raw.serializeAll(
-            rawGra,
-            integrationParameters.raw,
-            islands.raw,
-            broadPhase.raw,
-            narrowPhase.raw,
-            bodies.raw,
-            colliders.raw,
-            impulseJoints.raw,
-            multibodyJoints.raw,
-        );
-        rawGra.free();
+        const rawGra = VectorOps.intoRaw(gravity);
+        let res;
+        try {
+            res = this.raw.serializeAll(
+                rawGra,
+                integrationParameters.raw,
+                islands.raw,
+                broadPhase.raw,
+                narrowPhase.raw,
+                bodies.raw,
+                colliders.raw,
+                impulseJoints.raw,
+                multibodyJoints.raw,
+            );
+        } finally {
+            rawGra.free();
+        }
 
         if (res === undefined) {
             throw new Error("Failed to serialize the physics world.");
