@@ -1,5 +1,344 @@
 # @alexandernanberg/rapier3d
 
+## 0.3.0
+
+### Minor Changes
+
+- [#29](https://github.com/alexandernanberg/rapier.js/pull/29) [`fabcdf6`](https://github.com/alexandernanberg/rapier.js/commit/fabcdf65b403720102596f7d8813f4396dd694c3) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - Fix a batch of correctness bugs found in an audit of the bindings, most of them
+  in the paths that read pose and velocity straight out of the shared transform
+  buffer.
+  
+  - `linvel()`/`angvel()` now reflect `applyImpulse`, `applyTorqueImpulse`,
+    `applyImpulseAtPoint`, `sleep()`, `setBodyType()` and the PID/vehicle
+    controllers immediately, instead of returning the pre-mutation value until
+    the next `step()`. Every WASM-side mutation now writes the body's slot
+    through, so the JS-side write-throughs in the setters are gone (which also
+    stops a rejected non-normalized quaternion from being written into the
+    buffer). `setTransform` with a rejected rotation still honours `wakeUp`.
+  - Spherical joints reported `JointType.Generic` (and were wrapped as a generic
+    joint) because the type-detection mask listed the angular rather than the
+    linear axes.
+  - After `World.restoreSnapshot`, a parentless collider's `parent()` returned
+    the body at arena index 0. `Coarena.get` now also treats a missing handle as
+    "no entity" so an empty `Option` from WASM can never alias to index 0.
+  - `DynamicRayCastVehicleController.wheelGroundObject()` returned a collider
+    for an airborne wheel for the same reason; it now returns `null`, and the
+    misnamed `setIndexForwardAxis` setter is joined by a proper
+    `indexForwardAxis` setter (the old one is deprecated).
+  - 2D `RigidBody.restrictTranslations` passed `enableX` for both axes.
+  - The auto-drained `EventQueue` never cleared contact-force events, so a
+    collider with `ActiveEvents.CONTACT_FORCE_EVENTS` grew the queue forever
+    unless `drainContactForceEvents` was called every step.
+  - A user callback that throws inside `drainCollisionEvents` /
+    `drainContactForceEvents` now surfaces the exception instead of being
+    swallowed. The remaining events are still delivered first, the queue stays
+    usable afterwards, and a contact-force event is freed even when the callback
+    throws.
+  - `JointData.intoRaw()` leaked the axis vector of generic joints, and a joint
+    whose axis cannot be normalized now throws a readable error instead of an
+    opaque wasm-bindgen assertion. A `HalfSpace` with a zero normal is rejected
+    the same way instead of producing a NaN plane, and `setUp` on the character
+    controller ignores a zero vector.
+  - `World.restoreSnapshot` freed neither its `SerializationPipeline` nor the
+    deserialized-world shell; `NarrowPhase.contactPair` now frees its raw
+    manifold/pair even when the callback throws.
+  - In 3D, `Collider.vertices()` returned `undefined` for polylines, and round
+    cones had no `radius()`/`halfHeight()`; `RigidBody.collider(i)` with an
+    out-of-range index no longer traps inside WASM.
+  - The character controller resets its computed collisions and grounded state
+    when its collider has been removed, instead of reporting the previous call's
+    results.
+  - Bitflag arguments (`ActiveEvents`, `ActiveHooks`, `QueryFilterFlags`,
+    `TriMeshFlags`, ...) are now truncated to their known bits rather than
+    silently dropping _all_ flags when an unknown bit is set.
+  - `init()` no longer triggers wasm-bindgen's deprecation warning on every call.
+  - 2D: `ColliderDesc.polyline` accepts `null` indices like 3D, `TriMesh.flags`
+    is optional and the dead `ColliderDesc.rotationsEnabled` field is gone.
+  
+  Performance:
+  
+  - The remaining getters that handed a wasm-bindgen object across the boundary
+    per call now write into the shared scratch buffer instead, so their `target`
+    form is genuinely allocation-free and each is a single WASM call:
+    `RigidBody.velocityAtPoint/effectiveInvMass/userForce/userTorque/
+  principalInertia/invPrincipalInertia/principalInertiaLocalFrame/
+  effectiveWorldInvInertia/effectiveAngularInertia`, `Collider.halfExtents/
+  heightfieldScale`, the joint `anchor1/anchor2/frameX1/frameX2` getters, the
+    vehicle wheel vector getters and `KinematicCharacterController.up()` (which
+    now also takes a `target`).
+  - `Collider.castRayAndGetNormal/castRay/intersectsRay/containsPoint/
+  projectPoint` and the `Shape` equivalents pass their inputs as scalars and
+    read their results out of the scratch buffer: a collider ray cast went from
+    two input allocations, a result object and four getter crossings to one
+    call. Feature ids ride along as exact `u32` bit patterns.
+  - The pending-refresh list of the transform buffer is deduplicated, so
+    mutating the same body many times between steps (a force applied every
+    frame, say) no longer pushes the sync into a full pass.
+  - The release profile sets `panic = "abort"`.
+  
+  Typing changes that fall out of this: `Collider.halfExtents()` and
+  `heightfieldScale()` are typed `Vector | null` (they always returned `null`
+  for other shapes at runtime), `Shape.castRayAndGetNormal()` is typed
+  `RayIntersection | null`, `RigidBody.collider(i)` is typed `Collider | null`
+  (it returns `null` for an out-of-range index instead of trapping),
+  `Collider.projectPoint()` is no longer nullable, and
+  `RayIntersection.fromRaw`/`PointProjection.fromRaw` are replaced by
+  `fromBuffer`.
+
+- [#37](https://github.com/alexandernanberg/rapier.js/pull/37) [`51c9279`](https://github.com/alexandernanberg/rapier.js/commit/51c9279df41e62afabe947289a53e714adb880d9) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - Fix a third batch of bugs found auditing the bindings, and take more
+  allocations and boundary crossings off hot paths.
+  
+  Bugs:
+  
+  - `World.forEachActiveRigidBody` no longer hands the callback `null` for a body
+    an earlier iteration of the same walk removed (the active set is a snapshot
+    taken before the walk starts).
+  - `World.propagateModifiedBodyPositionsToColliders` writes the moved
+    colliders' new world poses into the transform buffer instead of invalidating
+    it, so every collider read in the rest of the frame stays on the buffer
+    rather than crossing into WASM.
+  - `setRotation` with a quaternion that cannot be normalized still honours
+    `wakeUp`, like `setTransform` already did.
+  - `ContactForceEvent.started()` is exposed: `true` on the first step a pair's
+    force crosses its threshold, `false` while it stays above it.
+  - `ColliderDesc.convexDecomposition` with `resolution`, `planeDownsampling` or
+    `convexHullDownsampling` set to zero no longer traps the module.
+  - Creating an impulse or multibody joint between a body and itself throws
+    instead of building a degenerate joint graph.
+  - `DynamicRayCastVehicleController.indexUpAxis`/`indexForwardAxis` reject an
+    index outside `0..3` instead of silently turning the chassis velocity `NaN`.
+  - `PidController` treats a zero or non-finite target rotation as "no
+    correction" instead of steering the body toward the identity.
+  - `Collider.setRotationWrtParent` (3D) stores the quaternion it was given
+    instead of a lossy axis-angle round trip that could flip its sign.
+  - `World.free()` can be called twice; `World.takeSnapshot()` throws instead of
+    returning `undefined` when serialization fails.
+  - `World.contactPairsWith`/`intersectionPairsWith` stop enumerating once the
+    callback has thrown, and `NarrowPhase.contactPairsWith`/
+    `intersectionPairsWith` end early when the callback returns `false`, like the
+    other enumerations.
+  - The raw shape of a collider is freed even when its creation throws, and a
+    `Compound` whose sub-shape is rejected part-way frees the ones built before
+    it. `BroadPhase.castShape` reads its result before freeing the query shape.
+  
+  Performance:
+  
+  - `setNextKinematicTranslation`/`setNextKinematicRotation`/
+    `setNextKinematicTransform` no longer count toward the incremental
+    transform-sync budget: driving more than a few dozen kinematic bodies per
+    frame used to push every step into a full body _and_ collider re-sync.
+  - `RigidBody.setAdditionalMassProperties`, `Collider.setMassProperties`, the
+    `ImpulseJoint` anchor/frame setters and
+    `KinematicCharacterController.setUp` pass components instead of allocating
+    WASM vector/rotation temporaries per call (which also could not be freed if
+    the call threw).
+  - `KinematicCharacterController.computedCollision` is one WASM call instead of
+    three, and the controller no longer allocates a raw collision object.
+  - `PhysicsHooks.filterContactPair`/`filterIntersectionPair` receive the pair's
+    handles through the shared scratch buffer instead of four boxed JS numbers
+    per call, which removes about eight boundary crossings per candidate pair
+    per step.
+
+- [#39](https://github.com/alexandernanberg/rapier.js/pull/39) [`b86a272`](https://github.com/alexandernanberg/rapier.js/commit/b86a272e17a742e6d877092004e1ff31c9ce449d) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - Fix a fourth batch of bugs found auditing the bindings, and take the remaining
+  per-event allocations off the event queue.
+  
+  Bugs:
+  
+  - Stepping with a hooks object that lacks a hook the previous hooks object had
+    no longer keeps running the previous object's hook: the wrappers are dropped
+    together with the object they close over.
+  - `CoefficientCombineRule` gains `ClampedSum` and `GeometricMean`, which
+    rapier supports and which used to be silently turned into `Max` on the way
+    in (and could not be named on the way out).
+  - Callbacks handed directly to `BroadPhase.intersectionsWithPoint`,
+    `intersectionsWithShape`, `collidersWithAabbIntersectingAabb` and to
+    `NarrowPhase.contactPairsWith` / `intersectionPairsWith` (rather than through
+    the `World` wrappers) now stop the walk and propagate when they throw, instead
+    of the error being swallowed at the WASM boundary. The Rust enumerations also
+    stop on a failed callback rather than calling it again for every remaining
+    hit.
+  - `Collider.radius()`, `roundRadius()`, `halfHeight()`, `vertices()`,
+    `heightfieldHeights()` and (3D) `heightfieldNRows()` / `heightfieldNCols()`
+    are typed and documented as returning `null` for a collider of another shape,
+    which is what they did; they used to claim `number` / `Float32Array`.
+  - A rope joint that was given a velocity motor keeps reporting `JointType.Rope`
+    rather than `Spring`.
+  - `ImpulseJointSet.createJoint`, `MultibodyJointSet.createJoint` and
+    `SerializationPipeline.serializeAll` free their temporary raw objects even
+    when the WASM call throws.
+  - The documented defaults of `IntegrationParameters` match rapier 0.35
+    (`contactDampingRatio` 10, `warmstartJoints` false,
+    `normalizedMaxCorrectiveVelocity` 3, `normalizedMaxLinearVelocity` 400,
+    `numInternalStabilizationIterations` 1, `normalizedContactRecycleDistance`
+    0.05).
+  - 2D: `PidAxesMask.LinZ`, which the controller ignored, is removed.
+  
+  Performance:
+  
+  - The event queue is now the event handler rapier writes into directly, in the
+    buffer layout JS reads, instead of going through an `mpsc` channel that
+    allocated and copied every event twice.
+  - A step given an event queue but no hooks no longer marshals a hooks object
+    and three absent functions across the boundary, nor makes rapier consult a
+    hooks object that answers "no hook" for every flagged pair.
+  - The WASM-resident drain buffers keep their typed-array views when the buffer
+    neither moved nor resized, so a steady-state event drain or active-body walk
+    allocates nothing.
+  - (3D) `DynamicRayCastVehicleController.addWheel` and the wheel vector setters
+    pass their vectors component-wise instead of allocating raw vectors.
+  - Building a compound shape moves its parts instead of cloning them.
+
+- [#33](https://github.com/alexandernanberg/rapier.js/pull/33) [`641da71`](https://github.com/alexandernanberg/rapier.js/commit/641da71b0fd66e05ff2fca92e8a111eb53ac37d0) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - Fix another batch of bugs found auditing the bindings, and take several
+  allocation and boundary-crossing costs off hot paths.
+  
+  Bugs:
+  
+  - `init()` shares one in-flight initialization between concurrent callers.
+    Two overlapping `await init()` calls used to each fetch and instantiate the
+    module, and the second one to finish swapped the WASM exports out from under
+    every object the first had created.
+  - `World.forEachActiveRigidBody` no longer stops early when the callback grows
+    WASM memory (any `intoRaw`, query or created entity can). The handle buffer
+    view was read once up front, and a detached view reads as empty.
+  - `collider.shape` reflects `setRadius`, `setHalfExtents`, `setHalfHeight` and
+    `setRoundRadius` instead of the shape the collider was created with.
+  - `translation()`/`rotation()`/`linvel()`/`angvel()` on a removed body or
+    collider throw like every other accessor does, instead of reading the stale
+    slot — or, once the arena index was recycled, another entity's transform.
+  - A body pushed by the character controller (`applyImpulsesToDynamicBodies`)
+    reports its new velocity right after `computeColliderMovement`, not after the
+    next `step()`.
+  - Creating a collider on a removed body throws a JS error; casting or
+    contacting against a removed collider returns `null`; updating a vehicle
+    whose chassis was removed is a no-op. All three used to trap the module.
+  - A quaternion that drifted off unit length is normalized wherever it is
+    accepted (descriptors and setters alike). Descriptors used to apply it as-is,
+    skewing the pose, while the setters silently ignored it.
+  - 2D `RigidBody.setRotation` overwrote the buffered angle with the unwrapped
+    input, so `rotation()` disagreed with itself before and after the next step.
+  - `JointType.Rope` and `JointType.Spring` are reported for rope and spring
+    joints instead of `Generic`; the `contact_natural_frequency` alias can be
+    read back.
+  
+  Performance:
+  
+  - Creating a body or collider no longer forces every other body's or
+    collider's transform reads onto the WASM path until the next `step()`: the
+    new slot is written at creation and the view re-pointed.
+  - `Collider.setTranslation`/`setRotation` (and the `WrtParent` variants) write
+    the new pose through the buffer instead of invalidating it for the whole set.
+  - Forces, torques, damping, gravity scale, CCD, dominance, mass-property and
+    solver-iteration setters no longer count toward the incremental-sync budget,
+    which an `addForce` per body per frame used to exhaust into a full re-sync
+    every step.
+  - `ContactModificationContext.setNormal`, `setSolverContactPoint1/2` and
+    `setSolverContactTangentVelocity` pass components instead of allocating a
+    WASM vector per call; the `SdpMatrix3` `target` path, the event-drain
+    strides, the compat `init()` re-decode and the debug-render colour
+    conversion no longer allocate or cross the boundary needlessly.
+
+- [#35](https://github.com/alexandernanberg/rapier.js/pull/35) [`4eb2964`](https://github.com/alexandernanberg/rapier.js/commit/4eb2964f71d28a75b19ad3860723c84e93616cee) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - Fix a third batch of bugs found auditing the bindings, and take the remaining
+  per-call allocations off the shape-query and controller paths.
+  
+  Bugs:
+  
+  - A handle kept past its entity's removal no longer resolves to whatever
+    entity recycled its arena index: `getRigidBody`, `getCollider`, `contains`
+    and the joint lookups compare the full handle (index and generation), and
+    removing an already removed entity is a no-op instead of detaching the live
+    one that took its slot.
+  - Every accessor on a removed `RigidBody`, `Collider` or joint throws a JS
+    error, not just the buffered transform reads. The Rust `expect` they used to
+    hit is a WASM trap under `panic = "abort"`, and one that leaves the set's
+    borrow flag stuck so the world can neither be stepped nor freed.
+  - Exceptions thrown from query predicates, hit callbacks and physics hooks are
+    reported instead of dropped at the WASM boundary. A throwing predicate used
+    to match every collider, a throwing hit callback kept iterating, a throwing
+    `filterContactPair` filtered the pair out, and removing a collider from
+    inside a query callback (rejected by wasm-bindgen for aliasing) silently did
+    nothing. The query stops (or the hook answers as an absent hook would for the
+    rest of the step) and the error is re-thrown once the WASM call has returned
+    and released its borrows and temporaries.
+  - `RigidBody.setTransform(_, _, true)` wakes a sleeping body even when only
+    one of translation and rotation changed. Rapier wakes from inside its "this
+    component changed" branch, and the wake-up rode on the other component.
+  - Creating a joint on a removed body throws at the creation site instead of
+    trapping the module from inside the next `step()`.
+  - The character controller publishes the post-impulse velocity of every body
+    rapier pushed, not only the one behind the reported hit; rapier resolves the
+    push with a contact query over the character's neighbourhood and the body it
+    picks need not be the hit one.
+  - `NarrowPhase.contactPair` is re-entrant: a nested call from inside the
+    callback used to overwrite and free the outer manifold.
+  - An unknown `massPropsMode` on a `ColliderDesc`, or ragged voxel data,
+    throws instead of tripping an assert or silently dropping coordinates. Shape
+    query rotations, joint frames and compound sub-shape rotations are normalized
+    like every other quaternion input, so a drifted quaternion no longer scales
+    the query shape by its squared length. `setHalfHeight` keeps a capsule's
+    axis. 2D `JointType` gained the `Generic` variant the Rust side already
+    reports.
+  
+  Performance:
+  
+  - `Collider.castShape`/`castCollider`/`intersectsShape`/`contactShape`/
+    `contactCollider`, every `Shape` query, `World.castShape`,
+    `intersectionWithShape`, `intersectionsWithShape` and
+    `collidersWithAabbIntersectingAabb` pass poses and velocities as components
+    and read their result out of the scratch buffer, the way the ray queries
+    already do. A `Collider.castShape` used to cost six WASM allocations (each
+    with a `FinalizationRegistry` entry) and nine boundary crossings; it now costs
+    the shape's allocation and one crossing. The character controller's
+    translation delta, the PID controller's targets and `setHalfExtents` are
+    passed the same way.
+  - The "most bodies moved, rewrite every slot" shortcut of the transform sync
+    was decided on the body count alone, so a few awake bodies among thousands of
+    standalone colliders (tile maps, static level geometry) rewrote every
+    collider slot every step. The collider sync decides on the collider count
+    and keeps the moved-body list whenever it needs it.
+  - Collider setters that cannot move the collider (shape, material, groups,
+    events, mass, flags, voxel edits) and `RigidBody.wakeUp` no longer count
+    toward the incremental-sync budget, which used to force a full pass every
+    step for scenes editing many colliders per frame.
+  - `World.castRay` accepts a `target`.
+
+- [#32](https://github.com/alexandernanberg/rapier.js/pull/32) [`4be10f9`](https://github.com/alexandernanberg/rapier.js/commit/4be10f9fbaf7cf2bd50ce5a4efe189b7700d7c92) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - Move the remaining bulk read paths onto WASM-resident buffers, so a drain or a
+  debug render costs one boundary crossing instead of one per item.
+  
+  - **Debug rendering.** `RawDebugRenderPipeline` no longer allocates a JS
+    `Float32Array` from Rust and copies the lines into it on every frame. The
+    vertex and color buffers stay in WASM memory and JS reads them through a view.
+    `World.debugRender` takes an optional `target: DebugRenderBuffers` that it
+    copies into and returns, so a caller that keeps one around allocates nothing
+    per frame once it has grown to fit; without a target the behaviour is
+    unchanged and a fresh pair is returned. `DebugRenderPipeline.vertices` and
+    `.colors` are now views straight into WASM memory — no copy at all — and are
+    valid only until the next call into WASM.
+  
+  - **Event draining.** `EventQueue.drainCollisionEvents` and
+    `drainContactForceEvents` now move every pending event into a buffer with one
+    call and walk it from JS. Contact force events no longer allocate a WASM
+    object per event that JS has to read through four more calls and then free, so
+    `TempContactForceEvent` has lost its `raw` field and its `free()` method.
+    Handlers that throw still see every event delivered, with the first error
+    re-thrown once the walk finishes.
+  
+  - **Active body iteration.** `IslandManager.forEachActiveRigidBodyHandle` (and
+    `World.forEachActiveRigidBody` on top of it) publishes the handles into a
+    buffer instead of calling into JS once per active body. The closure now also
+    runs after WASM has released its borrow of the island manager rather than
+    during it.
+  
+  Handles travel through these buffers as their arena index and generation in
+  separate `u32` slots, so they come back bit-exact.
+
+- [#34](https://github.com/alexandernanberg/rapier.js/pull/34) [`60e5b92`](https://github.com/alexandernanberg/rapier.js/commit/60e5b928aad2f8646d103bf99ae7b53f667872ea) Thanks [@alexandernanberg](https://github.com/alexandernanberg)! - Configure generic joints one axis at a time. `GenericImpulseJoint` and
+  `SphericalImpulseJoint` now share a `MultiAxisImpulseJoint` base exposing
+  `setLimits`, `limitsEnabled`, `limitsMin`, `limitsMax` and the motor
+  configuration for any `JointAxis`, so a generic joint's limits and motors can be
+  set after creation (a joint-simulated vehicle suspension, for instance).
+  `SphericalImpulseJoint` keeps the motor methods it already had, and gains the
+  limit ones.
+
 ## 0.2.0
 
 ### Minor Changes
