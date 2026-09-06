@@ -1,2 +1,5 @@
 # Benchmark results (kept locally, not committed)
 results/*.json
+
+# Per-machine timing baseline (record with --save-baseline)
+baseline.json
