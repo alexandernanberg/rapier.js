@@ -204,8 +204,11 @@ Queries take `target` as their last argument, after the filter arguments. When a
 query misses, it returns `null` and leaves the target untouched.
 
 Bulk reads go through WASM-resident buffers instead of a call per item: the debug
-render lines, both `EventQueue` drains, and `IslandManager.forEachActiveRigidBodyHandle`
-each fill a buffer in one call that JS then walks (see `packages/rapier-*/src/wasm_buffer.ts`).
+render lines, both `EventQueue` drains, `IslandManager.forEachActiveRigidBodyHandle`
+and `NarrowPhase.contactPair` (every manifold of the pair, contacts and solver
+contacts included) each fill a buffer in one call that JS then walks (see
+`packages/rapier-*/src/wasm_buffer.ts`). The `TempContactManifold` the callback
+receives is a cursor into that buffer, and its vector getters take a `target` too.
 Handles ride through those buffers as their arena index and generation in separate
 `u32` slots, because the `f64` a handle packs them into does not survive an `f32`.
 

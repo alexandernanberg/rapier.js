@@ -1,5 +1,6 @@
 use crate::dynamics::{RawImpulseJointSet, RawMultibodyJointSet, RawRigidBodySet};
 use crate::geometry::{RawColliderSet, RawNarrowPhase};
+use crate::utils::pack_buffer_info;
 use palette::convert::IntoColorUnclamped;
 use palette::rgb::Rgba;
 use palette::Hsla;
@@ -88,18 +89,10 @@ impl RawDebugRenderPipeline {
                 &colliders.0,
                 &impulse_joints.0,
                 &multibody_joints.0,
-                &narrow_phase.0,
+                &narrow_phase.narrow_phase,
             )
         })
     }
-}
-
-/// Packs a buffer's pointer and element count into one `f64`: low 32 bits the
-/// byte offset in WASM memory, high 32 bits the `f32` element count.
-fn pack_buffer_info(data: &[f32]) -> f64 {
-    let ptr = data.as_ptr() as u32;
-    let len = data.len() as u32;
-    f64::from_bits(ptr as u64 | ((len as u64) << 32))
 }
 
 struct CopyToBuffersBackend<'a> {

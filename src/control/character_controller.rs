@@ -339,7 +339,7 @@ impl RawKinematicCharacterController {
                     .unwrap_or(0.0);
 
                 let mut query_pipeline = broad_phase.0.as_query_pipeline_mut(
-                    narrow_phase.0.query_dispatcher(),
+                    narrow_phase.narrow_phase.query_dispatcher(),
                     &mut bodies.bodies,
                     &mut colliders.0,
                     query_filter,

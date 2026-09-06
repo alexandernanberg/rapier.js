@@ -72,6 +72,128 @@ describe("narrow phase contacts", () => {
         world.free();
     });
 
+    test("every manifold field reads back a sane resting contact", () => {
+        const {world, groundCollider, bodyCollider} = restingScene();
+
+        let seen = 0;
+        world.contactPair(bodyCollider, groundCollider, (manifold) => {
+            seen++;
+            const n = manifold.numContacts();
+            expect(n).toBeGreaterThan(0);
+            for (let i = 0; i < n; i++) {
+                // Resting: the surfaces touch, so the separation is about zero.
+                expect(Math.abs(manifold.contactDist(i))).toBeLessThan(0.05);
+                // Holding the ball up against gravity takes a positive normal impulse.
+                expect(manifold.contactImpulse(i)).toBeGreaterThan(0);
+                expect(Number.isFinite(manifold.contactTangentImpulseX(i))).toBe(true);
+                expect(Number.isInteger(manifold.contactFid1(i))).toBe(true);
+                expect(Number.isInteger(manifold.contactFid2(i))).toBe(true);
+            }
+
+            // Plain shapes: no sub-shapes, no hook has touched the manifold.
+            expect(manifold.subshape1()).toBe(0);
+            expect(manifold.subshape2()).toBe(0);
+            expect(manifold.userData()).toBe(0);
+            // Both colliders keep the default coefficients (friction 0.5, restitution 0).
+            expect(manifold.friction()).toBeCloseTo(0.5, 5);
+            expect(manifold.restitution()).toBeCloseTo(0, 5);
+
+            // A ball resting on a horizontal plane: vertical normals on both sides.
+            expect(Math.abs(manifold.normal().y)).toBeCloseTo(1, 3);
+            expect(Math.abs(manifold.localNormal1().y)).toBeCloseTo(1, 3);
+            expect(Math.abs(manifold.localNormal2().y)).toBeCloseTo(1, 3);
+
+            // The solver acts midway between both surfaces, which meet where the
+            // ball (radius 0.5, resting on the ground's top face at y = 0.5) touches.
+            expect(manifold.numSolverContacts()).toBeGreaterThan(0);
+            const point = manifold.solverContactPoint(0)!;
+            expect(point.y).toBeCloseTo(0.5, 1);
+            expect(Math.abs(manifold.solverContactDist(0))).toBeLessThan(0.05);
+            expect(manifold.solverContactAnchor1(0)).not.toBeNull();
+            expect(manifold.solverContactAnchor2(0)).not.toBeNull();
+            const tangentVelocity = manifold.solverContactTangentVelocity(0)!;
+            expect(Math.hypot(tangentVelocity.x, tangentVelocity.y, tangentVelocity.z)).toBeCloseTo(
+                0,
+                5,
+            );
+        });
+        expect(seen).toBeGreaterThan(0);
+
+        world.free();
+    });
+
+    test("an out-of-range contact index reads as null or zero", () => {
+        const {world, groundCollider, bodyCollider} = restingScene();
+
+        world.contactPair(bodyCollider, groundCollider, (manifold) => {
+            const n = manifold.numContacts();
+            expect(manifold.localContactPoint1(n)).toBeNull();
+            expect(manifold.localContactPoint2(-1)).toBeNull();
+            expect(manifold.contactDist(n)).toBe(0);
+            expect(manifold.contactFid1(n)).toBe(0);
+            expect(manifold.contactImpulse(-1)).toBe(0);
+            expect(manifold.contactTangentImpulseX(n)).toBe(0);
+
+            const m = manifold.numSolverContacts();
+            expect(manifold.solverContactPoint(m)).toBeNull();
+            expect(manifold.solverContactAnchor1(m)).toBeNull();
+            expect(manifold.solverContactAnchor2(-1)).toBeNull();
+            expect(manifold.solverContactTangentVelocity(m)).toBeNull();
+            expect(manifold.solverContactDist(m)).toBe(0);
+
+            // A target must be left alone on a miss.
+            const target = {x: 7, y: 8, z: 9};
+            expect(manifold.localContactPoint1(n, target)).toBeNull();
+            expect(target).toEqual({x: 7, y: 8, z: 9});
+        });
+
+        world.free();
+    });
+
+    test("colliders that are not touching yield no manifold", () => {
+        const world = new RAPIER.World(GRAVITY);
+        const a = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+        const ca = world.createCollider(RAPIER.ColliderDesc.ball(0.5), a);
+        const b = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(10, 0, 0));
+        const cb = world.createCollider(RAPIER.ColliderDesc.ball(0.5), b);
+        world.step();
+
+        let calls = 0;
+        world.contactPair(ca, cb, () => calls++);
+        expect(calls).toBe(0);
+
+        world.free();
+    });
+
+    test("the flipped flag follows the order the colliders were asked for", () => {
+        const {world, groundCollider, bodyCollider} = restingScene();
+
+        const flips: boolean[] = [];
+        world.contactPair(bodyCollider, groundCollider, (_, flipped) => flips.push(flipped));
+        world.contactPair(groundCollider, bodyCollider, (_, flipped) => flips.push(flipped));
+        expect(flips).toHaveLength(2);
+        // The pair is stored once, so exactly one of the two orders is flipped.
+        expect(flips[0]).not.toBe(flips[1]);
+
+        world.free();
+    });
+
+    test("the manifold is a snapshot that survives a step from inside the callback", () => {
+        const {world, groundCollider, bodyCollider} = restingScene();
+
+        world.contactPair(bodyCollider, groundCollider, (manifold) => {
+            const before = manifold.normal();
+            const distBefore = manifold.contactDist(0);
+            // The old protocol handed out pointers into the narrow phase, which a
+            // step invalidated; the buffer read here is not affected by it.
+            world.step();
+            expect(manifold.normal()).toEqual(before);
+            expect(manifold.contactDist(0)).toBe(distBefore);
+        });
+
+        world.free();
+    });
+
     test("a sensor reports an intersection rather than a contact", () => {
         const world = new RAPIER.World({x: 0, y: 0, z: 0});
         const a = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());

@@ -1,5 +1,6 @@
 import type {MemoryBench} from "../memory.js";
 import {withSeededRandom} from "../seeded_random.js";
+import {createPyramidWorld} from "../worlds/pyramid.js";
 import {createSparseWorld} from "../worlds/sparse.js";
 
 /**
@@ -54,6 +55,18 @@ export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): M
     const keep = (value: any) => {
         sink[sinkIndex++ & 15] = value;
     };
+
+    // A small settled pyramid for the contact-manifold reads: the sparse world's
+    // bodies mostly rest on the ground alone, so it has few touching pairs.
+    const contactBodyCount = 100;
+    const contactWorld = createPyramidWorld(RAPIER, is3D, contactBodyCount);
+    for (let i = 0; i < 120; i++) contactWorld.step();
+    const pairs: [any, any][] = [];
+    contactWorld.forEachCollider((collider: any) => {
+        contactWorld.contactPairsWith(collider, (other: any) => {
+            if (collider.handle < other.handle) pairs.push([collider, other]);
+        });
+    });
 
     const shape = new RAPIER.Ball(0.5);
     // 2D takes a scalar angle where 3D takes a quaternion.
@@ -230,6 +243,42 @@ export function allocationBenches(RAPIER: any, is3D: boolean, quick: boolean): M
                             castTarget,
                         ),
                     );
+            },
+        });
+    }
+
+    // --- world.contactPair ---------------------------------------------------
+    // The manifold walk reads out of a WASM-resident buffer, so with `target`s
+    // for the vectors it should allocate nothing at all. The callbacks are
+    // hoisted so a per-call closure does not show up as the API's allocation.
+    const readManifold = (manifold: any) => {
+        keep(manifold.normal());
+        keep(manifold.localContactPoint1(0));
+    };
+    benches.push({
+        name: `world.contactPair() x${pairs.length} (${contactBodyCount}-body pyramid)`,
+        opsPerCall: pairs.length,
+        fn: () => {
+            for (const [a, b] of pairs) contactWorld.contactPair(a, b, readManifold);
+        },
+    });
+
+    const normalTarget = vec(0, 0, 0);
+    const pointTarget = vec(0, 0, 0);
+    let manifoldProbe: any = null;
+    contactWorld.contactPair(pairs[0][0], pairs[0][1], (manifold: any) => {
+        manifoldProbe = manifold.normal(normalTarget);
+    });
+    if (manifoldProbe === normalTarget) {
+        const readManifoldInto = (manifold: any) => {
+            keep(manifold.normal(normalTarget));
+            keep(manifold.localContactPoint1(0, pointTarget));
+        };
+        benches.push({
+            name: `world.contactPair() x${pairs.length} (${contactBodyCount}-body pyramid) [reuse]`,
+            opsPerCall: pairs.length,
+            fn: () => {
+                for (const [a, b] of pairs) contactWorld.contactPair(a, b, readManifoldInto);
             },
         });
     }

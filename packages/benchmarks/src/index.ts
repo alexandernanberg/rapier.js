@@ -14,6 +14,7 @@ import {
 } from "./baseline.js";
 import {gcAvailable, measureMemory, printMemoryTable, type MemoryResult} from "./memory.js";
 import {allocationBenches} from "./scenarios/allocations.js";
+import {benchContacts} from "./scenarios/contacts.js";
 import {benchGetters} from "./scenarios/getters.js";
 import {benchLifecycle} from "./scenarios/lifecycle.js";
 import {benchQueries} from "./scenarios/queries.js";
@@ -118,6 +119,7 @@ async function main() {
     benchQueries(RAPIER, is3D, quick);
     benchGetters(RAPIER, is3D, quick);
     benchSetters(RAPIER, is3D, quick);
+    benchContacts(RAPIER, is3D, quick);
 
     // Run all registered benchmarks
     const {benchmarks} = await run();

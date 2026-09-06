@@ -1271,212 +1271,6 @@ export class RawColliderSet {
 }
 if (Symbol.dispose) RawColliderSet.prototype[Symbol.dispose] = RawColliderSet.prototype.free;
 
-export class RawContactManifold {
-    static __wrap(ptr) {
-        const obj = Object.create(RawContactManifold.prototype);
-        obj.__wbg_ptr = ptr;
-        RawContactManifoldFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawContactManifoldFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawcontactmanifold_free(ptr, 0);
-    }
-    /**
-     * @param {number} i
-     * @returns {number}
-     */
-    contact_dist(i) {
-        const ret = wasm.rawcontactmanifold_contact_dist(this.__wbg_ptr, i);
-        return ret;
-    }
-    /**
-     * @param {number} i
-     * @returns {number}
-     */
-    contact_fid1(i) {
-        const ret = wasm.rawcontactmanifold_contact_fid1(this.__wbg_ptr, i);
-        return ret >>> 0;
-    }
-    /**
-     * @param {number} i
-     * @returns {number}
-     */
-    contact_fid2(i) {
-        const ret = wasm.rawcontactmanifold_contact_fid2(this.__wbg_ptr, i);
-        return ret >>> 0;
-    }
-    /**
-     * @param {number} i
-     * @returns {number}
-     */
-    contact_impulse(i) {
-        const ret = wasm.rawcontactmanifold_contact_impulse(this.__wbg_ptr, i);
-        return ret;
-    }
-    /**
-     * @param {number} i
-     * @returns {boolean}
-     */
-    contact_local_p1(i) {
-        const ret = wasm.rawcontactmanifold_contact_local_p1(this.__wbg_ptr, i);
-        return ret !== 0;
-    }
-    /**
-     * @param {number} i
-     * @returns {boolean}
-     */
-    contact_local_p2(i) {
-        const ret = wasm.rawcontactmanifold_contact_local_p2(this.__wbg_ptr, i);
-        return ret !== 0;
-    }
-    /**
-     * @param {number} i
-     * @returns {number}
-     */
-    contact_tangent_impulse_x(i) {
-        const ret = wasm.rawcontactmanifold_contact_tangent_impulse_x(this.__wbg_ptr, i);
-        return ret;
-    }
-    /**
-     * @param {number} i
-     * @returns {number}
-     */
-    contact_tangent_impulse_y(i) {
-        const ret = wasm.rawcontactmanifold_contact_tangent_impulse_y(this.__wbg_ptr, i);
-        return ret;
-    }
-    /**
-     * The effective friction coefficient of this manifold's contacts.
-     *
-     * Since rapier 0.35 friction is stored per-manifold instead of per solver-contact,
-     * so it is identical for every contact of this manifold.
-     * @returns {number}
-     */
-    friction() {
-        const ret = wasm.rawcontactmanifold_friction(this.__wbg_ptr);
-        return ret;
-    }
-    local_n1() {
-        wasm.rawcontactmanifold_local_n1(this.__wbg_ptr);
-    }
-    local_n2() {
-        wasm.rawcontactmanifold_local_n2(this.__wbg_ptr);
-    }
-    normal() {
-        wasm.rawcontactmanifold_normal(this.__wbg_ptr);
-    }
-    /**
-     * @returns {number}
-     */
-    num_contacts() {
-        const ret = wasm.rawcontactmanifold_num_contacts(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    num_solver_contacts() {
-        const ret = wasm.rawcontactmanifold_num_solver_contacts(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * The effective restitution coefficient of this manifold's contacts.
-     *
-     * Since rapier 0.35 restitution is stored per-manifold instead of per solver-contact,
-     * so it is identical for every contact of this manifold.
-     * @returns {number}
-     */
-    restitution() {
-        const ret = wasm.rawcontactmanifold_restitution(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * The contact point on the first body's surface.
-     *
-     * Since rapier 0.35 this is expressed in that body's center-of-mass-centered local
-     * frame, or in world-space when the first side has no solver body (no rigid-body, or
-     * world-attached by dominance — fixed bodies included).
-     * @param {number} i
-     * @returns {boolean}
-     */
-    solver_contact_anchor1(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_anchor1(this.__wbg_ptr, i);
-        return ret !== 0;
-    }
-    /**
-     * The contact point on the second body's surface, expressed like
-     * [`Self::solver_contact_anchor1`].
-     * @param {number} i
-     * @returns {boolean}
-     */
-    solver_contact_anchor2(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_anchor2(this.__wbg_ptr, i);
-        return ret !== 0;
-    }
-    /**
-     * @param {number} i
-     * @returns {number}
-     */
-    solver_contact_dist(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_dist(this.__wbg_ptr, i);
-        return ret;
-    }
-    /**
-     * The world-space contact point the solver acts on, midway between both surfaces.
-     *
-     * Solver contacts store one body-local anchor per surface (the two differ by the
-     * current separation along the normal), so resolving them back to world-space needs
-     * the bodies they are anchored to.
-     * @param {RawRigidBodySet} bodies
-     * @param {number} i
-     * @returns {boolean}
-     */
-    solver_contact_point(bodies, i) {
-        _assertClass(bodies, RawRigidBodySet);
-        const ret = wasm.rawcontactmanifold_solver_contact_point(this.__wbg_ptr, bodies.__wbg_ptr, i);
-        return ret !== 0;
-    }
-    /**
-     * @param {number} i
-     * @returns {boolean}
-     */
-    solver_contact_tangent_velocity(i) {
-        const ret = wasm.rawcontactmanifold_solver_contact_tangent_velocity(this.__wbg_ptr, i);
-        return ret !== 0;
-    }
-    /**
-     * @returns {number}
-     */
-    subshape1() {
-        const ret = wasm.rawcontactmanifold_subshape1(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    subshape2() {
-        const ret = wasm.rawcontactmanifold_subshape2(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * The user-defined data attached to this manifold, as set from a
-     * contact-modification hook. Preserved across steps.
-     * @returns {number}
-     */
-    user_data() {
-        const ret = wasm.rawcontactmanifold_user_data(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-}
-if (Symbol.dispose) RawContactManifold.prototype[Symbol.dispose] = RawContactManifold.prototype.free;
-
 /**
  * A handle to the contact-modification context of the hook call in progress.
  *
@@ -1729,55 +1523,6 @@ export class RawContactModificationContext {
     }
 }
 if (Symbol.dispose) RawContactModificationContext.prototype[Symbol.dispose] = RawContactModificationContext.prototype.free;
-
-export class RawContactPair {
-    static __wrap(ptr) {
-        const obj = Object.create(RawContactPair.prototype);
-        obj.__wbg_ptr = ptr;
-        RawContactPairFinalization.register(obj, obj.__wbg_ptr, obj);
-        return obj;
-    }
-    __destroy_into_raw() {
-        const ptr = this.__wbg_ptr;
-        this.__wbg_ptr = 0;
-        RawContactPairFinalization.unregister(this);
-        return ptr;
-    }
-    free() {
-        const ptr = this.__destroy_into_raw();
-        wasm.__wbg_rawcontactpair_free(ptr, 0);
-    }
-    /**
-     * @returns {number}
-     */
-    collider1() {
-        const ret = wasm.rawcontactpair_collider1(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {number}
-     */
-    collider2() {
-        const ret = wasm.rawcontactpair_collider2(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @param {number} i
-     * @returns {RawContactManifold | undefined}
-     */
-    contactManifold(i) {
-        const ret = wasm.rawcontactpair_contactManifold(this.__wbg_ptr, i);
-        return ret === 0 ? undefined : RawContactManifold.__wrap(ret);
-    }
-    /**
-     * @returns {number}
-     */
-    numContactManifolds() {
-        const ret = wasm.rawcontactpair_numContactManifolds(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-}
-if (Symbol.dispose) RawContactPair.prototype[Symbol.dispose] = RawContactPair.prototype.free;
 
 /**
  * The vertex/index buffers of a convex polyhedron's convex hull.
@@ -3998,13 +3743,42 @@ export class RawNarrowPhase {
         wasm.__wbg_rawnarrowphase_free(ptr, 0);
     }
     /**
+     * Publishes every contact manifold between `handle1` and `handle2` into a
+     * WASM-resident buffer and returns its pointer and length packed into a
+     * single `f64` (see `utils::pack_buffer_info`). Two colliders without a
+     * contact pair publish a header with zero manifolds.
+     *
+     * Layout: `[flipped, numManifolds]` (both as raw `u32` bit patterns), then
+     * each manifold as `MANIFOLD_STRIDE` fixed slots followed by
+     * `numContacts * CONTACT_STRIDE` contact slots and
+     * `numSolverContacts * SOLVER_CONTACT_STRIDE` solver-contact slots, so a
+     * manifold's size is only known from its own header and JS walks the buffer
+     * sequentially. `flipped` is `1` when the pair stores `handle1` as its
+     * second collider, in which case every `1`/`2` field applies to the other
+     * collider than its name says. Vectors are written component-wise; the user
+     * data, subshape indices, feature ids and counts are `u32` bit patterns.
+     *
+     * Handing the pair and each manifold to JS as boxed raw pointers instead
+     * meant two WASM objects allocated and freed per pair, one boundary crossing
+     * per field read, and pointers that dangled as soon as the world stepped.
+     * The buffer is a snapshot, so it stays valid whatever JS does next, and the
+     * whole read is one crossing.
+     *
+     * `depth` selects which buffer to fill: a `contactPair` callback that calls
+     * `contactPair` again must not overwrite the manifolds the outer callback is
+     * still reading, so JS passes its nesting depth and each level gets its own
+     * buffer. The buffer is reused (and may be reallocated) by the next call at
+     * the same depth, so the returned pointer is only valid until then.
      * @param {number} handle1
      * @param {number} handle2
-     * @returns {RawContactPair | undefined}
+     * @param {RawRigidBodySet} bodies
+     * @param {number} depth
+     * @returns {number}
      */
-    contact_pair(handle1, handle2) {
-        const ret = wasm.rawnarrowphase_contact_pair(this.__wbg_ptr, handle1, handle2);
-        return ret === 0 ? undefined : RawContactPair.__wrap(ret);
+    contact_pair(handle1, handle2, bodies, depth) {
+        _assertClass(bodies, RawRigidBodySet);
+        const ret = wasm.rawnarrowphase_contact_pair(this.__wbg_ptr, handle1, handle2, bodies.__wbg_ptr, depth);
+        return ret;
     }
     /**
      * Calls `f` with the handle of every collider in contact with `handle1`.
@@ -6556,6 +6330,25 @@ export function contactForceEventStride() {
 }
 
 /**
+ * The stride of a manifold's fixed part in the contact-pair buffer, so the JS
+ * side can walk it without hard-coding the layout.
+ * @returns {number}
+ */
+export function contactManifoldStride() {
+    const ret = wasm.contactManifoldStride();
+    return ret >>> 0;
+}
+
+/**
+ * The stride of one contact point in the contact-pair buffer.
+ * @returns {number}
+ */
+export function contactPointStride() {
+    const ret = wasm.contactPointStride();
+    return ret >>> 0;
+}
+
+/**
  * Logs the panic message and its source location before the module aborts.
  *
  * `wasm32-unknown-unknown` cannot unwind, so a panic anywhere in here reaches JS
@@ -6588,6 +6381,15 @@ export function reserve_memory(extra_bytes_count) {
 export function scratchBufferInfo() {
     const ret = wasm.scratchBufferInfo();
     return ret;
+}
+
+/**
+ * The stride of one solver contact in the contact-pair buffer.
+ * @returns {number}
+ */
+export function solverContactStride() {
+    const ret = wasm.solverContactStride();
+    return ret >>> 0;
 }
 
 /**
@@ -6707,15 +6509,9 @@ const RawCCDSolverFinalization = (typeof FinalizationRegistry === 'undefined')
 const RawColliderSetFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcolliderset_free(ptr, 1));
-const RawContactManifoldFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactmanifold_free(ptr, 1));
 const RawContactModificationContextFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactmodificationcontext_free(ptr, 1));
-const RawContactPairFinalization = (typeof FinalizationRegistry === 'undefined')
-    ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_rawcontactpair_free(ptr, 1));
 const RawConvexMeshDataFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_rawconvexmeshdata_free(ptr, 1));

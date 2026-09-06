@@ -1,8 +1,36 @@
 import {RigidBodySet} from "../dynamics";
 import {Vector, VectorOps} from "../math";
-import {RawNarrowPhase, RawContactManifold} from "../raw";
-import {scratch} from "../scratch";
+import {
+    contactManifoldStride,
+    contactPointStride,
+    solverContactStride,
+    RawNarrowPhase,
+} from "../raw";
+import {WasmBuffer} from "../wasm_buffer";
 import {ColliderHandle} from "./collider";
+
+// The strides are compile-time constants on the Rust side; they are fetched
+// lazily (the module has to be initialized first) and then never again, rather
+// than crossing the boundary on every `contactPair` call. The dimension falls out
+// of the contact stride (`3 * DIM + 3`), which sizes every vector slot below.
+let _manifoldStride = 0;
+let _contactStride = 0;
+let _solverContactStride = 0;
+let _dim = 0;
+
+function loadStrides() {
+    if (_manifoldStride !== 0) return;
+    _manifoldStride = contactManifoldStride();
+    _contactStride = contactPointStride();
+    _solverContactStride = solverContactStride();
+    _dim = (_contactStride - 3) / 3;
+}
+
+/** The buffer and cursor serving one nesting depth of `contactPair`. */
+interface PairLevel {
+    buffer: WasmBuffer;
+    manifold: TempContactManifold;
+}
 
 /**
  * The narrow-phase used for precise collision-detection.
@@ -12,10 +40,11 @@ import {ColliderHandle} from "./collider";
  */
 export class NarrowPhase {
     raw: RawNarrowPhase;
-    tempManifold: TempContactManifold;
-    // How many `contactPair` calls are on the stack: the shared `tempManifold`
-    // serves the outermost one, a nested call (from inside the callback) gets its
-    // own so it does not free the manifold the outer callback is still reading.
+    // One buffer view and manifold cursor per nesting depth of `contactPair`:
+    // a nested call (from inside the callback) gets its own so it does not
+    // overwrite the manifolds the outer callback is still reading. The Rust side
+    // keeps a matching buffer per depth.
+    private _pairLevels: PairLevel[] = [];
     private _contactPairDepth = 0;
 
     /**
@@ -26,11 +55,12 @@ export class NarrowPhase {
             this.raw.free();
         }
         this.raw = undefined!;
+        // The views point into the pair buffers that were just freed.
+        for (const level of this._pairLevels) level.buffer.release();
     }
 
     constructor(raw?: RawNarrowPhase) {
         this.raw = raw || new RawNarrowPhase();
-        this.tempManifold = new TempContactManifold(null!);
     }
 
     /**
@@ -101,6 +131,13 @@ export class NarrowPhase {
     /**
      * Iterates through all the contact manifolds between the given pair of colliders.
      *
+     * The manifolds are read out of a WASM-resident buffer that one call fills with
+     * every manifold of the pair, contacts and solver contacts included, so the
+     * whole walk costs a single boundary crossing and allocates nothing. The
+     * `manifold` object handed to `f` is a cursor into that buffer, reused for
+     * every manifold and overwritten by the next `contactPair` call: read what you
+     * need inside the closure rather than storing the object.
+     *
      * @param collider1 - The first collider involved in the contact.
      * @param collider2 - The second collider involved in the contact.
      * @param bodies - The set of rigid-bodies the colliders are attached to. Solver contacts are
@@ -115,32 +152,36 @@ export class NarrowPhase {
         bodies: RigidBodySet,
         f: (manifold: TempContactManifold, flipped: boolean) => void,
     ) {
-        const rawPair = this.raw.contact_pair(collider1, collider2);
-        if (!!rawPair) {
-            const flipped = rawPair.collider1() != collider1;
-            const manifold =
-                this._contactPairDepth === 0 ? this.tempManifold : new TempContactManifold(null!);
-            manifold.bodies = bodies;
-            this._contactPairDepth += 1;
-            // SAFETY: The RawContactManifold and RawContactPair store raw pointers
-            //         that are invalidated at the next timestep, so they must be
-            //         freed here even if the callback throws.
-            try {
-                const numManifolds = rawPair.numContactManifolds();
-                for (let i = 0; i < numManifolds; ++i) {
-                    manifold.raw = rawPair.contactManifold(i)!;
-                    try {
-                        if (!!manifold.raw) {
-                            f(manifold, flipped);
-                        }
-                    } finally {
-                        manifold.free();
-                    }
-                }
-            } finally {
-                this._contactPairDepth -= 1;
-                rawPair.free();
+        loadStrides();
+
+        const depth = this._contactPairDepth;
+        let level = this._pairLevels[depth];
+        if (level === undefined) {
+            level = {buffer: new WasmBuffer(), manifold: new TempContactManifold()};
+            this._pairLevels[depth] = level;
+        }
+
+        // One call publishes the pair's manifolds; the loop below reads them out
+        // of a view, so nothing else crosses the boundary per manifold or field.
+        // The published length is the buffer's capacity rather than the pair's
+        // size, so the view is only rebuilt when the buffer grows.
+        level.buffer.reset(this.raw.contact_pair(collider1, collider2, bodies.raw, depth));
+
+        const u32 = level.buffer.u32();
+        const flipped = u32[0] !== 0;
+        const numManifolds = u32[1];
+        if (numManifolds === 0) return;
+        const manifold = level.manifold;
+
+        this._contactPairDepth = depth + 1;
+        try {
+            let offset = 2;
+            for (let i = 0; i < numManifolds; ++i) {
+                offset = manifold._bind(level.buffer, offset);
+                f(manifold, flipped);
             }
+        } finally {
+            this._contactPairDepth = depth;
         }
     }
 
@@ -154,36 +195,78 @@ export class NarrowPhase {
     }
 }
 
+/**
+ * One contact manifold between two colliders, as handed to the closure given to
+ * `NarrowPhase.contactPair` / `World.contactPair`.
+ *
+ * This object should **not** be stored anywhere: it is a cursor into a buffer
+ * that the next `contactPair` call overwrites, so its getters are only meaningful
+ * inside that closure. Its vector getters take the same optional `target` as the
+ * rigid-body getters, and a contact index out of range reads as `null` (vectors)
+ * or `0` (scalars).
+ */
 export class TempContactManifold {
-    raw: RawContactManifold;
-    /** The bodies the manifold's solver contacts are anchored to. */
-    bodies: RigidBodySet;
+    private _buffer: WasmBuffer = null!;
+    /** Slot of the manifold's fixed part. */
+    private _offset = 0;
+    private _numContacts = 0;
+    private _numSolverContacts = 0;
+    /** Slot of the first contact point, `_contactStride` slots each. */
+    private _contactsOffset = 0;
+    /** Slot of the first solver contact, `_solverContactStride` slots each. */
+    private _solverContactsOffset = 0;
 
-    public free() {
-        if (!!this.raw) {
-            this.raw.free();
-        }
-        this.raw = undefined!;
+    /**
+     * Points this cursor at the manifold starting at `offset` and returns the
+     * offset of the manifold after it.
+     *
+     * Layout of the fixed part: the world-space normal, both local normals, then
+     * the user data, both subshape indices, friction, restitution, and the
+     * number of contacts and of solver contacts that follow (the integers as raw
+     * `u32` bit patterns).
+     *
+     * @internal
+     */
+    public _bind(buffer: WasmBuffer, offset: number): number {
+        this._buffer = buffer;
+        this._offset = offset;
+        const u32 = buffer.u32();
+        const counts = offset + 3 * _dim + 5;
+        this._numContacts = u32[counts];
+        this._numSolverContacts = u32[counts + 1];
+        this._contactsOffset = offset + _manifoldStride;
+        this._solverContactsOffset = this._contactsOffset + this._numContacts * _contactStride;
+        return this._solverContactsOffset + this._numSolverContacts * _solverContactStride;
     }
 
-    constructor(raw: RawContactManifold, bodies?: RigidBodySet) {
-        this.raw = raw;
-        this.bodies = bodies!;
+    /**
+     * The slot of contact `i`, or `-1` if there is no such contact. The index is
+     * converted the way the WASM boundary used to convert it to a `usize`, so a
+     * negative or fractional `i` behaves as it always has.
+     */
+    private contactSlot(i: number): number {
+        const index = i >>> 0;
+        if (index >= this._numContacts) return -1;
+        return this._contactsOffset + index * _contactStride;
     }
 
+    private solverContactSlot(i: number): number {
+        const index = i >>> 0;
+        if (index >= this._numSolverContacts) return -1;
+        return this._solverContactsOffset + index * _solverContactStride;
+    }
+
+    /** The world-space contact normal, pointing from the first collider towards the second. */
     public normal(target?: Vector): Vector {
-        this.raw.normal();
-        return VectorOps.fromBuffer(scratch(), target);
+        return VectorOps.fromBufferAt(this._buffer.f32(), this._offset, target);
     }
 
     public localNormal1(target?: Vector): Vector {
-        this.raw.local_n1();
-        return VectorOps.fromBuffer(scratch(), target);
+        return VectorOps.fromBufferAt(this._buffer.f32(), this._offset + _dim, target);
     }
 
     public localNormal2(target?: Vector): Vector {
-        this.raw.local_n2();
-        return VectorOps.fromBuffer(scratch(), target);
+        return VectorOps.fromBufferAt(this._buffer.f32(), this._offset + 2 * _dim, target);
     }
 
     /**
@@ -192,57 +275,65 @@ export class TempContactManifold {
      * if no hook ever set it.
      */
     public userData(): number {
-        return this.raw.user_data();
+        return this._buffer.u32()[this._offset + 3 * _dim];
     }
 
     public subshape1(): number {
-        return this.raw.subshape1();
+        return this._buffer.u32()[this._offset + 3 * _dim + 1];
     }
 
     public subshape2(): number {
-        return this.raw.subshape2();
+        return this._buffer.u32()[this._offset + 3 * _dim + 2];
     }
 
     public numContacts(): number {
-        return this.raw.num_contacts();
+        return this._numContacts;
     }
 
     public localContactPoint1(i: number, target?: Vector): Vector | null {
-        if (!this.raw.contact_local_p1(i)) return null;
-        return VectorOps.fromBuffer(scratch(), target);
+        const slot = this.contactSlot(i);
+        if (slot < 0) return null;
+        return VectorOps.fromBufferAt(this._buffer.f32(), slot, target);
     }
 
     public localContactPoint2(i: number, target?: Vector): Vector | null {
-        if (!this.raw.contact_local_p2(i)) return null;
-        return VectorOps.fromBuffer(scratch(), target);
+        const slot = this.contactSlot(i);
+        if (slot < 0) return null;
+        return VectorOps.fromBufferAt(this._buffer.f32(), slot + _dim, target);
     }
 
     public contactDist(i: number): number {
-        return this.raw.contact_dist(i);
+        const slot = this.contactSlot(i);
+        return slot < 0 ? 0 : this._buffer.f32()[slot + 2 * _dim];
     }
 
     public contactFid1(i: number): number {
-        return this.raw.contact_fid1(i);
+        const slot = this.contactSlot(i);
+        return slot < 0 ? 0 : this._buffer.u32()[slot + 2 * _dim + 1];
     }
 
     public contactFid2(i: number): number {
-        return this.raw.contact_fid2(i);
+        const slot = this.contactSlot(i);
+        return slot < 0 ? 0 : this._buffer.u32()[slot + 2 * _dim + 2];
     }
 
     public contactImpulse(i: number): number {
-        return this.raw.contact_impulse(i);
+        const slot = this.contactSlot(i);
+        return slot < 0 ? 0 : this._buffer.f32()[slot + 2 * _dim + 3];
     }
 
     public contactTangentImpulseX(i: number): number {
-        return this.raw.contact_tangent_impulse_x(i);
+        const slot = this.contactSlot(i);
+        return slot < 0 ? 0 : this._buffer.f32()[slot + 2 * _dim + 4];
     }
 
     public contactTangentImpulseY(i: number): number {
-        return this.raw.contact_tangent_impulse_y(i);
+        const slot = this.contactSlot(i);
+        return slot < 0 ? 0 : this._buffer.f32()[slot + 2 * _dim + 5];
     }
 
     public numSolverContacts(): number {
-        return this.raw.num_solver_contacts();
+        return this._numSolverContacts;
     }
 
     /**
@@ -253,8 +344,9 @@ export class TempContactManifold {
      * by dominance — fixed bodies included).
      */
     public solverContactAnchor1(i: number, target?: Vector): Vector | null {
-        if (!this.raw.solver_contact_anchor1(i)) return null;
-        return VectorOps.fromBuffer(scratch(), target);
+        const slot = this.solverContactSlot(i);
+        if (slot < 0) return null;
+        return VectorOps.fromBufferAt(this._buffer.f32(), slot, target);
     }
 
     /**
@@ -262,8 +354,9 @@ export class TempContactManifold {
      * {@link solverContactAnchor1}.
      */
     public solverContactAnchor2(i: number, target?: Vector): Vector | null {
-        if (!this.raw.solver_contact_anchor2(i)) return null;
-        return VectorOps.fromBuffer(scratch(), target);
+        const slot = this.solverContactSlot(i);
+        if (slot < 0) return null;
+        return VectorOps.fromBufferAt(this._buffer.f32(), slot + _dim, target);
     }
 
     /**
@@ -272,12 +365,20 @@ export class TempContactManifold {
      * Returns `null` if `i` is out of bounds.
      */
     public solverContactPoint(i: number, target?: Vector): Vector | null {
-        if (!this.raw.solver_contact_point(this.bodies.raw, i)) return null;
-        return VectorOps.fromBuffer(scratch(), target);
+        const slot = this.solverContactSlot(i);
+        if (slot < 0) return null;
+        return VectorOps.fromBufferAt(this._buffer.f32(), slot + 2 * _dim, target);
+    }
+
+    public solverContactTangentVelocity(i: number, target?: Vector): Vector | null {
+        const slot = this.solverContactSlot(i);
+        if (slot < 0) return null;
+        return VectorOps.fromBufferAt(this._buffer.f32(), slot + 3 * _dim, target);
     }
 
     public solverContactDist(i: number): number {
-        return this.raw.solver_contact_dist(i);
+        const slot = this.solverContactSlot(i);
+        return slot < 0 ? 0 : this._buffer.f32()[slot + 4 * _dim];
     }
 
     /**
@@ -286,7 +387,7 @@ export class TempContactManifold {
      * Friction is stored per-manifold, so it is identical for every contact of this manifold.
      */
     public friction(): number {
-        return this.raw.friction();
+        return this._buffer.f32()[this._offset + 3 * _dim + 3];
     }
 
     /**
@@ -295,11 +396,6 @@ export class TempContactManifold {
      * Restitution is stored per-manifold, so it is identical for every contact of this manifold.
      */
     public restitution(): number {
-        return this.raw.restitution();
-    }
-
-    public solverContactTangentVelocity(i: number, target?: Vector): Vector | null {
-        if (!this.raw.solver_contact_tangent_velocity(i)) return null;
-        return VectorOps.fromBuffer(scratch(), target);
+        return this._buffer.f32()[this._offset + 3 * _dim + 4];
     }
 }
