@@ -20,6 +20,7 @@ jobs:
         outputs:
             src: ${{ steps.filter.outputs.src }}
             testbed: ${{ steps.filter.outputs.testbed }}
+            bench: ${{ steps.filter.outputs.bench }}
         steps:
             - uses: actions/checkout@v6
             - uses: dorny/paths-filter@v4
@@ -36,6 +37,8 @@ jobs:
                       testbed:
                         - 'packages/testbed2d/**'
                         - 'packages/testbed3d/**'
+                      bench:
+                        - 'packages/benchmarks/**'
 
     lint:
         runs-on: ubuntu-latest
@@ -57,7 +60,7 @@ jobs:
     build:
         runs-on: ubuntu-latest
         needs: [changes]
-        if: needs.changes.outputs.src == 'true' || needs.changes.outputs.testbed == 'true'
+        if: needs.changes.outputs.src == 'true' || needs.changes.outputs.testbed == 'true' || needs.changes.outputs.bench == 'true'
         env:
             RUSTFLAGS: -D warnings
         steps:
@@ -129,7 +132,7 @@ jobs:
     benchmark:
         runs-on: ubuntu-latest
         needs: [changes, build]
-        if: github.event_name == 'pull_request' && needs.changes.outputs.src == 'true'
+        if: github.event_name == 'pull_request' && (needs.changes.outputs.src == 'true' || needs.changes.outputs.bench == 'true')
         permissions:
             pull-requests: write
         steps:
@@ -145,59 +148,24 @@ jobs:
               with:
                   name: build-artifacts
                   path: packages
+            # The fork and the official @dimforge build run back to back on the
+            # same runner, so their ratio is independent of how fast that runner
+            # happened to be — unlike a timing compared against an earlier run.
             - name: Run benchmarks
-              id: bench
               run: |
-                  pnpm bench:quick --no-compare 2>&1 | tee bench-output.txt
-
-                  # Find the latest results file
-                  RESULTS_FILE=$(ls -t packages/benchmarks/results/3d-*.json | head -1)
-                  echo "results_file=$RESULTS_FILE" >> $GITHUB_OUTPUT
-
-                  # Generate markdown table from results
-                  node -e "
-                  const fs = require('fs');
-                  const data = JSON.parse(fs.readFileSync('$RESULTS_FILE', 'utf-8'));
-
-                  function formatTime(ms) {
-                    if (ms < 0.001) return (ms * 1000000).toFixed(0) + 'ns';
-                    if (ms < 1) return (ms * 1000).toFixed(1) + 'µs';
-                    return ms.toFixed(3) + 'ms';
-                  }
-
-                  let md = '## ⚡ Benchmark Results\n\n';
-                  md += '| Benchmark | Mean | Min | Max |\n';
-                  md += '|-----------|------|-----|-----|\n';
-
-                  for (const r of data.results) {
-                    md += '| ' + r.name + ' | ' + formatTime(r.mean) + ' | ' + formatTime(r.min) + ' | ' + formatTime(r.max) + ' |\n';
-                  }
-
-                  function formatBytes(b) {
-                    if (b < 0.5) return '0 b';
-                    if (b < 1024) return b.toFixed(b < 10 ? 1 : 0) + ' b';
-                    return (b / 1024).toFixed(1) + ' kb';
-                  }
-
-                  if (data.memory && data.memory.length > 0) {
-                    md += '\n### Allocations\n\n';
-                    md += '| Benchmark | Bytes/op | GC / 1M ops | GC pause / 1M ops |\n';
-                    md += '|-----------|----------|-------------|-------------------|\n';
-                    for (const m of data.memory) {
-                      md += '| ' + m.name + ' | ' + formatBytes(m.bytesPerOp) + ' | ' + m.gcPerMillionOps.toFixed(0) + ' | ' + m.gcPauseMsPerMillionOps.toFixed(1) + 'ms |\n';
-                    }
-                    md += '\nBytes/op repeats to within a few percent; the GC columns depend on nursery sizing and are indicative only.\n';
-                  }
-
-                  md += '\n<details>\n<summary>Environment</summary>\n\n';
-                  md += '- **Node:** ' + data.node + '\n';
-                  md += '- **Platform:** ' + data.platform + '/' + data.arch + '\n';
-                  md += '- **Runner:** ubuntu-latest\n';
-                  md += '- **Timestamp:** ' + data.timestamp + '\n';
-                  md += '</details>\n';
-
-                  fs.writeFileSync('benchmark-comment.md', md);
-                  "
+                  mkdir -p "$GITHUB_WORKSPACE/bench"
+                  for dim in 3d 2d; do
+                    pnpm bench:quick --dim=$dim --no-compare \
+                      --out="$GITHUB_WORKSPACE/bench/$dim-fork.json" 2>&1 | tee -a bench-output.txt
+                    pnpm bench:quick --dim=$dim --no-compare --official --simd \
+                      --out="$GITHUB_WORKSPACE/bench/$dim-upstream.json" 2>&1 | tee -a bench-output.txt
+                  done
+                  pnpm bench:report --out="$GITHUB_WORKSPACE/benchmark-comment.md" "$GITHUB_WORKSPACE"/bench/*.json
+            - name: Upload results
+              uses: actions/upload-artifact@v7
+              with:
+                  name: benchmark-results
+                  path: bench/*.json
             - name: Post or update PR comment
               uses: actions/github-script@v9
               with:

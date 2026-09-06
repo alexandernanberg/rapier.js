@@ -1,15 +1,20 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {formatBytes, type MemoryResult} from "./memory.js";
+import {formatPercent, formatTime, type BenchResult, type HostInfo} from "./results.js";
 
-export interface BenchResult {
-    name: string;
-    /** Average time in nanoseconds (as returned by mitata) */
-    avg: number;
-}
-
+/**
+ * The baseline is per machine and lives outside version control: a timing
+ * recorded on one CPU says nothing about another, which is how a committed
+ * baseline drifts into meaninglessness. Record it on master with
+ * `--save-baseline`, then compare a branch against it.
+ */
 export interface BaselineEntry {
-    mean: number;
+    /** Median time in milliseconds. */
+    p50: number;
+    /** Relative interquartile range when the baseline was recorded. */
+    spread: number;
+    /** Per-benchmark override of the regression threshold. */
     tolerance?: number;
 }
 
@@ -20,6 +25,7 @@ export interface MemoryBaselineEntry {
 export interface BaselineData {
     version: number;
     created: string;
+    host?: HostInfo;
     thresholds: {
         warning: number;
         regression: number;
@@ -36,11 +42,16 @@ export type ComparisonStatus = "pass" | "warning" | "regression" | "new";
 
 export interface ComparisonResult {
     name: string;
-    mean: number;
+    /** The measured value: median milliseconds, or bytes per op for memory rows. */
+    value: number;
+    /** Relative interquartile range of the measurement, where known. */
+    spread: number | null;
     baseline: number | null;
     percentChange: number | null;
     status: ComparisonStatus;
 }
+
+const BASELINE_VERSION = 2;
 
 const DEFAULT_THRESHOLDS = {
     warning: 0.15,
@@ -72,38 +83,58 @@ export function loadBaseline(): BaselineData | null {
 
     try {
         const content = fs.readFileSync(baselinePath, "utf-8");
-        return JSON.parse(content) as BaselineData;
+        const baseline = JSON.parse(content) as BaselineData;
+        if (baseline.version !== BASELINE_VERSION) {
+            console.warn(
+                `Warning: baseline.json is version ${baseline.version}, expected ${BASELINE_VERSION}; ` +
+                    "re-record it with --save-baseline.",
+            );
+            return null;
+        }
+        return baseline;
     } catch (err) {
         console.warn(`Warning: Could not load baseline file: ${err}`);
         return null;
     }
 }
 
+/** Which of the host fields differ, as a short description, or null if they match. */
+export function hostMismatch(baseline: BaselineData, host: HostInfo): string | null {
+    if (!baseline.host) return "no host recorded";
+    const diffs: string[] = [];
+    if (baseline.host.cpu !== host.cpu) diffs.push(`cpu: ${baseline.host.cpu}`);
+    if (baseline.host.node !== host.node) diffs.push(`node: ${baseline.host.node}`);
+    if (baseline.host.arch !== host.arch) diffs.push(`arch: ${baseline.host.arch}`);
+    return diffs.length > 0 ? diffs.join(", ") : null;
+}
+
 export function saveBaseline(
     dim: "2d" | "3d",
     results: BenchResult[],
-    memory: MemoryResult[] = [],
+    memory: MemoryResult[],
+    host: HostInfo,
 ): void {
     const baselinePath = getBaselinePath();
-    let baseline: BaselineData;
+    let baseline: BaselineData | null = null;
 
-    // Load existing baseline or create new one
+    // Keep the other dimension's entries — unless they came from another
+    // machine, in which case they'd only ever compare wrongly.
     if (fs.existsSync(baselinePath)) {
         try {
-            baseline = JSON.parse(fs.readFileSync(baselinePath, "utf-8"));
+            const existing = JSON.parse(fs.readFileSync(baselinePath, "utf-8")) as BaselineData;
+            if (existing.version === BASELINE_VERSION && !hostMismatch(existing, host)) {
+                baseline = existing;
+            }
         } catch {
-            baseline = createEmptyBaseline();
+            baseline = null;
         }
-    } else {
-        baseline = createEmptyBaseline();
     }
+    baseline ??= createEmptyBaseline();
+    baseline.host = host;
 
-    // Update the dimension's results (convert ns → ms for storage)
     baseline[dim] = {};
     for (const result of results) {
-        baseline[dim][result.name] = {
-            mean: result.avg / 1e6,
-        };
+        baseline[dim][result.name] = {p50: result.p50, spread: result.spread};
     }
 
     baseline.memory ??= {"2d": {}, "3d": {}};
@@ -121,7 +152,7 @@ export function saveBaseline(
 
 function createEmptyBaseline(): BaselineData {
     return {
-        version: 1,
+        version: BASELINE_VERSION,
         created: new Date().toISOString(),
         thresholds: DEFAULT_THRESHOLDS,
         "2d": {},
@@ -143,7 +174,8 @@ export function compareMemoryToBaseline(
         if (!entry) {
             return {
                 name: result.name,
-                mean: result.bytesPerOp,
+                value: result.bytesPerOp,
+                spread: null,
                 baseline: null,
                 percentChange: null,
                 status: "new" as ComparisonStatus,
@@ -157,7 +189,8 @@ export function compareMemoryToBaseline(
         if (Math.abs(delta) < MEMORY_THRESHOLDS.minBytesDelta) {
             return {
                 name: result.name,
-                mean: result.bytesPerOp,
+                value: result.bytesPerOp,
+                spread: null,
                 baseline: entry.bytesPerOp,
                 percentChange: 0,
                 status: "pass" as ComparisonStatus,
@@ -177,7 +210,8 @@ export function compareMemoryToBaseline(
 
         return {
             name: result.name,
-            mean: result.bytesPerOp,
+            value: result.bytesPerOp,
+            spread: null,
             baseline: entry.bytesPerOp,
             percentChange,
             status,
@@ -192,7 +226,7 @@ export function printMemoryComparisonTable(comparisons: ComparisonResult[]): voi
     console.log("├─────────────────────────────────┼──────────┼──────────┼────────────┤");
     for (const c of comparisons) {
         const name = c.name.slice(0, 31).padEnd(31);
-        const bytes = formatBytes(c.mean).padStart(8);
+        const bytes = formatBytes(c.value).padStart(8);
         const base = c.baseline !== null ? formatBytes(c.baseline).padStart(8) : "     N/A";
         const status = formatStatus(c.percentChange, c.status).padEnd(10);
         console.log(`│ ${name} │ ${bytes} │ ${base} │ ${status} │`);
@@ -209,27 +243,30 @@ export function compareToBaseline(
     const thresholds = baseline.thresholds ?? DEFAULT_THRESHOLDS;
 
     return results.map((result) => {
-        // Convert ns → ms for comparison with baseline
-        const meanMs = result.avg / 1e6;
         const entry = baselineEntries[result.name];
 
         if (!entry) {
             return {
                 name: result.name,
-                mean: meanMs,
+                value: result.p50,
+                spread: result.spread,
                 baseline: null,
                 percentChange: null,
                 status: "new" as ComparisonStatus,
             };
         }
 
-        const percentChange = (meanMs - entry.mean) / entry.mean;
+        const percentChange = (result.p50 - entry.p50) / entry.p50;
         const tolerance = entry.tolerance ?? thresholds.regression;
 
+        // A change smaller than the spread of either run is noise, whatever the
+        // threshold says.
+        const noise = Math.max(result.spread, entry.spread);
+
         let status: ComparisonStatus;
-        if (percentChange > tolerance) {
+        if (percentChange > tolerance && percentChange > noise) {
             status = "regression";
-        } else if (percentChange > thresholds.warning) {
+        } else if (percentChange > thresholds.warning && percentChange > noise) {
             status = "warning";
         } else {
             status = "pass";
@@ -237,8 +274,9 @@ export function compareToBaseline(
 
         return {
             name: result.name,
-            mean: meanMs,
-            baseline: entry.mean,
+            value: result.p50,
+            spread: result.spread,
+            baseline: entry.p50,
             percentChange,
             status,
         };
@@ -268,18 +306,19 @@ export function summarizeComparison(comparisons: ComparisonResult[]): {
 }
 
 export function printComparisonTable(comparisons: ComparisonResult[]): void {
-    console.log("\nBaseline Comparison:");
-    console.log("┌─────────────────────────────────┬──────────┬──────────┬────────────┐");
-    console.log("│ Benchmark                       │ Mean     │ Baseline │ Status     │");
-    console.log("├─────────────────────────────────┼──────────┼──────────┼────────────┤");
+    console.log("\nBaseline Comparison (median):");
+    console.log("┌─────────────────────────────────┬──────────┬───────┬──────────┬────────────┐");
+    console.log("│ Benchmark                       │ p50      │ ±IQR  │ Baseline │ Status     │");
+    console.log("├─────────────────────────────────┼──────────┼───────┼──────────┼────────────┤");
     for (const c of comparisons) {
         const name = c.name.slice(0, 31).padEnd(31);
-        const mean = formatTime(c.mean).padStart(8);
+        const value = formatTime(c.value).padStart(8);
+        const spread = (c.spread !== null ? formatPercent(c.spread, false) : "").padStart(5);
         const baseline = c.baseline !== null ? formatTime(c.baseline).padStart(8) : "     N/A";
         const status = formatStatus(c.percentChange, c.status).padEnd(10);
-        console.log(`│ ${name} │ ${mean} │ ${baseline} │ ${status} │`);
+        console.log(`│ ${name} │ ${value} │ ${spread} │ ${baseline} │ ${status} │`);
     }
-    console.log("└─────────────────────────────────┴──────────┴──────────┴────────────┘");
+    console.log("└─────────────────────────────────┴──────────┴───────┴──────────┴────────────┘");
 }
 
 function formatStatus(percentChange: number | null, status: ComparisonStatus): string {
@@ -291,8 +330,7 @@ function formatStatus(percentChange: number | null, status: ComparisonStatus): s
         return "N/A";
     }
 
-    const sign = percentChange >= 0 ? "+" : "";
-    const pct = `${sign}${(percentChange * 100).toFixed(0)}%`;
+    const pct = formatPercent(percentChange);
 
     switch (status) {
         case "pass":
@@ -303,15 +341,5 @@ function formatStatus(percentChange: number | null, status: ComparisonStatus): s
             return `${pct} \u274c`;
         default:
             return pct;
-    }
-}
-
-function formatTime(ms: number): string {
-    if (ms < 0.001) {
-        return `${(ms * 1000000).toFixed(0)}ns`;
-    } else if (ms < 1) {
-        return `${(ms * 1000).toFixed(1)}µs`;
-    } else {
-        return `${ms.toFixed(3)}ms`;
     }
 }

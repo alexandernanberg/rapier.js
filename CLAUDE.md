@@ -98,7 +98,26 @@ Sizes drop to 1000 bodies / 250 casts under `--quick` (what CI runs). Benchmark
 names embed their size, so a `--quick` run is never compared against a full-run
 baseline.
 
-Results are saved to `packages/benchmarks/results/` as timestamped JSON files.
+Results are saved to `packages/benchmarks/results/` as timestamped JSON files
+(`--out=<file>` picks the path). Timings are compared on the median, and each
+row carries its interquartile range relative to that median: a change smaller
+than the spread is reported as flat regardless of the thresholds.
+
+**Baseline** (`packages/benchmarks/baseline.json`) is per machine and gitignored:
+a timing recorded on one CPU says nothing about another. Record it on master
+with `pnpm bench --save-baseline`, then run `pnpm bench` on a branch. The file
+stores the host it was recorded on and the comparison warns when that differs.
+
+**Fork vs upstream** is the machine-independent reference. CI runs the fork and
+the official `@dimforge` SIMD build back to back on the same runner, for both
+dimensions, and `pnpm bench:report <results.json>...` renders the side-by-side
+markdown (with the fork ÷ upstream ratio) that gets posted on the PR. Locally:
+
+```bash
+pnpm bench --no-compare --out=/tmp/fork.json
+pnpm bench --no-compare --official --simd --out=/tmp/upstream.json
+pnpm bench:report /tmp/fork.json /tmp/upstream.json
+```
 
 The allocation pass (`src/memory.ts`) is separate from mitata: it forces a
 collection, sizes each measurement window to stay inside the young generation,
