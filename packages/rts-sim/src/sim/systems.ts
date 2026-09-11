@@ -1,48 +1,99 @@
 import {query} from "bitecs";
 import {atan2, length} from "../core/math";
-import {MAX_PATH, PathState} from "./components";
+import {PathState} from "./components";
 import {idOf, type SimWorld} from "./world";
 
 /** Distance at which a unit is considered to have reached its order position. */
 const ARRIVE_EPSILON = 1e-6;
-/** Distance at which a unit is considered to have reached a waypoint. */
-const WAYPOINT_EPSILON = 0.05;
 /** Fraction of an overlap each of the two units resolves. */
 const SEPARATION_SHARE = 0.5;
 /** Below this squared distance two units count as exactly coincident. */
 const COINCIDENT_EPSILON_SQ = 1e-12;
 
 /**
- * Queues a route for anything that wants to move and has no plan.
+ * Writes a position, refusing to put a unit inside terrain.
  *
- * Nothing is searched here — this only enqueues, so the cost of wanting to move
- * is constant and the searching stays inside the tick's budget.
+ * Pathfinding cannot be trusted to do this on its own, and it is not supposed
+ * to: separation pushes units with no idea where the walls are, and a crowd
+ * squeezed against a building will shove its neighbours straight through it. A
+ * stress run of 60 units herded through a walled map logged 1281 such
+ * violations before this existed.
+ *
+ * Axes resolve one at a time so a blocked diagonal still slides along the wall
+ * instead of stopping dead.
+ *
+ * Only the unit's centre is tested, so a radius can still visually overlap a
+ * wall by a fraction of a tile. Fixing that properly means obstacle-avoidance
+ * steering, not a bigger clamp.
+ */
+function moveClamped(
+    world: SimWorld,
+    id: number,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+): void {
+    const {Position} = world.stores;
+    const map = world.map;
+
+    const x = map.isPassableIndex(map.worldToIndex(toX, fromY)) ? toX : fromX;
+    const y = map.isPassableIndex(map.worldToIndex(x, toY)) ? toY : fromY;
+
+    Position.x[id] = x;
+    Position.y[id] = y;
+}
+
+/**
+ * Queues a flow segment for anything that wants to move and lacks a current one.
+ *
+ * Nothing is integrated here — this only enqueues, so wanting to move costs a
+ * constant, and the integration stays inside the tick's budget.
+ *
+ * A unit already following a segment from a sector it has since left is
+ * re-queued for an upgrade without losing what it has: a segment's window
+ * covers the neighbouring sectors too, so it keeps steering correctly while it
+ * waits rather than stalling at every sector boundary.
  */
 export function pathRequestSystem(world: SimWorld): void {
     const {stores, map, paths} = world;
     const {Position, MoveTarget, Path} = stores;
+    const layout = paths.graph.layout;
 
     const entities = query(world, [Position, MoveTarget, Path]);
 
     for (let i = 0; i < entities.length; i++) {
         const eid = entities[i];
         const id = idOf(world, eid);
-        if (Path.state[id] !== PathState.None) continue;
+        if (Path.state[id] === PathState.Failed) continue;
 
         const goal = map.worldToIndex(MoveTarget.x[id], MoveTarget.y[id]);
         if (goal === -1) {
             // Ordered off the map. Refuse once rather than re-asking forever.
             Path.state[id] = PathState.Failed;
+            Path.sector[id] = -1;
             continue;
         }
 
-        Path.goal[id] = goal;
-        Path.state[id] = PathState.Pending;
+        if (Path.goal[id] !== goal) {
+            Path.goal[id] = goal;
+            Path.sector[id] = -1;
+            Path.state[id] = PathState.None;
+        }
+
+        const tx = map.worldToTileX(Position.x[id]);
+        const ty = map.worldToTileY(Position.y[id]);
+        if (!map.inBounds(tx, ty)) continue;
+
+        const sector = layout.sectorOfTile(tx, ty);
+        if (Path.state[id] === PathState.Flow && Path.sector[id] === sector) continue;
+
+        // Deduplicated by entity, so re-queueing an upgrade every tick is free.
         paths.request(eid, goal);
     }
 }
 
-/** Spends this tick's pathfinding budgets. */
+/** Spends this tick's segment budget. */
 export function pathServiceSystem(world: SimWorld): void {
     world.paths.service(world);
 }
@@ -90,8 +141,7 @@ export function movementSystem(world: SimWorld): void {
         if (step >= dist) {
             // Snap rather than overshoot, so a unit's resting position is a
             // function of its order alone and not of the tick it arrived on.
-            Position.x[id] = targetX;
-            Position.y[id] = targetY;
+            moveClamped(world, id, px, py, targetX, targetY);
             Velocity.x[id] = 0;
             Velocity.y[id] = 0;
             if (towardOrder) cmd.clearMoveTarget(eid);
@@ -104,87 +154,65 @@ export function movementSystem(world: SimWorld): void {
 
         Velocity.x[id] = vx;
         Velocity.y[id] = vy;
-        Position.x[id] = px + vx * dt;
-        Position.y[id] = py + vy * dt;
+        moveClamped(world, id, px, py, px + vx * dt, py + vy * dt);
     }
 }
 
-/** `nextSteeringPoint` wrote a waypoint into `world.scratch.steer`. */
+/** `nextSteeringPoint` wrote a steering point into `world.scratch.steer`. */
 const TOWARD_WAYPOINT = 0;
 /** No usable intermediate point; head straight at the order position. */
 const TOWARD_ORDER = 1;
 
 /**
  * Picks the point a unit should steer at this tick, writing it into
- * `world.scratch.steer`, and maintains the unit's route state as a side effect
- * (retiring reached waypoints, re-requesting a stale field or truncated route).
+ * `world.scratch.steer`, and maintains the unit's segment state as a side
+ * effect (dropping a stale segment so it gets re-queued).
  *
  * Returns `TOWARD_ORDER` when the unit should head at its order position
- * directly — which covers having no route yet, a failed route, and the final
- * approach inside the goal tile, since a tile centre is not where the player
+ * directly — having no segment yet, a failed route, or the final approach once
+ * it stands on the goal tile, since a tile centre is not where the player
  * clicked. The scratch out-param is per-world rather than module state, so two
  * simulations in one process cannot interfere.
  */
 function nextSteeringPoint(world: SimWorld, id: number, px: number, py: number): number {
-    const {stores, map, paths} = world;
+    const {stores, map, paths, scratch} = world;
     const {Path} = stores;
 
-    if (Path.state[id] === PathState.Flow) {
-        const field = paths.flows.peek(Path.goal[id]);
-        if (field === undefined) {
-            // The field was evicted or terrain moved under it. Ask again.
-            resetToRequest(Path, id);
-            return TOWARD_ORDER;
-        }
+    if (Path.state[id] !== PathState.Flow) return TOWARD_ORDER;
 
-        const tile = map.worldToIndex(px, py);
-        if (tile === -1 || !field.reaches(tile)) {
-            Path.state[id] = PathState.Failed;
-            return TOWARD_ORDER;
-        }
-        if (tile === field.goal) return TOWARD_ORDER;
-
-        const next = field.next[tile];
-        if (next < 0) {
-            Path.state[id] = PathState.Failed;
-            return TOWARD_ORDER;
-        }
-
-        world.scratch.steer[0] = map.centerX(next);
-        world.scratch.steer[1] = map.centerY(next);
-        return TOWARD_WAYPOINT;
+    const segment = paths.segments.peek(Path.sector[id], Path.goal[id]);
+    if (segment === undefined) {
+        // Evicted, or terrain moved under it. Ask again.
+        Path.state[id] = PathState.None;
+        Path.sector[id] = -1;
+        return TOWARD_ORDER;
     }
 
-    if (Path.state[id] !== PathState.Active) return TOWARD_ORDER;
+    const tx = map.worldToTileX(px);
+    const ty = map.worldToTileY(py);
 
-    // Retire waypoints already reached, so a fast unit can cross several in one
-    // tick rather than steering at a point behind it.
-    const base = id * MAX_PATH;
-    while (Path.cursor[id] < Path.length[id]) {
-        const tile = Path.tiles[base + Path.cursor[id]];
-        if (length(map.centerX(tile) - px, map.centerY(tile) - py) > WAYPOINT_EPSILON) break;
-        Path.cursor[id]++;
-    }
-
-    if (Path.cursor[id] >= Path.length[id]) {
-        // Out of waypoints but not at the goal tile: the route was truncated,
-        // so ask for the next leg.
-        if (Path.length[id] > 0 && Path.tiles[base + Path.length[id] - 1] !== Path.goal[id]) {
-            resetToRequest(Path, id);
+    if (tx === map.tileX(segment.target) && ty === map.tileY(segment.target)) {
+        if (segment.target !== Path.goal[id]) {
+            // Standing on an intermediate target: this segment has taken the
+            // unit as far as it goes, so ask for the next one.
+            Path.state[id] = PathState.None;
+            Path.sector[id] = -1;
         }
         return TOWARD_ORDER;
     }
 
-    const tile = Path.tiles[base + Path.cursor[id]];
-    world.scratch.steer[0] = map.centerX(tile);
-    world.scratch.steer[1] = map.centerY(tile);
-    return TOWARD_WAYPOINT;
-}
+    if (!segment.hasFlow(tx, ty)) {
+        Path.state[id] = PathState.None;
+        Path.sector[id] = -1;
+        return TOWARD_ORDER;
+    }
 
-function resetToRequest(Path: SimWorld["stores"]["Path"], id: number): void {
-    Path.state[id] = PathState.None;
-    Path.length[id] = 0;
-    Path.cursor[id] = 0;
+    segment.directionAt(tx, ty, scratch.steer);
+    // The segment gives a direction; movement wants a point. Project a tile
+    // ahead along it — far enough that the arrival snap never triggers on it.
+    scratch.steer[0] = px + scratch.steer[0] * map.tileSize;
+    scratch.steer[1] = py + scratch.steer[1] * map.tileSize;
+    return TOWARD_WAYPOINT;
 }
 
 /**
@@ -258,8 +286,10 @@ export function separationSystem(world: SimWorld): void {
 
     for (let i = 0; i < count; i++) {
         const id = rawIds[i];
-        Position.x[id] += pushX[id];
-        Position.y[id] += pushY[id];
+        if (pushX[id] === 0 && pushY[id] === 0) continue;
+        const px = Position.x[id];
+        const py = Position.y[id];
+        moveClamped(world, id, px, py, px + pushX[id], py + pushY[id]);
     }
 }
 

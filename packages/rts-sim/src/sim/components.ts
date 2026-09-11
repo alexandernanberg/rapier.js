@@ -37,25 +37,21 @@ export interface ComponentSpec {
     readonly fields: readonly FieldSpec[];
 }
 
-/** Longest path a unit can hold. Longer routes are re-planned on arrival. */
-export const MAX_PATH = 48;
-
-/** `Path.state` — a unit always has the component; this says what is in it. */
+/**
+ * `Path.state` — a unit always has the component; this says what is in it.
+ *
+ * There are no waypoints. A unit holds the *sector* whose flow segment it is
+ * following, and reads a direction from that segment at whatever tile it
+ * currently stands on. Nothing to truncate, nothing to re-plan, and a unit
+ * shoved aside by separation recovers for free.
+ */
 export const PathState = {
-    /** No route wanted. */
+    /** No segment. The unit walks straight at its order position meanwhile. */
     None: 0,
-    /** Queued with the pathfinder, not yet serviced. */
-    Pending: 1,
-    /** Holding a waypoint route and following it. */
-    Active: 2,
-    /** The pathfinder found no route; the unit stops asking. */
-    Failed: 3,
-    /**
-     * Steering by a shared flow field rather than a private route. Needs no
-     * waypoints — movement reads the field at whatever tile the unit is on,
-     * so there is nothing to truncate and nothing to re-plan.
-     */
-    Flow: 4,
+    /** Following the segment named by `Path.sector`. */
+    Flow: 1,
+    /** No route from here; the unit stops asking. */
+    Failed: 2,
 } as const;
 
 export type PathStateValue = (typeof PathState)[keyof typeof PathState];
@@ -98,10 +94,10 @@ export const COMPONENT_SPECS = [
         name: "Path",
         fields: [
             {name: "state", kind: "u8"},
+            /** Destination tile. */
             {name: "goal", kind: "i32"},
-            {name: "length", kind: "i32"},
-            {name: "cursor", kind: "i32"},
-            {name: "tiles", kind: "i32", stride: MAX_PATH, lengthField: "length"},
+            /** Sector whose flow segment this unit follows; -1 for none. */
+            {name: "sector", kind: "i32"},
         ],
     },
     {
@@ -147,13 +143,7 @@ export interface Stores {
     Position: {x: Float64Array; y: Float64Array};
     Velocity: {x: Float64Array; y: Float64Array};
     MoveTarget: {x: Float64Array; y: Float64Array};
-    Path: {
-        state: Uint8Array;
-        goal: Int32Array;
-        length: Int32Array;
-        cursor: Int32Array;
-        tiles: Int32Array;
-    };
+    Path: {state: Uint8Array; goal: Int32Array; sector: Int32Array};
     Facing: {angle: Float64Array};
     Speed: {value: Float64Array};
     Radius: {value: Float64Array};

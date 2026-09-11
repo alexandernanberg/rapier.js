@@ -1,19 +1,19 @@
 import {getAllEntities, hasComponent} from "bitecs";
 import {describe, expect, it} from "vitest";
-import {PathState} from "../sim/components";
-import {UnitKindId} from "../sim/components";
+import {PathState, UnitKindId} from "../sim/components";
 import {SpatialHash} from "../sim/grid/spatial_hash";
 import {hashWorld} from "../sim/snapshot";
 import {run, step} from "../sim/tick";
 import {createSimWorld, idOf, spawnUnit, type SimConfig, type SimWorld} from "../sim/world";
 
-/** A 16x16 map walled at x = 8, open only past y = 12. */
+/** A 32x32 map, 8-cell sectors, walled at x = 16 and open only past y = 28. */
 const WALLED: Partial<SimConfig> = {
     seed: 7,
     capacity: 256,
-    mapWidth: 16,
-    mapHeight: 16,
-    obstacles: [{x: 8, y: 0, w: 1, h: 12, weight: 0}],
+    mapWidth: 32,
+    mapHeight: 32,
+    sectorSize: 8,
+    obstacles: [{x: 16, y: 0, w: 1, h: 28, weight: 0}],
 };
 
 function live(world: SimWorld): number[] {
@@ -75,44 +75,25 @@ describe("SpatialHash", () => {
     });
 });
 
-describe("pathfinding budget", () => {
-    it("spends the A* budget when destinations are scattered", () => {
-        const world = createSimWorld({...WALLED, pathBudget: 2, flowFieldThreshold: 4});
+describe("segment budget", () => {
+    it("serves a whole group in one sector from a single segment", () => {
+        const world = createSimWorld({...WALLED, segmentBudget: 1});
 
-        // Seven distinct goals, so no two units share one and nothing reaches
-        // the flow-field threshold.
-        for (let i = 0; i < 7; i++) {
-            const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2 + i * 0.5);
-            world.cmd.setMoveTarget(eid, 13, 1 + i);
+        for (let i = 0; i < 12; i++) {
+            const eid = spawnUnit(
+                world,
+                UnitKindId.Militia,
+                0,
+                2 + (i % 4) * 0.5,
+                2 + (i / 4) * 0.5,
+            );
+            world.cmd.setMoveTarget(eid, 28, 4);
         }
         step(world);
 
-        expect(world.paths.lastSearches).toBe(2);
-        expect(world.paths.lastFields).toBe(0);
-        expect(world.paths.pending).toBe(5);
-
-        step(world);
-        expect(world.paths.lastSearches).toBe(2);
-        expect(world.paths.pending).toBe(3);
-
-        run(world, 2);
-        expect(world.paths.pending).toBe(0);
-    });
-
-    it("serves a whole group from a single flow field", () => {
-        const world = createSimWorld({...WALLED, pathBudget: 1, flowFieldThreshold: 4});
-
-        for (let i = 0; i < 7; i++) {
-            const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2 + i * 0.5);
-            world.cmd.setMoveTarget(eid, 13, 2);
-        }
-        step(world);
-
-        // One Dijkstra answers all seven, so the A* budget is never touched and
-        // nothing is left queued — the point of the whole exercise.
-        expect(world.paths.lastFields).toBe(1);
-        expect(world.paths.lastSearches).toBe(0);
-        expect(world.paths.lastServiced).toBe(7);
+        // One integration answers all twelve: no threshold, no per-unit search.
+        expect(world.paths.lastBuilt).toBe(1);
+        expect(world.paths.lastServiced).toBe(12);
         expect(world.paths.pending).toBe(0);
 
         for (const eid of live(world)) {
@@ -120,121 +101,69 @@ describe("pathfinding budget", () => {
         }
     });
 
-    it("searches per unit when too few share a destination", () => {
-        const world = createSimWorld({...WALLED, pathBudget: 8, flowFieldThreshold: 4});
+    it("spends the budget when units are spread across sectors", () => {
+        const world = createSimWorld({...WALLED, segmentBudget: 1});
 
-        for (let i = 0; i < 3; i++) {
-            const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2 + i * 0.5);
-            world.cmd.setMoveTarget(eid, 13, 2);
+        // One unit per sector along the top, so each needs its own segment.
+        for (let i = 0; i < 2; i++) {
+            const eid = spawnUnit(world, UnitKindId.Militia, 0, 2 + i * 8, 2);
+            world.cmd.setMoveTarget(eid, 28, 4);
         }
         step(world);
 
-        expect(world.paths.lastFields).toBe(0);
-        expect(world.paths.lastSearches).toBe(3);
-        for (const eid of live(world)) {
-            expect(world.stores.Path.state[idOf(world, eid)]).toBe(PathState.Active);
-        }
+        expect(world.paths.lastBuilt).toBe(1);
+        expect(world.paths.pending).toBe(1);
+
+        step(world);
+        expect(world.paths.lastBuilt).toBe(1);
+        expect(world.paths.pending).toBe(0);
     });
 
-    it("reuses a cached field for free, ignoring both budgets", () => {
-        const world = createSimWorld({...WALLED, pathBudget: 1, flowFieldThreshold: 4});
+    it("reuses a cached segment for free, ignoring the budget", () => {
+        const world = createSimWorld({...WALLED, segmentBudget: 1});
 
-        for (let i = 0; i < 4; i++) {
-            const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2 + i * 0.5);
-            world.cmd.setMoveTarget(eid, 13, 2);
-        }
+        const first = spawnUnit(world, UnitKindId.Militia, 0, 2, 2);
+        world.cmd.setMoveTarget(first, 28, 4);
         step(world);
-        expect(world.paths.lastFields).toBe(1);
+        expect(world.paths.lastBuilt).toBe(1);
 
-        // A latecomer to the same destination, with every budget spent to zero.
-        const late = spawnUnit(world, UnitKindId.Archer, 0, 2, 6);
-        world.cmd.setMoveTarget(late, 13, 2);
+        // A latecomer in the same sector to the same goal, with the budget
+        // already accounted for.
+        const late = spawnUnit(world, UnitKindId.Archer, 0, 3, 3);
+        world.cmd.setMoveTarget(late, 28, 4);
         step(world);
-        expect(world.paths.lastFields).toBe(0);
-        expect(world.paths.lastSearches).toBe(0);
+
+        expect(world.paths.lastBuilt).toBe(0);
         expect(world.stores.Path.state[idOf(world, late)]).toBe(PathState.Flow);
     });
 
-    it("rebuilds a field when the terrain under it changes", () => {
-        const world = createSimWorld({...WALLED, flowFieldThreshold: 1});
-
+    it("rebuilds after terrain changes, one tick later", () => {
+        const world = createSimWorld(WALLED);
         const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2);
-        world.cmd.setMoveTarget(eid, 13, 2);
+        world.cmd.setMoveTarget(eid, 28, 4);
         step(world);
-        expect(world.paths.lastFields).toBe(1);
-        expect(world.paths.flows.has(world.map.index(13, 2))).toBe(true);
+        expect(world.paths.lastBuilt).toBe(1);
+        expect(world.paths.segments.size).toBe(1);
 
-        // A building goes up: every cached field is now describing a map that
-        // no longer exists.
+        // A building goes up: every cached segment now describes a map that no
+        // longer exists.
         world.map.setWeight(6, 6, 0);
-        expect(world.paths.flows.has(world.map.index(13, 2))).toBe(false);
+        expect(world.paths.segments.size).toBe(1);
 
-        // One tick of latency by design: movement is what notices the field has
-        // gone and puts the unit back in the queue, and it runs after the
-        // pathfinder in the schedule.
+        // One tick of latency by design: movement is what notices the segment
+        // has gone, and it runs after the pathfinder in the schedule.
         step(world);
-        expect(world.paths.lastFields).toBe(0);
         expect(world.stores.Path.state[idOf(world, eid)]).toBe(PathState.None);
 
         step(world);
-        expect(world.paths.lastFields).toBe(1);
+        expect(world.paths.lastBuilt).toBe(1);
         expect(world.stores.Path.state[idOf(world, eid)]).toBe(PathState.Flow);
     });
 
-    it("evicts the oldest field once the cache is full", () => {
-        const world = createSimWorld({
-            ...WALLED,
-            flowFieldThreshold: 1,
-            flowFieldBudget: 8,
-            flowFieldCapacity: 2,
-        });
-
-        const goals: number[] = [];
-        for (let i = 0; i < 3; i++) {
-            const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2 + i * 0.5);
-            world.cmd.setMoveTarget(eid, 13, 2 + i);
-            goals.push(world.map.index(13, 2 + i));
-        }
-        step(world);
-
-        expect(world.paths.flows.size).toBe(2);
-        expect(world.paths.flows.has(goals[0])).toBe(false);
-        expect(world.paths.flows.has(goals[1])).toBe(true);
-        expect(world.paths.flows.has(goals[2])).toBe(true);
-    });
-
-    it("keeps a retargeted unit in its original queue position", () => {
-        const world = createSimWorld({...WALLED, pathBudget: 0});
-
-        const first = spawnUnit(world, UnitKindId.Militia, 0, 2, 2);
-        const second = spawnUnit(world, UnitKindId.Militia, 0, 2, 4);
-        world.cmd.setMoveTarget(first, 13, 2);
-        world.cmd.setMoveTarget(second, 13, 4);
-        step(world);
-        expect(world.paths.pending).toBe(2);
-
-        // The first unit re-clicks; it must not jump ahead of nobody, nor fall
-        // behind the unit that asked later.
-        world.cmd.setMoveTarget(first, 13, 10);
-        step(world);
-        expect(world.paths.pending).toBe(2);
-
-        const world2 = createSimWorld({...WALLED, pathBudget: 1});
-        const a = spawnUnit(world2, UnitKindId.Militia, 0, 2, 2);
-        const b = spawnUnit(world2, UnitKindId.Militia, 0, 2, 4);
-        world2.cmd.setMoveTarget(a, 13, 2);
-        world2.cmd.setMoveTarget(b, 13, 4);
-        step(world2);
-
-        // With a budget of one, the unit that asked first is the one served.
-        expect(world2.stores.Path.state[idOf(world2, a)]).toBe(PathState.Active);
-        expect(world2.stores.Path.state[idOf(world2, b)]).toBe(PathState.Pending);
-    });
-
     it("drops a pending request when its unit dies", () => {
-        const world = createSimWorld({...WALLED, pathBudget: 0});
+        const world = createSimWorld({...WALLED, segmentBudget: 0});
         const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2);
-        world.cmd.setMoveTarget(eid, 13, 2);
+        world.cmd.setMoveTarget(eid, 28, 4);
         step(world);
         expect(world.paths.pending).toBe(1);
 
@@ -242,13 +171,13 @@ describe("pathfinding budget", () => {
         step(world);
 
         expect(world.paths.pending).toBe(0);
-        expect(world.paths.lastServiced).toBe(0);
+        expect(world.paths.lastBuilt).toBe(0);
     });
 
     it("hashes the pending queue, so a differently-ordered backlog diverges", () => {
-        const configA = {...WALLED, pathBudget: 0};
-        const a = createSimWorld(configA);
-        const b = createSimWorld(configA);
+        const config = {...WALLED, segmentBudget: 0};
+        const a = createSimWorld(config);
+        const b = createSimWorld(config);
 
         const a1 = spawnUnit(a, UnitKindId.Militia, 0, 2, 2);
         const a2 = spawnUnit(a, UnitKindId.Militia, 0, 2, 4);
@@ -257,26 +186,26 @@ describe("pathfinding budget", () => {
         expect(hashWorld(a)).toBe(hashWorld(b));
 
         // Same units, same goals, opposite request order.
-        a.paths.request(a1, 40);
-        a.paths.request(a2, 41);
-        b.paths.request(b2, 41);
-        b.paths.request(b1, 40);
+        a.paths.request(a1, 100);
+        a.paths.request(a2, 101);
+        b.paths.request(b2, 101);
+        b.paths.request(b1, 100);
 
         expect(hashWorld(a)).not.toBe(hashWorld(b));
     });
 });
 
-describe("path following", () => {
+describe("flow following", () => {
     it("gets a unit around a wall to a goal it cannot see", () => {
         const world = createSimWorld(WALLED);
         const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2);
-        world.cmd.setMoveTarget(eid, 13, 2);
+        world.cmd.setMoveTarget(eid, 28, 4);
 
-        run(world, 400);
+        run(world, 900);
 
         const id = idOf(world, eid);
-        expect(world.stores.Position.x[id]).toBeCloseTo(13, 3);
-        expect(world.stores.Position.y[id]).toBeCloseTo(2, 3);
+        expect(world.stores.Position.x[id]).toBeCloseTo(28, 3);
+        expect(world.stores.Position.y[id]).toBeCloseTo(4, 3);
         // Arriving clears the order, which is how a caller knows it is done.
         expect(hasComponent(world, eid, world.stores.MoveTarget)).toBe(false);
     });
@@ -284,10 +213,10 @@ describe("path following", () => {
     it("never steps onto an impassable tile on the way", () => {
         const world = createSimWorld(WALLED);
         const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2);
-        world.cmd.setMoveTarget(eid, 13, 2);
+        world.cmd.setMoveTarget(eid, 28, 4);
 
         const id = idOf(world, eid);
-        for (let i = 0; i < 400; i++) {
+        for (let i = 0; i < 900; i++) {
             step(world);
             const tile = world.map.worldToIndex(
                 world.stores.Position.x[id],
@@ -297,22 +226,24 @@ describe("path following", () => {
         }
     });
 
-    it("re-plans when a route is longer than the path buffer", () => {
-        // A long corridor forces several legs of MAX_PATH waypoints.
+    it("picks up new segments as it crosses sectors, with no route length to run out", () => {
         const world = createSimWorld({
             seed: 3,
             capacity: 64,
             mapWidth: 128,
-            mapHeight: 8,
+            mapHeight: 16,
+            sectorSize: 8,
             obstacles: [],
         });
-        const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 4);
-        world.cmd.setMoveTarget(eid, 120, 4);
+        const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 8);
+        world.cmd.setMoveTarget(eid, 120, 8);
 
-        run(world, 800);
+        run(world, 900);
 
         const id = idOf(world, eid);
         expect(world.stores.Position.x[id]).toBeCloseTo(120, 3);
+        // A long crossing needs a segment per sector, all cached for reuse.
+        expect(world.paths.segments.size).toBeGreaterThan(3);
     });
 
     it("gives up once, rather than re-asking forever, when ordered off the map", () => {
@@ -326,16 +257,35 @@ describe("path following", () => {
         expect(world.stores.Path.state[id]).toBe(PathState.Failed);
         expect(world.paths.pending).toBe(0);
     });
+
+    it("fails a unit whose goal is sealed off", () => {
+        const world = createSimWorld({
+            ...WALLED,
+            obstacles: [
+                {x: 20, y: 20, w: 5, h: 1, weight: 0},
+                {x: 20, y: 24, w: 5, h: 1, weight: 0},
+                {x: 20, y: 20, w: 1, h: 5, weight: 0},
+                {x: 24, y: 20, w: 1, h: 5, weight: 0},
+            ],
+        });
+        const eid = spawnUnit(world, UnitKindId.Militia, 0, 2, 2);
+        world.cmd.setMoveTarget(eid, 22, 22);
+
+        run(world, 20);
+
+        expect(world.stores.Path.state[idOf(world, eid)]).toBe(PathState.Failed);
+    });
 });
 
 describe("an army on one destination", () => {
-    it("crosses a wall on a single flow field", () => {
+    it("crosses a wall together", () => {
         const world = createSimWorld({
             seed: 21,
             capacity: 256,
-            mapWidth: 24,
-            mapHeight: 24,
-            obstacles: [{x: 12, y: 0, w: 1, h: 18, weight: 0}],
+            mapWidth: 32,
+            mapHeight: 32,
+            sectorSize: 8,
+            obstacles: [{x: 16, y: 0, w: 1, h: 26, weight: 0}],
         });
 
         for (let i = 0; i < 40; i++) {
@@ -346,29 +296,23 @@ describe("an army on one destination", () => {
                 2 + (i % 8) * 0.6,
                 2 + (i / 8) * 0.6,
             );
-            world.cmd.setMoveTarget(eid, 20, 4);
+            world.cmd.setMoveTarget(eid, 28, 4);
         }
 
         step(world);
-        expect(world.paths.lastFields).toBe(1);
-        expect(world.paths.lastSearches).toBe(0);
         expect(world.paths.lastServiced).toBe(40);
 
-        run(world, 500);
+        run(world, 1200);
 
         // 40 units cannot all stand on one point — there are no formations yet —
         // so the test is that the army got there, not that it converged.
         const {Position} = world.stores;
         for (const eid of live(world)) {
             const id = idOf(world, eid);
-            const dx = Position.x[id] - 20;
+            const dx = Position.x[id] - 28;
             const dy = Position.y[id] - 4;
             expect(Math.sqrt(dx * dx + dy * dy), `unit ${eid}`).toBeLessThan(6);
         }
-
-        // Still one field for the whole journey: no per-unit searches, and no
-        // re-planning, because a field has no length to truncate.
-        expect(world.paths.flows.size).toBe(1);
     });
 });
 

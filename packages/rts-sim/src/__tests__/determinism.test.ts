@@ -26,10 +26,9 @@ const CONFIG: SimConfig = {
     mapWidth: 64,
     mapHeight: 64,
     tileSize: 1,
-    pathBudget: 4,
-    flowFieldThreshold: 4,
-    flowFieldBudget: 1,
-    flowFieldCapacity: 16,
+    sectorSize: 8,
+    segmentBudget: 2,
+    segmentCapacity: 64,
     obstacles: [{x: 30, y: 0, w: 2, h: 50, weight: 0}],
 };
 const TICKS = 240;
@@ -74,9 +73,8 @@ function issueScriptedOrders(world: SimWorld, recorder: Recorder, spawned: numbe
 }
 
 interface RecordedMatch extends ReplayLog {
-    /** Routing tiers the match actually used, so coverage claims are checked. */
-    readonly fieldsBuilt: number;
-    readonly searchesRun: number;
+    /** Segments the match actually built, so coverage claims are checked. */
+    readonly segmentsBuilt: number;
 }
 
 function recordMatch(config: SimConfig = CONFIG, ticks = TICKS): RecordedMatch {
@@ -84,14 +82,12 @@ function recordMatch(config: SimConfig = CONFIG, ticks = TICKS): RecordedMatch {
     const recorder = new Recorder();
     const checksums: {tick: number; hash: string}[] = [];
     const spawned: number[] = [];
-    let fieldsBuilt = 0;
-    let searchesRun = 0;
+    let segmentsBuilt = 0;
 
     for (let i = 0; i < ticks; i++) {
         issueScriptedOrders(world, recorder, spawned);
         step(world);
-        fieldsBuilt += world.paths.lastFields;
-        searchesRun += world.paths.lastSearches;
+        segmentsBuilt += world.paths.lastBuilt;
         checksums.push({tick: world.tick, hash: hashWorld(world)});
     }
 
@@ -101,17 +97,16 @@ function recordMatch(config: SimConfig = CONFIG, ticks = TICKS): RecordedMatch {
         ticks,
         orders: recorder.orders,
         checksums,
-        fieldsBuilt,
-        searchesRun,
+        segmentsBuilt,
     };
 }
 
 describe("determinism", () => {
-    it("exercises both routing tiers, so the replay tests mean something", () => {
+    it("builds several segments, so the replay tests cover real pathing", () => {
         const log = recordMatch();
 
-        expect(log.fieldsBuilt).toBeGreaterThan(0);
-        expect(log.searchesRun).toBeGreaterThan(0);
+        // A crossing of the wall spans many sectors, each needing its own.
+        expect(log.segmentsBuilt).toBeGreaterThan(3);
     });
 
     it("produces an identical checksum sequence for two independent worlds", () => {

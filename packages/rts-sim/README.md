@@ -53,8 +53,12 @@ these. Breaking one does not fail loudly; it desyncs a match an hour in.
    the first slow frame. A fixed K per tick means a busy moment costs latency
    instead of correctness.
 8. **Break every tie explicitly.** A comparator that leaves equal-cost items
-   in container order — A*'s open set is the obvious one — lets two clients
-   pick differently. Fall through to something unique, like a tile index.
+   in container order — A\*'s open set is the obvious one — lets two clients
+   pick differently. Fall through to something unique, like a tile index. Both
+   planners share `TieBrokenHeap` so there is one implementation to get right.
+9. **Never trust pathfinding to keep units out of walls.** Separation pushes
+   units with no idea where terrain is. Every write to `Position` goes through
+   `moveClamped`.
 
 ## Shape of a tick
 
@@ -83,68 +87,86 @@ Bump `SIM_VERSION` when you do.
 Measured at 2000 units on a 128x128 map with obstacles, all ordered to one
 destination:
 
-|                          | per tick    |
+|                          |             |
 | ------------------------ | ----------- |
-| whole tick, steady state | **0.84 ms** |
-| `hashWorld()`            | 1.87 ms     |
+| whole tick, steady state | **1.10 ms** |
+| `hashWorld()`            | 1.80 ms     |
 
-The first tick of that order builds **one** flow field and runs **zero**
-searches, serving all 2000 units at once. Before flow fields the same scene cost
-21 ms a tick and still had a pathfinding queue that never drained.
+### Segment build is flat in map size
 
-### Why the threshold is 4
+One segment integrates a 3x3 block of sectors, so its cost depends on
+`sectorSize` and nothing else:
 
-A corner-to-corner A* search serves one unit; a flow field serves every unit
-heading to that tile:
+| map     | one segment | a whole-map field would be |
+| ------- | ----------- | -------------------------- |
+| 64x64   | 0.028 ms    | 1.12 ms                    |
+| 128x128 | 0.034 ms    | 4.39 ms                    |
+| 256x256 | 0.041 ms    | 19.15 ms                   |
+| 512x512 | 0.044 ms    | ~77 ms                     |
 
-| map     | one A* search | one flow field | field expansions |
-| ------- | ------------- | -------------- | ---------------- |
-| 64x64   | 0.74 ms       | 1.12 ms        | 3 994            |
-| 128x128 | 2.07 ms       | 4.39 ms        | 16 180           |
-| 256x256 | 7.45 ms       | 19.15 ms       | 65 128           |
+That is the entire reason the portal graph exists. A whole-map field grows with
+the map; a segment does not.
 
-A field costs about 2.1 searches, so it pays for itself at three units sharing a
-destination. `flowFieldThreshold` defaults to 4 — just above the measured
-break-even, so a pair of scouts still gets cheap individual searches.
+### Path quality
+
+Excess distance over a straight line, on open ground, measured end to end:
+
+| goal from (4, 32) | whole-map, 8 directions | segments + LOS + slid portals |
+| ----------------- | ----------------------- | ----------------------------- |
+| (60, 32)          | 0.0%                    | 0.4%                          |
+| (60, 36)          | 2.7%                    | 0.7%                          |
+| (60, 44)          | 6.5%                    | 7.3%                          |
+| (60, 56)          | 8.2%                    | 1.3%                          |
+| (60, 60)          | 8.0%                    | 1.1%                          |
+| **mean**          | **5.1%**                | **2.2%**                      |
+
+Line-of-sight cells get the exact direction to their target, which is most of
+open ground. The residual is portal-constrained crossings: a segment can only
+aim at somewhere on its window's edge, so a route that wants to cut a corner
+the window does not contain still bends. (60, 44) is a case where it bends
+worse than the old whole-map field did — the honest shape of the trade.
 
 ### What is still a wall
 
-A 256x256 field costs 19 ms, which is 38% of a 50 ms tick for a single build.
-Two ways out when maps get that big, neither built yet:
+**The portal graph rebuild.** It is whole-graph and it fires on every terrain
+change, which in an RTS means every completed building:
 
-- Spread one Dijkstra across several ticks (resumable, budgeted by expansions
-  rather than by whole fields).
-- Hierarchical clusters, so a field covers a portal graph rather than every
-  tile.
+| map     | rebuild | portal nodes |
+| ------- | ------- | ------------ |
+| 64x64   | 4.9 ms  | 54           |
+| 128x128 | 20.4 ms | 236          |
+| 256x256 | 85.5 ms | 984          |
+| 512x512 | 368 ms  | 4018         |
 
-Scattered destinations also still cost one search each, bounded by `pathBudget`.
-That is the case HPA\* would fix.
-
-The checksum is not free either — it walks every entity and component in sorted
-order. Hash every tick in tests, where naming the exact tick of a divergence is
-the point; in a real match compare every 20-30 ticks.
+Raising `sectorSize` does not help — fewer sectors each cost proportionally
+more to link. The fix is per-sector incremental rebuild: only the sectors a
+change touches, plus their boundary neighbours, need relinking, which is about
+1/64th of the work at 128x128. Until that exists, treat terrain changes as
+expensive.
 
 ## Layout
 
-| Path                       | Purpose                                           |
-| -------------------------- | ------------------------------------------------- |
-| `core/rand.ts`             | Seeded PRNG; state is hashable                    |
-| `core/math.ts`             | Deterministic trig and vector helpers             |
-| `core/hash.ts`             | 64-bit FNV-1a over typed arrays                   |
-| `sim/components.ts`        | Component stores and the spec that drives hashing |
-| `sim/command_buffer.ts`    | Deferred structural changes                       |
-| `sim/orders.ts`            | Player orders and canonical per-tick ordering     |
-| `sim/world.ts`             | World construction, command application           |
-| `sim/systems.ts`           | Systems and the explicit schedule                 |
-| `sim/tick.ts`              | The fixed timestep                                |
-| `sim/snapshot.ts`          | Canonical hash, readable dump, world diff         |
-| `sim/grid/tile_map.ts`     | Terrain: integer weights, world/tile conversion   |
-| `sim/grid/astar.ts`        | A* for one unit's route                           |
-| `sim/grid/heap.ts`         | Min-heap with the ordering both planners need     |
-| `sim/grid/spatial_hash.ts` | Uniform-grid neighbour queries                    |
-| `sim/path/flow_field.ts`   | Cost-to-goal for a whole map, plus its cache      |
-| `sim/path/pathfinder.ts`   | Route requests and the routing policy             |
-| `replay.ts`                | Recording and verifying an order log              |
+| Path                       | Purpose                                               |
+| -------------------------- | ----------------------------------------------------- |
+| `core/rand.ts`             | Seeded PRNG; state is hashable                        |
+| `core/math.ts`             | Deterministic trig and vector helpers                 |
+| `core/hash.ts`             | 64-bit FNV-1a over typed arrays                       |
+| `sim/components.ts`        | Component stores and the spec that drives hashing     |
+| `sim/command_buffer.ts`    | Deferred structural changes                           |
+| `sim/orders.ts`            | Player orders and canonical per-tick ordering         |
+| `sim/world.ts`             | World construction, command application               |
+| `sim/systems.ts`           | Systems and the explicit schedule                     |
+| `sim/tick.ts`              | The fixed timestep                                    |
+| `sim/snapshot.ts`          | Canonical hash, readable dump, world diff             |
+| `sim/grid/tile_map.ts`     | Terrain: integer weights, world/tile conversion       |
+| `sim/grid/sectors.ts`      | Sector partitioning; bounds every cost above the grid |
+| `sim/grid/portal_graph.ts` | HPA\* portal graph and the abstract route             |
+| `sim/grid/astar.ts`        | A\* over the raw grid; the cross-check for the graph  |
+| `sim/grid/heap.ts`         | Min-heap with the ordering every planner needs        |
+| `sim/grid/spatial_hash.ts` | Uniform-grid neighbour queries                        |
+| `sim/path/flow_segment.ts` | Windowed flow field with a line-of-sight pass         |
+| `sim/path/pathfinder.ts`   | Segment requests and their budget                     |
+| `replay.ts`                | Recording and verifying an order log                  |
 
 ## Usage
 
@@ -203,22 +225,28 @@ every system's inner loop stay put.
 
 ## Movement, and why there is no physics
 
-Unit movement is three layers, none of which is a solver:
+Four layers, none of which is a solver. The design follows the one Age of
+Empires IV describes — portal graph, segmented flow, steering — because its
+requirements are the same ones: hundreds of units, a grid, and terrain that
+changes while they walk.
 
-1. **Route** — three tiers, cheapest first. A cached flow field is free; one is
-   built when `flowFieldThreshold` units share a destination; anything else
-   gets a single A* search, bounded by `pathBudget`. Ties in either planner's
-   open set break on `(cost, tieBreak, tileIndex)`; without that last term two
-   clients pick different equal-cost routes and desync, which is why both go
-   through the same `TieBrokenHeap`.
-2. **Follow** — steer at the next waypoint, retiring any already reached; or,
-   on a flow field, read the field at whatever tile the unit currently stands
-   on. The field case has no route length to truncate and nothing to re-plan,
-   and a unit shoved aside by separation recovers for free. A unit with no route
-   yet walks straight at its order position rather than freezing, which reads as
-   responsiveness instead of input lag.
+1. **Abstract route** — A\* over a portal graph, after HPA\*. Sectors are
+   divided, portals detected on each shared edge, and portal-to-portal cost
+   found by a search confined to one sector. A route is tens of nodes rather
+   than thousands of tiles, and it tells a segment which couple of sectors are
+   worth integrating at all.
+2. **Flow segment** — a field over the 3x3 block of sectors around the one a
+   unit stands in, integrated from the last route cell before the route leaves
+   that window. Cells with a clear line to the target get the exact direction
+   to it; the rest fall back to eight-direction Dijkstra, which is fine because
+   they are the cells hugging an obstacle. Keyed by (sector, goal), so every
+   unit in a sector heading the same way reads one segment and later orders
+   across the same ground reuse it.
 3. **Separate** — symmetric circle push-apart over the spatial grid, each unit
    resolving half of each overlap.
+4. **Terrain collision** — positions are clamped out of walls on write, axis by
+   axis so a blocked diagonal still slides. Pathfinding cannot cover this and is
+   not meant to: separation pushes units with no idea where the walls are.
 
 AoE2 has no rigid-body dynamics, and neither does this. Projectiles will be
 analytic ballistic arcs and terrain is a heightmap sample. A constraint solver
@@ -229,9 +257,31 @@ A physics engine is still the right tool for _cosmetic_ effects — collapsing
 buildings, debris, ragdolls — run client-side in the render layer, seeded
 per-client, never feeding a single bit back into the sim.
 
+### Reading
+
+- [Pathing in Age of Empires IV: Flow Fields and Steering Behaviors](https://media.gdcvault.com/GDC+2022/Speaker+Slides/Pathing+In+Age_Cheng_Frank+2022-03-29+00.16.38.pdf)
+  (Frank Cheng, GDC 2022) — the architecture this follows.
+- [Crowd Pathfinding and Steering Using Flow Field Tiles](https://www.gameaipro.com/GameAIPro/GameAIPro_Chapter23_Crowd_Pathfinding_and_Steering_Using_Flow_Field_Tiles.pdf)
+  (Elijah Emerson, Game AI Pro) — flow field tiles, which the above builds on.
+- [Near Optimal Hierarchical Path-Finding](https://webdocs.cs.ualberta.ca/~mmueller/ps/hpastar.pdf)
+  (Botea, Muller, Schaeffer) — the portal graph.
+
+Not yet taken from that reading: an eikonal/fast-marching integration with an
+8-bit gradient for the shadowed cells, the BFS-and-shadow-lines form of the LOS
+pass (faster than the per-cell raycast here), extended flow for mixed unit
+sizes, and formations via a virtual leader.
+
 ## Not yet built
 
-Formations (40 units ordered to one point currently jostle around it), HPA\* for
-scattered long routes, resumable field builds for large maps, combat, vision and
-fog, the network transport, and the render layer. Each is written against the
-harness here.
+In rough order of how much they matter:
+
+1. **Per-sector incremental portal graph rebuild** — see Cost. The one number
+   in here that is genuinely too slow.
+2. **Formations** — 40 units ordered at one point jostle around it, because
+   they cannot all stand there. A virtual leader following the route with units
+   holding spots around it, falling back to the flow when they have no line of
+   sight to their spot, is the shape that works.
+3. **Radius-aware terrain collision** — only unit centres are tested, so a
+   radius can overlap a wall by a fraction of a tile. The real fix is obstacle
+   steering, not a bigger clamp.
+4. Combat, vision and fog, the network transport, and the render layer.

@@ -10,7 +10,6 @@ export {
 export {
     COMPONENT_SPECS,
     createStores,
-    MAX_PATH,
     PathState,
     SPECS,
     UNIT_STATS,
@@ -26,6 +25,8 @@ export {
 } from "./sim/components";
 export {AStar, type SearchResult} from "./sim/grid/astar";
 export {TieBrokenHeap} from "./sim/grid/heap";
+export {PortalGraph} from "./sim/grid/portal_graph";
+export {SectorLayout} from "./sim/grid/sectors";
 export {SpatialHash} from "./sim/grid/spatial_hash";
 export {
     CARDINAL_COST,
@@ -43,7 +44,7 @@ export {
     type Order,
     type OrderTypeValue,
 } from "./sim/orders";
-export {FlowField, FlowFieldCache, UNREACHABLE} from "./sim/path/flow_field";
+export {FlowSegment, FlowSegmentCache, UNREACHABLE} from "./sim/path/flow_segment";
 export {Pathfinder} from "./sim/path/pathfinder";
 export {
     describeWorld,

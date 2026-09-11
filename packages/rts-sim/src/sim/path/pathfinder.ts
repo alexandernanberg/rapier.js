@@ -1,36 +1,30 @@
 import {entityExists} from "bitecs";
 import type {Hasher} from "../../core/hash";
 import type {TileMap} from "../grid/tile_map";
-import {MAX_PATH, PathState} from "../components";
-import {AStar} from "../grid/astar";
+import {PathState} from "../components";
+import {PortalGraph} from "../grid/portal_graph";
 import {idOf, type SimWorld} from "../world";
-import {FlowFieldCache} from "./flow_field";
+import {FlowSegmentCache} from "./flow_segment";
 
 /**
- * Route requests, and the policy for how each one gets answered.
+ * Route requests, answered with flow segments.
  *
- * Three tiers, cheapest first:
+ * There is only one mechanism now. An earlier version chose between a per-unit
+ * A* search and a whole-map flow field depending on how many units shared a
+ * destination, which existed only because a whole-map field was expensive
+ * enough to need rationing. Once a field is bounded to a window of sectors it
+ * costs less than a single long A* search, so the choice — and the threshold
+ * that drove it — disappears. Age of Empires IV reports 0.247ms for a single
+ * unit's flow on a 1024x1024 map for the same reason.
  *
- * 1. **A cached flow field** — free, so it costs no budget at all. This is what
- *    makes a 200-unit army move for the price of one computation.
- * 2. **Building a flow field** — worth it once `flowFieldThreshold` units share
- *    a destination, bounded by `flowFieldBudget` per tick.
- * 3. **A single A\* search** — for scattered destinations, bounded by
- *    `pathBudget` per tick.
- *
- * Every budget is a *count*, never a time slice: "as many as fit in 3ms" makes
- * the simulation a function of how fast the machine is, which desyncs on the
- * first slow frame. A fixed K means a busy moment costs pathing latency rather
- * than correctness.
- *
- * The pending queue persists across ticks, so it is simulation state and gets
- * hashed — as does the cache's key set, since which tier a unit lands in
- * depends on what is cached.
+ * The budget is a *count* of segments built per tick, never a time slice: "as
+ * many as fit in 3ms" makes the simulation a function of how fast the machine
+ * is, which desyncs on the first slow frame. Reading an already-cached segment
+ * costs no budget at all, which is what makes a whole army nearly free.
  */
 export class Pathfinder {
-    private readonly astar: AStar;
-    private readonly scratch: Int32Array;
-    readonly flows: FlowFieldCache;
+    readonly graph: PortalGraph;
+    readonly segments: FlowSegmentCache;
 
     /** FIFO of pending requests, as parallel arrays. */
     private eids: number[] = [];
@@ -42,35 +36,30 @@ export class Pathfinder {
      * which also counts tombstones left by `cancel`.
      */
     private liveCount = 0;
-    /** Reused across ticks so the grouping pass allocates nothing. */
-    private readonly goalCounts = new Map<number, number>();
 
-    /** Requests resolved on the most recent tick, by any tier. */
+    /** Requests resolved on the most recent tick, cached or built. */
     lastServiced = 0;
-    /** A* searches run on the most recent tick. */
-    lastSearches = 0;
-    /** Flow fields built on the most recent tick. */
-    lastFields = 0;
-    /** Tiles expanded by searches and field builds together. */
+    /** Segments built on the most recent tick. */
+    lastBuilt = 0;
+    /** Cells integrated building them. */
     lastExpanded = 0;
 
-    constructor(map: TileMap, flowFieldCapacity: number) {
-        this.astar = new AStar(map);
-        this.scratch = new Int32Array(MAX_PATH);
-        this.flows = new FlowFieldCache(map, flowFieldCapacity);
+    constructor(map: TileMap, sectorSize: number, segmentCapacity: number) {
+        this.graph = new PortalGraph(map, sectorSize);
+        this.graph.build();
+        this.segments = new FlowSegmentCache(map, this.graph, segmentCapacity);
     }
 
-    /** Units waiting for a route. Excludes cancelled slots. */
+    /** Units waiting for a segment. Excludes cancelled slots. */
     get pending(): number {
         return this.liveCount;
     }
 
     /**
-     * Queues a route request, or retargets one already queued.
+     * Queues a request, or retargets one already queued.
      *
      * Retargeting keeps the original queue position: a player who re-clicks
-     * should not be able to jump the pathfinding queue ahead of someone who
-     * asked first.
+     * should not be able to jump the queue ahead of someone who asked first.
      */
     request(eid: number, goalTile: number): void {
         const existing = this.indexByEid.get(eid);
@@ -94,21 +83,17 @@ export class Pathfinder {
         this.liveCount--;
     }
 
-    /** Spends this tick's pathfinding budgets, cheapest tier first. */
+    /** Spends this tick's segment budget, cheapest requests first. */
     service(world: SimWorld): void {
-        const {pathBudget, flowFieldBudget, flowFieldThreshold} = world.config;
-        this.flows.resetCounters();
+        const budget = world.config.segmentBudget;
+        this.segments.resetCounters();
         this.lastServiced = 0;
-        this.lastSearches = 0;
-        this.lastFields = 0;
+        this.lastBuilt = 0;
         this.lastExpanded = 0;
 
         if (this.eids.length === 0) return;
 
-        this.countGoals(world);
-
-        let searches = 0;
-        let fields = 0;
+        let built = 0;
         let cursor = 0;
 
         while (cursor < this.eids.length) {
@@ -128,24 +113,26 @@ export class Pathfinder {
                 continue;
             }
 
-            if (this.flows.has(goal)) {
-                this.assignFlow(world, eid, goal);
-            } else if (
-                (this.goalCounts.get(goal) ?? 0) >= flowFieldThreshold &&
-                fields < flowFieldBudget
-            ) {
-                this.flows.build(goal);
-                fields++;
-                this.assignFlow(world, eid, goal);
-            } else if (searches < pathBudget) {
-                this.runSearch(world, eid, goal);
-                searches++;
-            } else {
-                // Both budgets spent. Leave the rest queued so FIFO order — and
-                // therefore fairness between players — is preserved.
-                break;
+            const sector = this.sectorOf(world, eid);
+            if (sector === -1) {
+                this.fail(world, eid);
+                this.consume(eid);
+                this.lastServiced++;
+                cursor++;
+                continue;
             }
 
+            if (!this.segments.has(sector, goal)) {
+                if (built >= budget) {
+                    // Budget spent. Leave the rest queued so FIFO order — and
+                    // therefore fairness between players — is preserved.
+                    break;
+                }
+                this.segments.build(sector, goal);
+                built++;
+            }
+
+            this.assign(world, eid, sector, goal);
             this.consume(eid);
             this.lastServiced++;
             cursor++;
@@ -157,89 +144,49 @@ export class Pathfinder {
             this.reindex();
         }
 
-        this.lastSearches = searches;
-        this.lastFields = fields;
-        this.lastExpanded += this.flows.lastExpanded;
+        this.lastBuilt = built;
+        this.lastExpanded = this.segments.lastExpanded;
     }
 
-    /**
-     * Counts live requests per destination, so the policy can tell an army
-     * sharing a rally point from a handful of scattered scouts.
-     */
-    private countGoals(world: SimWorld): void {
-        this.goalCounts.clear();
-        for (let i = 0; i < this.eids.length; i++) {
-            const eid = this.eids[i];
-            if (eid === -1 || !entityExists(world, eid)) continue;
-            const goal = this.goals[i];
-            this.goalCounts.set(goal, (this.goalCounts.get(goal) ?? 0) + 1);
+    private sectorOf(world: SimWorld, eid: number): number {
+        const {Position} = world.stores;
+        const id = idOf(world, eid);
+        const tx = world.map.worldToTileX(Position.x[id]);
+        const ty = world.map.worldToTileY(Position.y[id]);
+        if (!world.map.inBounds(tx, ty)) return -1;
+        return this.graph.layout.sectorOfTile(tx, ty);
+    }
+
+    /** Points a unit at a segment, or fails it when that segment cannot help. */
+    private assign(world: SimWorld, eid: number, sector: number, goal: number): void {
+        const {Path, Position} = world.stores;
+        const id = idOf(world, eid);
+        const segment = this.segments.peek(sector, goal);
+        const tx = world.map.worldToTileX(Position.x[id]);
+        const ty = world.map.worldToTileY(Position.y[id]);
+
+        if (segment === undefined || !segment.hasFlow(tx, ty)) {
+            // No flow where the unit stands: walled off, or the goal is
+            // unreachable from here.
+            this.fail(world, eid);
+            return;
         }
+
+        Path.state[id] = PathState.Flow;
+        Path.sector[id] = sector;
+        Path.goal[id] = goal;
+    }
+
+    private fail(world: SimWorld, eid: number): void {
+        const {Path} = world.stores;
+        const id = idOf(world, eid);
+        Path.state[id] = PathState.Failed;
+        Path.sector[id] = -1;
     }
 
     private consume(eid: number): void {
         this.indexByEid.delete(eid);
         this.liveCount--;
-    }
-
-    /** Points a unit at a flow field, or fails it if the field cannot reach it. */
-    private assignFlow(world: SimWorld, eid: number, goal: number): void {
-        const {Path, Position} = world.stores;
-        const id = idOf(world, eid);
-        const field = this.flows.peek(goal);
-        const start = world.map.worldToIndex(Position.x[id], Position.y[id]);
-
-        if (field === undefined || start === -1 || !field.reaches(start)) {
-            Path.state[id] = PathState.Failed;
-            Path.length[id] = 0;
-            Path.cursor[id] = 0;
-            return;
-        }
-
-        // A field needs no waypoints: movement reads it fresh each tick, from
-        // wherever the unit actually stands.
-        Path.state[id] = PathState.Flow;
-        Path.length[id] = 0;
-        Path.cursor[id] = 0;
-    }
-
-    private runSearch(world: SimWorld, eid: number, goal: number): void {
-        const {Path, Position} = world.stores;
-        const id = idOf(world, eid);
-        const start = world.map.worldToIndex(Position.x[id], Position.y[id]);
-
-        if (start === -1) {
-            Path.state[id] = PathState.Failed;
-            Path.length[id] = 0;
-            Path.cursor[id] = 0;
-            return;
-        }
-
-        if (start === goal) {
-            // Already standing on the goal tile; the final approach to the exact
-            // order position is the movement system's job.
-            Path.state[id] = PathState.Active;
-            Path.length[id] = 0;
-            Path.cursor[id] = 0;
-            return;
-        }
-
-        const result = this.astar.search(start, goal, this.scratch);
-        this.lastExpanded += result.expanded;
-
-        if (result.length === 0) {
-            Path.state[id] = PathState.Failed;
-            Path.length[id] = 0;
-            Path.cursor[id] = 0;
-            return;
-        }
-
-        const base = id * MAX_PATH;
-        for (let i = 0; i < result.length; i++) {
-            Path.tiles[base + i] = this.scratch[i];
-        }
-        Path.length[id] = result.length;
-        Path.cursor[id] = 0;
-        Path.state[id] = PathState.Active;
     }
 
     private reindex(): void {
@@ -251,12 +198,13 @@ export class Pathfinder {
     }
 
     /**
-     * Hashes the pending queue and the cache's key set.
+     * Hashes the pending queue and the segment cache's key set.
      *
-     * Both are state living outside any component. Two clients holding the same
-     * units but a differently-ordered backlog, or a different set of cached
-     * fields, will route differently a few ticks later. Hashing turns that into
-     * an immediate mismatch instead of a mysterious one.
+     * Both live outside the component stores, and both change how a unit gets
+     * routed: two clients with a differently-ordered backlog, or a different
+     * set of cached segments, walk differently a few ticks later. The segments
+     * themselves are a pure function of terrain and goal, and terrain is
+     * already hashed, so only the keys need to be.
      */
     hashInto(hasher: Hasher): void {
         hasher.writeU32(this.eids.length);
@@ -264,6 +212,6 @@ export class Pathfinder {
             hasher.writeU32(this.eids[i] >>> 0);
             hasher.writeU32(this.goals[i] >>> 0);
         }
-        this.flows.hashInto(hasher);
+        this.segments.hashInto(hasher);
     }
 }

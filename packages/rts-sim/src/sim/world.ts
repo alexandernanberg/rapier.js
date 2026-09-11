@@ -15,7 +15,7 @@ import {
 } from "bitecs";
 import {Rng} from "../core/rand";
 import {CommandBuffer, CommandKind, type Command} from "./command_buffer";
-import {createStores, MAX_PATH, PathState, UNIT_STATS, type Stores} from "./components";
+import {createStores, PathState, UNIT_STATS, type Stores} from "./components";
 import {SpatialHash} from "./grid/spatial_hash";
 import {TileMap} from "./grid/tile_map";
 import {OrderQueue, OrderType, type Order} from "./orders";
@@ -43,25 +43,19 @@ export interface SimConfig {
     readonly mapHeight: number;
     readonly tileSize: number;
     /**
-     * A* searches run per tick, for units whose destinations are scattered. A
-     * count, not a time slice — see `Pathfinder`.
-     *
-     * Must be tuned to map size. A corner-to-corner search costs roughly 0.7ms
-     * on a 64x64 map, 2.1ms on 128x128 and 7.5ms on 256x256 (measured; it
-     * scales with tile count). Keep `pathBudget * msPerSearch` inside about a
-     * fifth of `dt`.
+     * Cells per sector edge. Sectors bound the portal graph and the window a
+     * flow segment integrates, so this is the main cost dial: a segment covers
+     * a 3x3 block, so it integrates about `9 * sectorSize^2` cells regardless
+     * of how large the map is.
      */
-    readonly pathBudget: number;
+    readonly sectorSize: number;
     /**
-     * Units that must share a destination before a flow field is built for it
-     * instead of searching per unit. Below this, one Dijkstra over the whole
-     * map is the more expensive answer.
+     * Flow segments built per tick. A count, not a time slice — see
+     * `Pathfinder`. Reading a cached segment is free and unbudgeted.
      */
-    readonly flowFieldThreshold: number;
-    /** Flow fields built per tick. One full-map Dijkstra is the unit of cost. */
-    readonly flowFieldBudget: number;
-    /** Fields kept cached. Reading a cached field is free; a miss re-requests. */
-    readonly flowFieldCapacity: number;
+    readonly segmentBudget: number;
+    /** Segments kept cached. A miss re-requests, which is harmless. */
+    readonly segmentCapacity: number;
     /**
      * Terrain, declared rather than mutated, so the config alone reproduces the
      * map. A replay log carries this and nothing else about the terrain.
@@ -80,13 +74,9 @@ export const DEFAULT_CONFIG: SimConfig = {
     mapWidth: 128,
     mapHeight: 128,
     tileSize: 1,
-    // 4 searches x ~2.1ms is about 8ms of a 50ms tick on the default 128x128
-    // map. Scattered destinations are the expensive case; a group sharing one
-    // gets a flow field instead.
-    pathBudget: 4,
-    flowFieldThreshold: 4,
-    flowFieldBudget: 1,
-    flowFieldCapacity: 16,
+    sectorSize: 16,
+    segmentBudget: 4,
+    segmentCapacity: 64,
     obstacles: [],
 };
 
@@ -147,7 +137,7 @@ export function createSimWorld(config: Partial<SimConfig> = {}): SimWorld {
         cmd: new CommandBuffer(),
         orders: new OrderQueue(),
         map,
-        paths: new Pathfinder(map, merged.flowFieldCapacity),
+        paths: new Pathfinder(map, merged.sectorSize, merged.segmentCapacity),
         grid: new SpatialHash(
             merged.mapWidth * merged.tileSize,
             merged.mapHeight * merged.tileSize,
@@ -217,8 +207,8 @@ function applyCommand(world: SimWorld, command: Command): void {
             addComponent(world, command.a, stores.MoveTarget);
             stores.MoveTarget.x[id] = command.b;
             stores.MoveTarget.y[id] = command.c;
-            // A new destination invalidates the route in hand; the request
-            // system will queue a fresh search next tick.
+            // A new destination invalidates the segment in hand; the request
+            // system queues a fresh one next tick.
             resetPath(world, id);
             break;
         }
@@ -247,8 +237,7 @@ function resetPath(world: SimWorld, id: number): void {
     const {Path} = world.stores;
     Path.state[id] = PathState.None;
     Path.goal[id] = -1;
-    Path.length[id] = 0;
-    Path.cursor[id] = 0;
+    Path.sector[id] = -1;
 }
 
 /** Immediate spawn. Systems must go through `world.cmd.spawn` instead. */
@@ -297,7 +286,6 @@ export function spawnUnit(
     stores.Owner.player[id] = player;
     stores.UnitKind.kind[id] = kind;
     resetPath(world, id);
-    stores.Path.tiles.fill(0, id * MAX_PATH, (id + 1) * MAX_PATH);
 
     return eid;
 }
