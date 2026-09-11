@@ -13,7 +13,22 @@ import {diffWorlds, hashWorld} from "../sim/snapshot";
 import {step} from "../sim/tick";
 import {createSimWorld, idOf, type SimConfig, type SimWorld} from "../sim/world";
 
-const CONFIG: SimConfig = {seed: 0xc0ffee, capacity: 1 << 12, dt: 0.05, orderDelay: 4};
+/**
+ * A 64x64 map with a wall across most of its middle, so routes have to go the
+ * long way round and the replay actually exercises A* rather than straight-line
+ * steering.
+ */
+const CONFIG: SimConfig = {
+    seed: 0xc0ffee,
+    capacity: 1 << 12,
+    dt: 0.05,
+    orderDelay: 4,
+    mapWidth: 64,
+    mapHeight: 64,
+    tileSize: 1,
+    pathBudget: 4,
+    obstacles: [{x: 30, y: 0, w: 2, h: 50, weight: 0}],
+};
 const TICKS = 240;
 
 function liveEntities(world: SimWorld): number[] {
@@ -30,13 +45,17 @@ function liveEntities(world: SimWorld): number[] {
 function issueScriptedOrders(world: SimWorld, recorder: Recorder, spawned: number[]): void {
     if (world.tick === 0) {
         for (let u = 0; u < 6; u++) {
-            recorder.issue(world, u % 2, OrderType.Spawn, u % 3, u * 2, 0);
+            // Spaced closer than their radii, so the separation pass is part
+            // of what the replay has to reproduce.
+            recorder.issue(world, u % 2, OrderType.Spawn, u % 3, 5 + u * 0.3, 10);
         }
     }
     if (world.tick === 10) {
         for (const eid of liveEntities(world)) spawned.push(eid);
+        // Across the wall, so every unit has to route around its open end. With
+        // pathBudget 4 and 6 units, the queue also spills into a second tick.
         spawned.forEach((eid, index) => {
-            recorder.issue(world, index % 2, OrderType.Move, eid, 30 - index, 20 + index);
+            recorder.issue(world, index % 2, OrderType.Move, eid, 50, 12 + index);
         });
     }
     if (world.tick === 80 && spawned.length > 0) {
@@ -44,7 +63,7 @@ function issueScriptedOrders(world: SimWorld, recorder: Recorder, spawned: numbe
     }
     if (world.tick === 120 && spawned.length > 1) {
         recorder.issue(world, 1, OrderType.Stop, spawned[1]);
-        recorder.issue(world, 1, OrderType.Move, spawned[1], -15, -8);
+        recorder.issue(world, 1, OrderType.Move, spawned[1], 12, 55);
     }
 }
 

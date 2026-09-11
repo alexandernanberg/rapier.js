@@ -44,7 +44,17 @@ these. Breaking one does not fail loudly; it desyncs a match an hour in.
    another unit's data _deterministically_, so the checksum will not catch it.
 6. **Register new state in `COMPONENT_SPECS`.** Hashing and snapshotting are
    driven from that list. `components.test.ts` fails the typecheck if it drifts
-   from `Stores`.
+   from `Stores`. State that cannot live in a component — the pathfinder's
+   pending queue, the terrain — needs its own `hashInto` and a call from
+   `hashWorld`. Anything stateful in neither place is invisible to desync
+   detection.
+7. **Budget work by count, never by time.** "As many paths as fit in 3 ms"
+   makes the simulation a function of how fast the machine is, which desyncs on
+   the first slow frame. A fixed K per tick means a busy moment costs latency
+   instead of correctness.
+8. **Break every tie explicitly.** A comparator that leaves equal-cost items
+   in container order — A*'s open set is the obvious one — lets two clients
+   pick differently. Fall through to something unique, like a tile index.
 
 ## Shape of a tick
 
@@ -55,51 +65,113 @@ these. Breaking one does not fail loudly; it desyncs a match an hour in.
 4. flush commands                                     <- system effects land at one known point
 ```
 
-Reordering these phases changes results and invalidates every recorded replay.
+`SYSTEMS` is a literal list, so the order is reviewable:
+
+```
+pathRequest -> pathService -> movement -> separation -> death
+```
+
+Requests are queued before they are serviced, so a unit ordered this tick can
+be pathed this tick if the budget allows. Separation runs after movement so it
+corrects the positions movement just wrote.
+
+Reordering any of this changes results and invalidates every recorded replay.
 Bump `SIM_VERSION` when you do.
 
 ## Cost
 
-Measured at 2000 moving units on this machine:
+Measured at 2000 moving units on a 128x128 map with obstacles:
 
-| | per tick |
-| --- | --- |
-| `step()` | 0.14 ms (0.3% of a 50 ms budget) |
-| `hashWorld()` | 1.33 ms |
+|                     | per tick                     |
+| ------------------- | ---------------------------- |
+| `movementSystem`    | 0.33 ms                      |
+| `separationSystem`  | 0.32 ms                      |
+| `deathSystem`       | 0.03 ms                      |
+| `pathRequestSystem` | 0.06 ms                      |
+| `pathServiceSystem` | **budget x cost per search** |
+| `hashWorld()`       | 2.9 ms                       |
 
-The checksum is roughly 9x the cost of the tick it verifies, because it walks
+Everything except pathfinding is free at this scale. Flat A* is not:
+
+| map     | per corner-to-corner search | tiles expanded |
+| ------- | --------------------------- | -------------- |
+| 64x64   | 0.74 ms                     | 1 084          |
+| 128x128 | 2.07 ms                     | 4 088          |
+| 256x256 | 7.45 ms                     | 15 853         |
+
+Cost scales with tile count, so `pathBudget` has to be tuned per map — the
+default of 4 is about 8 ms of a 50 ms tick at 128x128. _*The budget bounds the
+damage; it does not make flat A* sufficient._* 2000 units re-planning every
+`MAX_PATH` tiles generate requests far faster than any survivable budget can
+serve, and the queue never drains.
+
+That is the measured argument for the next milestone rather than a reason to
+raise the number:
+
+- **Flow fields** for a shared destination — one computation serves N units,
+  which is the dominant case when a player boxes an army and right-clicks.
+- **HPA\*** over a cluster portal graph for long routes, so a search expands
+  hundreds of tiles instead of thousands.
+- Flat A* stays, for the last leg inside a cluster.
+
+The checksum is also not free — roughly 9x a tick's other work, since it walks
 every entity and component in sorted order. Hash every tick in tests, where
 naming the exact tick of a divergence is the point; in a real match compare
 every 20-30 ticks.
 
 ## Layout
 
-| Path                    | Purpose                                           |
-| ----------------------- | ------------------------------------------------- |
-| `core/rand.ts`          | Seeded PRNG; state is hashable                    |
-| `core/math.ts`          | Deterministic trig and vector helpers             |
-| `core/hash.ts`          | 64-bit FNV-1a over typed arrays                   |
-| `sim/components.ts`     | Component stores and the spec that drives hashing |
-| `sim/command_buffer.ts` | Deferred structural changes                       |
-| `sim/orders.ts`         | Player orders and canonical per-tick ordering     |
-| `sim/world.ts`          | World construction, command application           |
-| `sim/systems.ts`        | Systems and the explicit schedule                 |
-| `sim/tick.ts`           | The fixed timestep                                |
-| `sim/snapshot.ts`       | Canonical hash, readable dump, world diff         |
-| `replay.ts`             | Recording and verifying an order log              |
+| Path                       | Purpose                                           |
+| -------------------------- | ------------------------------------------------- |
+| `core/rand.ts`             | Seeded PRNG; state is hashable                    |
+| `core/math.ts`             | Deterministic trig and vector helpers             |
+| `core/hash.ts`             | 64-bit FNV-1a over typed arrays                   |
+| `sim/components.ts`        | Component stores and the spec that drives hashing |
+| `sim/command_buffer.ts`    | Deferred structural changes                       |
+| `sim/orders.ts`            | Player orders and canonical per-tick ordering     |
+| `sim/world.ts`             | World construction, command application           |
+| `sim/systems.ts`           | Systems and the explicit schedule                 |
+| `sim/tick.ts`              | The fixed timestep                                |
+| `sim/snapshot.ts`          | Canonical hash, readable dump, world diff         |
+| `sim/grid/tile_map.ts`     | Terrain: integer weights, world/tile conversion   |
+| `sim/grid/astar.ts`        | Deterministic integer A*                          |
+| `sim/grid/spatial_hash.ts` | Uniform-grid neighbour queries                    |
+| `sim/path/path_queue.ts`   | Budgeted route requests                           |
+| `replay.ts`                | Recording and verifying an order log              |
 
 ## Usage
 
 ```ts
-import {createSimWorld, Recorder, OrderType, step, hashWorld} from "rts-sim";
+import {createSimWorld, Recorder, OrderType, run, step, hashWorld, idOf} from "rts-sim";
+import {getAllEntities} from "bitecs";
 
-const world = createSimWorld({seed: 0xc0ffee});
+const world = createSimWorld({
+    seed: 0xc0ffee,
+    mapWidth: 64,
+    mapHeight: 64,
+    // Terrain is declared, not mutated, so the config alone reproduces the map
+    // and a replay log needs to carry nothing else about it.
+    obstacles: [{x: 30, y: 0, w: 2, h: 50, weight: 0}],
+});
 const recorder = new Recorder();
 
-recorder.issue(world, 0, OrderType.Spawn, 1, 10, 10); // player 0 spawns a militia
-step(world);
+// Player 0 spawns a militia at (10, 10). The order executes `orderDelay`
+// ticks later, so the unit does not exist yet.
+recorder.issue(world, 0, OrderType.Spawn, 1, 10, 10);
+run(world, world.config.orderDelay + 1);
 
-console.log(hashWorld(world));
+// Orders address entities by handle, so send it somewhere once it exists.
+const [militia] = getAllEntities(world);
+recorder.issue(world, 0, OrderType.Move, militia, 50, 12);
+
+// Routing round the wall is about 100 world units, and a militia covers 0.17
+// per tick. `readme.test.ts` runs this, so it cannot drift.
+run(world, 800);
+
+const {Position} = world.stores;
+console.log(Position.x[idOf(world, militia)], hashWorld(world));
+
+// `recorder.orders` plus the config is the whole replay.
 ```
 
 When a replay disagrees, `hashWorld` names the tick and `diffWorlds` names the
@@ -109,18 +181,6 @@ entity and field:
 const diffs = diffWorlds(mine, theirs);
 // [{entityId: 3, component: "Position", field: "x", left: 12.5, right: 12.500000001}]
 ```
-
-## Why no physics
-
-AoE2 has no rigid-body dynamics, and neither should this. Unit separation is a
-circle push-apart on a tile grid, projectiles are analytic ballistic arcs, and
-terrain is a heightmap sample. A constraint solver would be slower, harder to
-tune, non-deterministic across platforms, and would fight the pathfinder for
-control of unit positions.
-
-A physics engine is still the right tool for _cosmetic_ effects — collapsing
-buildings, debris, ragdolls — run client-side in the render layer, seeded
-per-client, never feeding a single bit back into the sim.
 
 ## Choice of ECS
 
@@ -134,8 +194,30 @@ the ECS API — abstracting over an ECS ends in writing a worse one. Replacing
 bitECS means replacing the query and entity-lifecycle layer while the stores and
 every system's inner loop stay put.
 
+## Movement, and why there is no physics
+
+Unit movement is three layers, none of which is a solver:
+
+1. **Route** — grid A* over integer tile costs, requested through a budgeted
+   queue. Ties in the open set break on `(f, h, tileIndex)`; without that last
+   term two clients pick different equal-cost routes and desync.
+2. **Follow** — steer at the next waypoint, retiring any already reached. A unit
+   with no route yet walks straight at its order position rather than freezing,
+   which reads as responsiveness instead of input lag.
+3. **Separate** — symmetric circle push-apart over the spatial grid, each unit
+   resolving half of each overlap.
+
+AoE2 has no rigid-body dynamics, and neither does this. Projectiles will be
+analytic ballistic arcs and terrain is a heightmap sample. A constraint solver
+would be slower, harder to tune, non-deterministic across platforms, and would
+fight the pathfinder for control of unit positions.
+
+A physics engine is still the right tool for _cosmetic_ effects — collapsing
+buildings, debris, ragdolls — run client-side in the render layer, seeded
+per-client, never feeding a single bit back into the sim.
+
 ## Not yet built
 
-Spatial grid, pathfinding (HPA\* + flow fields), combat, vision and fog, the
+Hierarchical pathing and flow fields (see Cost), combat, vision and fog, the
 network transport, and the render layer. Each is written against the harness
 here.

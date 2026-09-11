@@ -15,8 +15,21 @@ import {
 } from "bitecs";
 import {Rng} from "../core/rand";
 import {CommandBuffer, CommandKind, type Command} from "./command_buffer";
-import {createStores, UNIT_STATS, type Stores} from "./components";
+import {createStores, MAX_PATH, PathState, UNIT_STATS, type Stores} from "./components";
+import {SpatialHash} from "./grid/spatial_hash";
+import {TileMap} from "./grid/tile_map";
 import {OrderQueue, OrderType, type Order} from "./orders";
+import {PathQueue} from "./path/path_queue";
+
+/** A rectangle of modified terrain — a cliff, a lake, a building footprint. */
+export interface TerrainRect {
+    readonly x: number;
+    readonly y: number;
+    readonly w: number;
+    readonly h: number;
+    /** 0 is impassable; 1 is normal going; higher is slower. */
+    readonly weight: number;
+}
 
 export interface SimConfig {
     readonly seed: number;
@@ -26,6 +39,24 @@ export interface SimConfig {
     readonly dt: number;
     /** How many ticks ahead an issued order executes. The latency budget. */
     readonly orderDelay: number;
+    readonly mapWidth: number;
+    readonly mapHeight: number;
+    readonly tileSize: number;
+    /**
+     * Route requests serviced per tick. A count, not a time slice — see
+     * `PathQueue`.
+     *
+     * Must be tuned to map size. A corner-to-corner flat A* search costs
+     * roughly 0.7ms on a 64x64 map, 2.1ms on 128x128 and 7.5ms on 256x256
+     * (measured; it scales with tile count). Keep `pathBudget * msPerSearch`
+     * inside about a fifth of `dt`.
+     */
+    readonly pathBudget: number;
+    /**
+     * Terrain, declared rather than mutated, so the config alone reproduces the
+     * map. A replay log carries this and nothing else about the terrain.
+     */
+    readonly obstacles: readonly TerrainRect[];
 }
 
 /** Half-width of the random offset applied to a spawn position. */
@@ -36,7 +67,32 @@ export const DEFAULT_CONFIG: SimConfig = {
     capacity: 1 << 14,
     dt: 0.05,
     orderDelay: 4,
+    mapWidth: 128,
+    mapHeight: 128,
+    tileSize: 1,
+    // 4 searches x ~2.1ms is about 8ms of a 50ms tick on the default 128x128
+    // map. Raise it only alongside a cheaper search — see the README.
+    pathBudget: 4,
+    obstacles: [],
 };
+
+/**
+ * Preallocated working memory for systems.
+ *
+ * Transient by contract: every tick fully writes what it reads, so none of this
+ * is hashed. Anything that needs to survive a tick belongs in a component or in
+ * a structure with its own `hashInto`.
+ */
+export interface SimScratch {
+    readonly pushX: Float64Array;
+    readonly pushY: Float64Array;
+    readonly neighbours: Int32Array;
+    /** Raw array indices for the entities a system is iterating. */
+    readonly rawIds: Int32Array;
+}
+
+/** Most neighbours one unit considers when resolving overlap. */
+export const MAX_NEIGHBOURS = 32;
 
 export interface SimContext {
     tick: number;
@@ -45,6 +101,10 @@ export interface SimContext {
     readonly stores: Stores;
     readonly cmd: CommandBuffer;
     readonly orders: OrderQueue;
+    readonly map: TileMap;
+    readonly paths: PathQueue;
+    readonly grid: SpatialHash;
+    readonly scratch: SimScratch;
     readonly entityIndex: ReturnType<typeof createEntityIndex>;
 }
 
@@ -53,6 +113,16 @@ export type SimWorld = World<SimContext>;
 export function createSimWorld(config: Partial<SimConfig> = {}): SimWorld {
     const merged = {...DEFAULT_CONFIG, ...config};
     const entityIndex = createEntityIndex(withVersioning());
+
+    const map = new TileMap({
+        width: merged.mapWidth,
+        height: merged.mapHeight,
+        tileSize: merged.tileSize,
+    });
+    for (const rect of merged.obstacles) {
+        map.fillRect(rect.x, rect.y, rect.w, rect.h, rect.weight);
+    }
+
     return createWorld<SimContext>(entityIndex, {
         tick: 0,
         config: merged,
@@ -60,6 +130,20 @@ export function createSimWorld(config: Partial<SimConfig> = {}): SimWorld {
         stores: createStores(merged.capacity),
         cmd: new CommandBuffer(),
         orders: new OrderQueue(),
+        map,
+        paths: new PathQueue(map),
+        grid: new SpatialHash(
+            merged.mapWidth * merged.tileSize,
+            merged.mapHeight * merged.tileSize,
+            2 * merged.tileSize,
+            merged.capacity,
+        ),
+        scratch: {
+            pushX: new Float64Array(merged.capacity),
+            pushY: new Float64Array(merged.capacity),
+            neighbours: new Int32Array(MAX_NEIGHBOURS),
+            rawIds: new Int32Array(merged.capacity),
+        },
         entityIndex,
     });
 }
@@ -105,7 +189,9 @@ function applyCommand(world: SimWorld, command: Command): void {
             break;
         }
         case CommandKind.Despawn: {
-            if (entityExists(world, command.a)) removeEntity(world, command.a);
+            if (!entityExists(world, command.a)) break;
+            world.paths.cancel(command.a);
+            removeEntity(world, command.a);
             break;
         }
         case CommandKind.SetMoveTarget: {
@@ -114,6 +200,9 @@ function applyCommand(world: SimWorld, command: Command): void {
             addComponent(world, command.a, stores.MoveTarget);
             stores.MoveTarget.x[id] = command.b;
             stores.MoveTarget.y[id] = command.c;
+            // A new destination invalidates the route in hand; the request
+            // system will queue a fresh search next tick.
+            resetPath(world, id);
             break;
         }
         case CommandKind.ClearMoveTarget: {
@@ -124,6 +213,8 @@ function applyCommand(world: SimWorld, command: Command): void {
             const id = idOf(world, command.a);
             stores.Velocity.x[id] = 0;
             stores.Velocity.y[id] = 0;
+            world.paths.cancel(command.a);
+            resetPath(world, id);
             break;
         }
         case CommandKind.Damage: {
@@ -133,6 +224,14 @@ function applyCommand(world: SimWorld, command: Command): void {
             break;
         }
     }
+}
+
+function resetPath(world: SimWorld, id: number): void {
+    const {Path} = world.stores;
+    Path.state[id] = PathState.None;
+    Path.goal[id] = -1;
+    Path.length[id] = 0;
+    Path.cursor[id] = 0;
 }
 
 /** Immediate spawn. Systems must go through `world.cmd.spawn` instead. */
@@ -151,9 +250,15 @@ export function spawnUnit(
     addComponent(world, eid, stores.Velocity);
     addComponent(world, eid, stores.Facing);
     addComponent(world, eid, stores.Speed);
+    addComponent(world, eid, stores.Radius);
     addComponent(world, eid, stores.Health);
     addComponent(world, eid, stores.Owner);
     addComponent(world, eid, stores.UnitKind);
+    // Path is always present, with `state = None` standing in for "no route".
+    // Keeping it resident makes setting a route a plain data write rather than
+    // an archetype change, which is both faster and one less structural edit to
+    // sequence.
+    addComponent(world, eid, stores.Path);
 
     const stats = UNIT_STATS[kind] ?? UNIT_STATS[0];
 
@@ -169,10 +274,13 @@ export function spawnUnit(
     stores.Velocity.y[id] = 0;
     stores.Facing.angle[id] = 0;
     stores.Speed.value[id] = stats.speed;
+    stores.Radius.value[id] = stats.radius;
     stores.Health.current[id] = stats.health;
     stores.Health.max[id] = stats.health;
     stores.Owner.player[id] = player;
     stores.UnitKind.kind[id] = kind;
+    resetPath(world, id);
+    stores.Path.tiles.fill(0, id * MAX_PATH, (id + 1) * MAX_PATH);
 
     return eid;
 }

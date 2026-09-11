@@ -10,14 +10,30 @@ export {
 export {
     COMPONENT_SPECS,
     createStores,
+    MAX_PATH,
+    PathState,
+    SPECS,
     UNIT_STATS,
     UnitKindId,
     type ComponentSpec,
     type FieldKind,
+    type FieldSpec,
+    type PathStateValue,
     type StoreName,
     type Stores,
+    type TypedArray,
     type UnitStats,
 } from "./sim/components";
+export {AStar, type SearchResult} from "./sim/grid/astar";
+export {SpatialHash} from "./sim/grid/spatial_hash";
+export {
+    CARDINAL_COST,
+    DIAGONAL_COST,
+    IMPASSABLE,
+    NORMAL,
+    TileMap,
+    type TileMapOptions,
+} from "./sim/grid/tile_map";
 export {
     compareOrders,
     makeOrder,
@@ -26,6 +42,7 @@ export {
     type Order,
     type OrderTypeValue,
 } from "./sim/orders";
+export {PathQueue} from "./sim/path/path_queue";
 export {
     describeWorld,
     diffWorlds,
@@ -33,7 +50,14 @@ export {
     type Divergence,
     type EntitySnapshot,
 } from "./sim/snapshot";
-export {deathSystem, movementSystem, SYSTEMS} from "./sim/systems";
+export {
+    deathSystem,
+    movementSystem,
+    pathRequestSystem,
+    pathServiceSystem,
+    separationSystem,
+    SYSTEMS,
+} from "./sim/systems";
 export {run, step} from "./sim/tick";
 export {
     applyOrders,
@@ -42,11 +66,14 @@ export {
     flushCommands,
     idOf,
     isAlive,
+    MAX_NEIGHBOURS,
     spawnUnit,
     versionOf,
     type SimConfig,
     type SimContext,
+    type SimScratch,
     type SimWorld,
+    type TerrainRect,
 } from "./sim/world";
 export {
     Recorder,
