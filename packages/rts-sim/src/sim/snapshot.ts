@@ -28,6 +28,8 @@ export function hashWorld(world: SimWorld, hasher = new Hasher()): string {
     hasher.writeU32(world.tick);
     hasher.writeU32Array(world.rng.state);
     hasher.writeU32(world.map.terrainHash());
+    // The pathfinder's pending queue and its flow-field cache both live outside
+    // the component stores, and both change how a unit gets routed.
     world.paths.hashInto(hasher);
 
     const entities = sortedEntities(world);

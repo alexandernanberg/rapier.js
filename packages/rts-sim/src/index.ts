@@ -25,6 +25,7 @@ export {
     type UnitStats,
 } from "./sim/components";
 export {AStar, type SearchResult} from "./sim/grid/astar";
+export {TieBrokenHeap} from "./sim/grid/heap";
 export {SpatialHash} from "./sim/grid/spatial_hash";
 export {
     CARDINAL_COST,
@@ -42,7 +43,8 @@ export {
     type Order,
     type OrderTypeValue,
 } from "./sim/orders";
-export {PathQueue} from "./sim/path/path_queue";
+export {FlowField, FlowFieldCache, UNREACHABLE} from "./sim/path/flow_field";
+export {Pathfinder} from "./sim/path/pathfinder";
 export {
     describeWorld,
     diffWorlds,

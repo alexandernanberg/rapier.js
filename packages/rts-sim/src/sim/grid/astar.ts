@@ -1,17 +1,16 @@
+import {TieBrokenHeap} from "./heap";
 import {CARDINAL_COST, DIAGONAL_COST, type TileMap} from "./tile_map";
 
 /**
- * Grid A* with a total ordering on the open set.
+ * Grid A* for a single unit's route.
  *
- * The determinism-critical detail is the comparator. Ranking only by `f` leaves
- * ties to be broken by heap layout, which depends on insertion history — two
- * clients then pick different but equally cheap routes and desync a minute
- * later. Ties here fall through to `h` and then to the tile index, which is
- * unique, so the pop order is total and the search is reproducible.
+ * Ordering of the open set is `TieBrokenHeap`'s job: `f`, then `h`, then the
+ * tile index. Neighbours are expanded in a fixed compass order for the same
+ * reason, and costs are integers throughout (see `tile_map.ts`) so "cheaper" is
+ * an exact comparison rather than a float one.
  *
- * Neighbours are expanded in a fixed compass order for the same reason, and
- * costs are integers throughout (see `tile_map.ts`) so "cheaper" is an exact
- * comparison rather than a float one.
+ * For many units heading to one place this is the wrong tool — see
+ * `FlowField`, which pays once for a destination instead of once per unit.
  */
 
 /** Fixed expansion order: N, NE, E, SE, S, SW, W, NW. */
@@ -43,11 +42,7 @@ export class AStar {
     private readonly closedStamp: Int32Array;
     private generation = 0;
 
-    private readonly heapTile: Int32Array;
-    private readonly heapF: Int32Array;
-    private readonly heapH: Int32Array;
-    private heapSize = 0;
-
+    private readonly heap: TieBrokenHeap;
     private readonly scratch: Int32Array;
 
     constructor(map: TileMap) {
@@ -59,9 +54,7 @@ export class AStar {
         this.closedStamp = new Int32Array(tiles);
         // A tile can sit in the open set more than once (we never decrease-key,
         // we push again and skip the stale pop), so leave room.
-        this.heapTile = new Int32Array(tiles * 2);
-        this.heapF = new Int32Array(tiles * 2);
-        this.heapH = new Int32Array(tiles * 2);
+        this.heap = new TieBrokenHeap(tiles * 2);
         this.scratch = new Int32Array(tiles);
     }
 
@@ -78,7 +71,7 @@ export class AStar {
         if (!map.isPassableIndex(start) || !map.isPassableIndex(goal)) return NO_PATH;
 
         this.generation++;
-        this.heapSize = 0;
+        this.heap.clear();
 
         const gen = this.generation;
         const {gScore, cameFrom, visitedStamp, closedStamp} = this;
@@ -88,12 +81,12 @@ export class AStar {
         gScore[start] = 0;
         cameFrom[start] = -1;
         visitedStamp[start] = gen;
-        this.push(start, this.heuristic(map.tileX(start), map.tileY(start), goalX, goalY), 0);
+        this.heap.push(start, this.heuristic(map.tileX(start), map.tileY(start), goalX, goalY), 0);
 
         let expanded = 0;
 
-        while (this.heapSize > 0) {
-            const current = this.pop();
+        while (this.heap.length > 0) {
+            const current = this.heap.pop();
             if (closedStamp[current] === gen) continue;
             closedStamp[current] = gen;
             expanded++;
@@ -128,7 +121,7 @@ export class AStar {
                 cameFrom[neighbour] = current;
 
                 const h = this.heuristic(nx, ny, goalX, goalY);
-                this.push(neighbour, tentative + h, h);
+                this.heap.push(neighbour, tentative + h, h);
             }
         }
 
@@ -169,73 +162,5 @@ export class AStar {
         }
 
         return {length, partial: total > capacity, expanded};
-    }
-
-    private push(tile: number, f: number, h: number): void {
-        const {heapTile, heapF, heapH} = this;
-        let i = this.heapSize++;
-        heapTile[i] = tile;
-        heapF[i] = f;
-        heapH[i] = h;
-
-        while (i > 0) {
-            const parent = (i - 1) >> 1;
-            if (!this.less(i, parent)) break;
-            this.swap(i, parent);
-            i = parent;
-        }
-    }
-
-    private pop(): number {
-        const top = this.heapTile[0];
-        const last = --this.heapSize;
-
-        if (last > 0) {
-            this.moveSlot(last, 0);
-            let i = 0;
-            for (;;) {
-                const left = 2 * i + 1;
-                if (left >= last) break;
-                const right = left + 1;
-                const child = right < last && this.less(right, left) ? right : left;
-                if (!this.less(child, i)) break;
-                this.swap(i, child);
-                i = child;
-            }
-        }
-
-        return top;
-    }
-
-    /**
-     * Total order on the open set: cheapest `f`, then closest to the goal, then
-     * lowest tile index. That last term is what makes the search deterministic
-     * — without it, equal-cost nodes pop in heap-layout order.
-     */
-    private less(a: number, b: number): boolean {
-        const {heapF, heapH, heapTile} = this;
-        if (heapF[a] !== heapF[b]) return heapF[a] < heapF[b];
-        if (heapH[a] !== heapH[b]) return heapH[a] < heapH[b];
-        return heapTile[a] < heapTile[b];
-    }
-
-    private swap(a: number, b: number): void {
-        const {heapTile, heapF, heapH} = this;
-        const tile = heapTile[a];
-        const f = heapF[a];
-        const h = heapH[a];
-        heapTile[a] = heapTile[b];
-        heapF[a] = heapF[b];
-        heapH[a] = heapH[b];
-        heapTile[b] = tile;
-        heapF[b] = f;
-        heapH[b] = h;
-    }
-
-    private moveSlot(from: number, to: number): void {
-        const {heapTile, heapF, heapH} = this;
-        heapTile[to] = heapTile[from];
-        heapF[to] = heapF[from];
-        heapH[to] = heapH[from];
     }
 }

@@ -60,7 +60,7 @@ export interface ReplayLog {
     readonly checksums: readonly Checksum[];
 }
 
-export const SIM_VERSION = 2;
+export const SIM_VERSION = 3;
 
 export interface ReplayOptions {
     /** Hash every Nth tick. 1 in tests; higher in a real match. */

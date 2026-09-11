@@ -33,7 +33,13 @@ export class TileMap {
     /** Movement weight per tile. 0 is impassable; higher is slower going. */
     readonly weight: Uint8Array;
 
-    private revision = 0;
+    /**
+     * Bumped whenever a tile's weight changes. Anything derived from the
+     * terrain — a cached digest, a flow field — compares against this to know
+     * it has gone stale.
+     */
+    revision = 0;
+
     private cachedRevision = -1;
     private cachedHash = 0;
 

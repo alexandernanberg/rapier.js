@@ -80,44 +80,49 @@ Bump `SIM_VERSION` when you do.
 
 ## Cost
 
-Measured at 2000 moving units on a 128x128 map with obstacles:
+Measured at 2000 units on a 128x128 map with obstacles, all ordered to one
+destination:
 
-|                     | per tick                     |
-| ------------------- | ---------------------------- |
-| `movementSystem`    | 0.33 ms                      |
-| `separationSystem`  | 0.32 ms                      |
-| `deathSystem`       | 0.03 ms                      |
-| `pathRequestSystem` | 0.06 ms                      |
-| `pathServiceSystem` | **budget x cost per search** |
-| `hashWorld()`       | 2.9 ms                       |
+|                          | per tick    |
+| ------------------------ | ----------- |
+| whole tick, steady state | **0.84 ms** |
+| `hashWorld()`            | 1.87 ms     |
 
-Everything except pathfinding is free at this scale. Flat A* is not:
+The first tick of that order builds **one** flow field and runs **zero**
+searches, serving all 2000 units at once. Before flow fields the same scene cost
+21 ms a tick and still had a pathfinding queue that never drained.
 
-| map     | per corner-to-corner search | tiles expanded |
-| ------- | --------------------------- | -------------- |
-| 64x64   | 0.74 ms                     | 1 084          |
-| 128x128 | 2.07 ms                     | 4 088          |
-| 256x256 | 7.45 ms                     | 15 853         |
+### Why the threshold is 4
 
-Cost scales with tile count, so `pathBudget` has to be tuned per map — the
-default of 4 is about 8 ms of a 50 ms tick at 128x128. _*The budget bounds the
-damage; it does not make flat A* sufficient._* 2000 units re-planning every
-`MAX_PATH` tiles generate requests far faster than any survivable budget can
-serve, and the queue never drains.
+A corner-to-corner A* search serves one unit; a flow field serves every unit
+heading to that tile:
 
-That is the measured argument for the next milestone rather than a reason to
-raise the number:
+| map     | one A* search | one flow field | field expansions |
+| ------- | ------------- | -------------- | ---------------- |
+| 64x64   | 0.74 ms       | 1.12 ms        | 3 994            |
+| 128x128 | 2.07 ms       | 4.39 ms        | 16 180           |
+| 256x256 | 7.45 ms       | 19.15 ms       | 65 128           |
 
-- **Flow fields** for a shared destination — one computation serves N units,
-  which is the dominant case when a player boxes an army and right-clicks.
-- **HPA\*** over a cluster portal graph for long routes, so a search expands
-  hundreds of tiles instead of thousands.
-- Flat A* stays, for the last leg inside a cluster.
+A field costs about 2.1 searches, so it pays for itself at three units sharing a
+destination. `flowFieldThreshold` defaults to 4 — just above the measured
+break-even, so a pair of scouts still gets cheap individual searches.
 
-The checksum is also not free — roughly 9x a tick's other work, since it walks
-every entity and component in sorted order. Hash every tick in tests, where
-naming the exact tick of a divergence is the point; in a real match compare
-every 20-30 ticks.
+### What is still a wall
+
+A 256x256 field costs 19 ms, which is 38% of a 50 ms tick for a single build.
+Two ways out when maps get that big, neither built yet:
+
+- Spread one Dijkstra across several ticks (resumable, budgeted by expansions
+  rather than by whole fields).
+- Hierarchical clusters, so a field covers a portal graph rather than every
+  tile.
+
+Scattered destinations also still cost one search each, bounded by `pathBudget`.
+That is the case HPA\* would fix.
+
+The checksum is not free either — it walks every entity and component in sorted
+order. Hash every tick in tests, where naming the exact tick of a divergence is
+the point; in a real match compare every 20-30 ticks.
 
 ## Layout
 
@@ -134,9 +139,11 @@ every 20-30 ticks.
 | `sim/tick.ts`              | The fixed timestep                                |
 | `sim/snapshot.ts`          | Canonical hash, readable dump, world diff         |
 | `sim/grid/tile_map.ts`     | Terrain: integer weights, world/tile conversion   |
-| `sim/grid/astar.ts`        | Deterministic integer A*                          |
+| `sim/grid/astar.ts`        | A* for one unit's route                           |
+| `sim/grid/heap.ts`         | Min-heap with the ordering both planners need     |
 | `sim/grid/spatial_hash.ts` | Uniform-grid neighbour queries                    |
-| `sim/path/path_queue.ts`   | Budgeted route requests                           |
+| `sim/path/flow_field.ts`   | Cost-to-goal for a whole map, plus its cache      |
+| `sim/path/pathfinder.ts`   | Route requests and the routing policy             |
 | `replay.ts`                | Recording and verifying an order log              |
 
 ## Usage
@@ -198,12 +205,18 @@ every system's inner loop stay put.
 
 Unit movement is three layers, none of which is a solver:
 
-1. **Route** — grid A* over integer tile costs, requested through a budgeted
-   queue. Ties in the open set break on `(f, h, tileIndex)`; without that last
-   term two clients pick different equal-cost routes and desync.
-2. **Follow** — steer at the next waypoint, retiring any already reached. A unit
-   with no route yet walks straight at its order position rather than freezing,
-   which reads as responsiveness instead of input lag.
+1. **Route** — three tiers, cheapest first. A cached flow field is free; one is
+   built when `flowFieldThreshold` units share a destination; anything else
+   gets a single A* search, bounded by `pathBudget`. Ties in either planner's
+   open set break on `(cost, tieBreak, tileIndex)`; without that last term two
+   clients pick different equal-cost routes and desync, which is why both go
+   through the same `TieBrokenHeap`.
+2. **Follow** — steer at the next waypoint, retiring any already reached; or,
+   on a flow field, read the field at whatever tile the unit currently stands
+   on. The field case has no route length to truncate and nothing to re-plan,
+   and a unit shoved aside by separation recovers for free. A unit with no route
+   yet walks straight at its order position rather than freezing, which reads as
+   responsiveness instead of input lag.
 3. **Separate** — symmetric circle push-apart over the spatial grid, each unit
    resolving half of each overlap.
 
@@ -218,6 +231,7 @@ per-client, never feeding a single bit back into the sim.
 
 ## Not yet built
 
-Hierarchical pathing and flow fields (see Cost), combat, vision and fog, the
-network transport, and the render layer. Each is written against the harness
-here.
+Formations (40 units ordered to one point currently jostle around it), HPA\* for
+scattered long routes, resumable field builds for large maps, combat, vision and
+fog, the network transport, and the render layer. Each is written against the
+harness here.

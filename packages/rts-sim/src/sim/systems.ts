@@ -42,9 +42,9 @@ export function pathRequestSystem(world: SimWorld): void {
     }
 }
 
-/** Spends this tick's pathfinding budget. */
+/** Spends this tick's pathfinding budgets. */
 export function pathServiceSystem(world: SimWorld): void {
-    world.paths.service(world, world.config.pathBudget);
+    world.paths.service(world);
 }
 
 /**
@@ -57,7 +57,7 @@ export function pathServiceSystem(world: SimWorld): void {
  * lands.
  */
 export function movementSystem(world: SimWorld): void {
-    const {stores, cmd, map} = world;
+    const {stores, cmd} = world;
     const {Position, Velocity, MoveTarget, Speed, Facing, Path} = stores;
     const dt = world.config.dt;
 
@@ -70,40 +70,10 @@ export function movementSystem(world: SimWorld): void {
         const px = Position.x[id];
         const py = Position.y[id];
 
-        // Retire waypoints already reached, so a fast unit can cross several in
-        // one tick rather than steering at a point behind it.
-        if (Path.state[id] === PathState.Active) {
-            const base = id * MAX_PATH;
-            while (Path.cursor[id] < Path.length[id]) {
-                const tile = Path.tiles[base + Path.cursor[id]];
-                const wx = map.centerX(tile);
-                const wy = map.centerY(tile);
-                if (length(wx - px, wy - py) > WAYPOINT_EPSILON) break;
-                Path.cursor[id]++;
-            }
-
-            // Out of waypoints but not at the goal tile: the route was
-            // truncated, so ask for the next leg.
-            if (Path.cursor[id] >= Path.length[id] && Path.length[id] > 0) {
-                const last = Path.tiles[base + Path.length[id] - 1];
-                if (last !== Path.goal[id]) {
-                    Path.state[id] = PathState.None;
-                    Path.length[id] = 0;
-                    Path.cursor[id] = 0;
-                }
-            }
-        }
-
-        // Steer at the next waypoint when there is one, otherwise at the order
-        // position itself — which is also the final approach inside the goal
-        // tile, since a tile centre is not where the player clicked.
-        let targetX = MoveTarget.x[id];
-        let targetY = MoveTarget.y[id];
-        if (Path.state[id] === PathState.Active && Path.cursor[id] < Path.length[id]) {
-            const tile = Path.tiles[id * MAX_PATH + Path.cursor[id]];
-            targetX = map.centerX(tile);
-            targetY = map.centerY(tile);
-        }
+        const steer = nextSteeringPoint(world, id, px, py);
+        const towardOrder = steer === TOWARD_ORDER;
+        const targetX = towardOrder ? MoveTarget.x[id] : world.scratch.steer[0];
+        const targetY = towardOrder ? MoveTarget.y[id] : world.scratch.steer[1];
 
         const dx = targetX - px;
         const dy = targetY - py;
@@ -124,9 +94,7 @@ export function movementSystem(world: SimWorld): void {
             Position.y[id] = targetY;
             Velocity.x[id] = 0;
             Velocity.y[id] = 0;
-            if (targetX === MoveTarget.x[id] && targetY === MoveTarget.y[id]) {
-                cmd.clearMoveTarget(eid);
-            }
+            if (towardOrder) cmd.clearMoveTarget(eid);
             continue;
         }
 
@@ -139,6 +107,84 @@ export function movementSystem(world: SimWorld): void {
         Position.x[id] = px + vx * dt;
         Position.y[id] = py + vy * dt;
     }
+}
+
+/** `nextSteeringPoint` wrote a waypoint into `world.scratch.steer`. */
+const TOWARD_WAYPOINT = 0;
+/** No usable intermediate point; head straight at the order position. */
+const TOWARD_ORDER = 1;
+
+/**
+ * Picks the point a unit should steer at this tick, writing it into
+ * `world.scratch.steer`, and maintains the unit's route state as a side effect
+ * (retiring reached waypoints, re-requesting a stale field or truncated route).
+ *
+ * Returns `TOWARD_ORDER` when the unit should head at its order position
+ * directly — which covers having no route yet, a failed route, and the final
+ * approach inside the goal tile, since a tile centre is not where the player
+ * clicked. The scratch out-param is per-world rather than module state, so two
+ * simulations in one process cannot interfere.
+ */
+function nextSteeringPoint(world: SimWorld, id: number, px: number, py: number): number {
+    const {stores, map, paths} = world;
+    const {Path} = stores;
+
+    if (Path.state[id] === PathState.Flow) {
+        const field = paths.flows.peek(Path.goal[id]);
+        if (field === undefined) {
+            // The field was evicted or terrain moved under it. Ask again.
+            resetToRequest(Path, id);
+            return TOWARD_ORDER;
+        }
+
+        const tile = map.worldToIndex(px, py);
+        if (tile === -1 || !field.reaches(tile)) {
+            Path.state[id] = PathState.Failed;
+            return TOWARD_ORDER;
+        }
+        if (tile === field.goal) return TOWARD_ORDER;
+
+        const next = field.next[tile];
+        if (next < 0) {
+            Path.state[id] = PathState.Failed;
+            return TOWARD_ORDER;
+        }
+
+        world.scratch.steer[0] = map.centerX(next);
+        world.scratch.steer[1] = map.centerY(next);
+        return TOWARD_WAYPOINT;
+    }
+
+    if (Path.state[id] !== PathState.Active) return TOWARD_ORDER;
+
+    // Retire waypoints already reached, so a fast unit can cross several in one
+    // tick rather than steering at a point behind it.
+    const base = id * MAX_PATH;
+    while (Path.cursor[id] < Path.length[id]) {
+        const tile = Path.tiles[base + Path.cursor[id]];
+        if (length(map.centerX(tile) - px, map.centerY(tile) - py) > WAYPOINT_EPSILON) break;
+        Path.cursor[id]++;
+    }
+
+    if (Path.cursor[id] >= Path.length[id]) {
+        // Out of waypoints but not at the goal tile: the route was truncated,
+        // so ask for the next leg.
+        if (Path.length[id] > 0 && Path.tiles[base + Path.length[id] - 1] !== Path.goal[id]) {
+            resetToRequest(Path, id);
+        }
+        return TOWARD_ORDER;
+    }
+
+    const tile = Path.tiles[base + Path.cursor[id]];
+    world.scratch.steer[0] = map.centerX(tile);
+    world.scratch.steer[1] = map.centerY(tile);
+    return TOWARD_WAYPOINT;
+}
+
+function resetToRequest(Path: SimWorld["stores"]["Path"], id: number): void {
+    Path.state[id] = PathState.None;
+    Path.length[id] = 0;
+    Path.cursor[id] = 0;
 }
 
 /**

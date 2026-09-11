@@ -46,10 +46,16 @@ export const PathState = {
     None: 0,
     /** Queued with the pathfinder, not yet serviced. */
     Pending: 1,
-    /** Holding a route and following it. */
+    /** Holding a waypoint route and following it. */
     Active: 2,
     /** The pathfinder found no route; the unit stops asking. */
     Failed: 3,
+    /**
+     * Steering by a shared flow field rather than a private route. Needs no
+     * waypoints — movement reads the field at whatever tile the unit is on,
+     * so there is nothing to truncate and nothing to re-plan.
+     */
+    Flow: 4,
 } as const;
 
 export type PathStateValue = (typeof PathState)[keyof typeof PathState];

@@ -19,7 +19,7 @@ import {createStores, MAX_PATH, PathState, UNIT_STATS, type Stores} from "./comp
 import {SpatialHash} from "./grid/spatial_hash";
 import {TileMap} from "./grid/tile_map";
 import {OrderQueue, OrderType, type Order} from "./orders";
-import {PathQueue} from "./path/path_queue";
+import {Pathfinder} from "./path/pathfinder";
 
 /** A rectangle of modified terrain — a cliff, a lake, a building footprint. */
 export interface TerrainRect {
@@ -43,15 +43,25 @@ export interface SimConfig {
     readonly mapHeight: number;
     readonly tileSize: number;
     /**
-     * Route requests serviced per tick. A count, not a time slice — see
-     * `PathQueue`.
+     * A* searches run per tick, for units whose destinations are scattered. A
+     * count, not a time slice — see `Pathfinder`.
      *
-     * Must be tuned to map size. A corner-to-corner flat A* search costs
-     * roughly 0.7ms on a 64x64 map, 2.1ms on 128x128 and 7.5ms on 256x256
-     * (measured; it scales with tile count). Keep `pathBudget * msPerSearch`
-     * inside about a fifth of `dt`.
+     * Must be tuned to map size. A corner-to-corner search costs roughly 0.7ms
+     * on a 64x64 map, 2.1ms on 128x128 and 7.5ms on 256x256 (measured; it
+     * scales with tile count). Keep `pathBudget * msPerSearch` inside about a
+     * fifth of `dt`.
      */
     readonly pathBudget: number;
+    /**
+     * Units that must share a destination before a flow field is built for it
+     * instead of searching per unit. Below this, one Dijkstra over the whole
+     * map is the more expensive answer.
+     */
+    readonly flowFieldThreshold: number;
+    /** Flow fields built per tick. One full-map Dijkstra is the unit of cost. */
+    readonly flowFieldBudget: number;
+    /** Fields kept cached. Reading a cached field is free; a miss re-requests. */
+    readonly flowFieldCapacity: number;
     /**
      * Terrain, declared rather than mutated, so the config alone reproduces the
      * map. A replay log carries this and nothing else about the terrain.
@@ -71,8 +81,12 @@ export const DEFAULT_CONFIG: SimConfig = {
     mapHeight: 128,
     tileSize: 1,
     // 4 searches x ~2.1ms is about 8ms of a 50ms tick on the default 128x128
-    // map. Raise it only alongside a cheaper search — see the README.
+    // map. Scattered destinations are the expensive case; a group sharing one
+    // gets a flow field instead.
     pathBudget: 4,
+    flowFieldThreshold: 4,
+    flowFieldBudget: 1,
+    flowFieldCapacity: 16,
     obstacles: [],
 };
 
@@ -89,6 +103,8 @@ export interface SimScratch {
     readonly neighbours: Int32Array;
     /** Raw array indices for the entities a system is iterating. */
     readonly rawIds: Int32Array;
+    /** Out-param for the point a unit steers at this tick: [x, y]. */
+    readonly steer: Float64Array;
 }
 
 /** Most neighbours one unit considers when resolving overlap. */
@@ -102,7 +118,7 @@ export interface SimContext {
     readonly cmd: CommandBuffer;
     readonly orders: OrderQueue;
     readonly map: TileMap;
-    readonly paths: PathQueue;
+    readonly paths: Pathfinder;
     readonly grid: SpatialHash;
     readonly scratch: SimScratch;
     readonly entityIndex: ReturnType<typeof createEntityIndex>;
@@ -131,7 +147,7 @@ export function createSimWorld(config: Partial<SimConfig> = {}): SimWorld {
         cmd: new CommandBuffer(),
         orders: new OrderQueue(),
         map,
-        paths: new PathQueue(map),
+        paths: new Pathfinder(map, merged.flowFieldCapacity),
         grid: new SpatialHash(
             merged.mapWidth * merged.tileSize,
             merged.mapHeight * merged.tileSize,
@@ -143,6 +159,7 @@ export function createSimWorld(config: Partial<SimConfig> = {}): SimWorld {
             pushY: new Float64Array(merged.capacity),
             neighbours: new Int32Array(MAX_NEIGHBOURS),
             rawIds: new Int32Array(merged.capacity),
+            steer: new Float64Array(2),
         },
         entityIndex,
     });

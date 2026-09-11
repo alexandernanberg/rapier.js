@@ -27,6 +27,9 @@ const CONFIG: SimConfig = {
     mapHeight: 64,
     tileSize: 1,
     pathBudget: 4,
+    flowFieldThreshold: 4,
+    flowFieldBudget: 1,
+    flowFieldCapacity: 16,
     obstacles: [{x: 30, y: 0, w: 2, h: 50, weight: 0}],
 };
 const TICKS = 240;
@@ -52,37 +55,65 @@ function issueScriptedOrders(world: SimWorld, recorder: Recorder, spawned: numbe
     }
     if (world.tick === 10) {
         for (const eid of liveEntities(world)) spawned.push(eid);
-        // Across the wall, so every unit has to route around its open end. With
-        // pathBudget 4 and 6 units, the queue also spills into a second tick.
+        // One destination across the wall for all six, so the replay covers
+        // the flow-field tier: every unit has to route around the wall's open
+        // end, and one field serves them all.
         spawned.forEach((eid, index) => {
-            recorder.issue(world, index % 2, OrderType.Move, eid, 50, 12 + index);
+            recorder.issue(world, index % 2, OrderType.Move, eid, 50, 12);
         });
     }
     if (world.tick === 80 && spawned.length > 0) {
         recorder.issue(world, 0, OrderType.Damage, spawned[0], 999);
     }
     if (world.tick === 120 && spawned.length > 1) {
+        // A lone unit peeling off to its own destination, which falls below the
+        // flow-field threshold and so covers the A* tier too.
         recorder.issue(world, 1, OrderType.Stop, spawned[1]);
         recorder.issue(world, 1, OrderType.Move, spawned[1], 12, 55);
     }
 }
 
-function recordMatch(config: SimConfig = CONFIG, ticks = TICKS): ReplayLog {
+interface RecordedMatch extends ReplayLog {
+    /** Routing tiers the match actually used, so coverage claims are checked. */
+    readonly fieldsBuilt: number;
+    readonly searchesRun: number;
+}
+
+function recordMatch(config: SimConfig = CONFIG, ticks = TICKS): RecordedMatch {
     const world = createSimWorld(config);
     const recorder = new Recorder();
     const checksums: {tick: number; hash: string}[] = [];
     const spawned: number[] = [];
+    let fieldsBuilt = 0;
+    let searchesRun = 0;
 
     for (let i = 0; i < ticks; i++) {
         issueScriptedOrders(world, recorder, spawned);
         step(world);
+        fieldsBuilt += world.paths.lastFields;
+        searchesRun += world.paths.lastSearches;
         checksums.push({tick: world.tick, hash: hashWorld(world)});
     }
 
-    return {simVersion: SIM_VERSION, config, ticks, orders: recorder.orders, checksums};
+    return {
+        simVersion: SIM_VERSION,
+        config,
+        ticks,
+        orders: recorder.orders,
+        checksums,
+        fieldsBuilt,
+        searchesRun,
+    };
 }
 
 describe("determinism", () => {
+    it("exercises both routing tiers, so the replay tests mean something", () => {
+        const log = recordMatch();
+
+        expect(log.fieldsBuilt).toBeGreaterThan(0);
+        expect(log.searchesRun).toBeGreaterThan(0);
+    });
+
     it("produces an identical checksum sequence for two independent worlds", () => {
         const a = recordMatch();
         const b = recordMatch();
