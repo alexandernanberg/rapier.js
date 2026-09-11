@@ -1,6 +1,6 @@
 import {makeOrder, type Order, type OrderTypeValue} from "./sim/orders";
 import {hashWorld} from "./sim/snapshot";
-import {run, step} from "./sim/tick";
+import {step} from "./sim/tick";
 import {createSimWorld, type SimConfig, type SimWorld} from "./sim/world";
 
 /**
@@ -143,5 +143,3 @@ export function runWithChecksums(world: SimWorld, ticks: number, every = 1): Che
     }
     return checksums;
 }
-
-export {run};
