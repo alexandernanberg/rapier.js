@@ -106,19 +106,35 @@ export const COMPONENT_SPECS = [
     },
     {
         /**
-         * Offset from the order position this unit should end up at, so a group
-         * ordered to one point arrives as a block instead of fighting over a
-         * single tile. Zero means no formation.
+         * This unit's place in a formation: the leader it follows, and its slot
+         * in formation-local space where +x is the direction of travel. `leader`
+         * is -1 when the unit is not in one.
          *
-         * Deliberately an offset rather than its own destination: the whole
-         * group keeps one flow goal, so they still share one segment per sector.
-         * Giving each unit its own goal tile would turn one integration into
-         * forty.
+         * Deliberately a slot relative to a leader rather than its own
+         * destination: the whole group keeps one flow goal, so they still share
+         * one segment per sector. Giving each unit its own goal tile would turn
+         * one integration into two thousand.
          */
         name: "Formation",
         fields: [
-            {name: "offsetX", kind: "f64"},
-            {name: "offsetY", kind: "f64"},
+            {name: "leader", kind: "i32"},
+            {name: "localX", kind: "f64"},
+            {name: "localY", kind: "f64"},
+        ],
+    },
+    {
+        /**
+         * Marks the virtual leader of a formation.
+         *
+         * A leader is a real entity, so the existing schedule paths and moves it
+         * with no special cases. It carries no Radius and no Health, which keeps
+         * it out of separation and out of the death system for free.
+         */
+        name: "FormationLeader",
+        fields: [
+            {name: "shape", kind: "u8"},
+            {name: "spacing", kind: "f64"},
+            {name: "memberCount", kind: "i32"},
         ],
     },
     {
@@ -162,7 +178,8 @@ export interface Stores {
     MoveTarget: {x: Float64Array; y: Float64Array};
     Path: {state: Uint8Array; goal: Int32Array; sector: Int32Array};
     Facing: {angle: Float64Array};
-    Formation: {offsetX: Float64Array; offsetY: Float64Array};
+    Formation: {leader: Int32Array; localX: Float64Array; localY: Float64Array};
+    FormationLeader: {shape: Uint8Array; spacing: Float64Array; memberCount: Int32Array};
     Speed: {value: Float64Array};
     Radius: {value: Float64Array};
     Health: {current: Int32Array; max: Int32Array};

@@ -13,9 +13,11 @@ import {
     type EntityId,
     type World,
 } from "bitecs";
+import {atan2, length} from "../core/math";
 import {Rng} from "../core/rand";
 import {CommandBuffer, CommandKind, type Command} from "./command_buffer";
 import {createStores, PathState, UNIT_STATS, type Stores} from "./components";
+import {layoutSlots, MAX_FORMATION} from "./formation";
 import {SpatialHash} from "./grid/spatial_hash";
 import {TileMap} from "./grid/tile_map";
 import {OrderQueue, OrderType, type Order} from "./orders";
@@ -56,14 +58,26 @@ export interface SimConfig {
     readonly segmentBudget: number;
     /** Segments kept cached. A miss re-requests, which is harmless. */
     readonly segmentCapacity: number;
-    /** World units between formation slots. Roughly two unit diameters. */
+    /**
+     * World units between formation slots.
+     *
+     * Must clear twice the largest unit radius with slack to spare, or
+     * separation jitter cannot resolve and a few units never reach their places.
+     * At a radius of 0.4, spacing 1.0 left six of two hundred units stuck three
+     * tiles short; 1.1 settled every size tested. The default carries margin.
+     */
     readonly formationSpacing: number;
     /**
-     * Distance at which a unit starts steering at its formation slot instead of
-     * following the flow. Bounds the line-of-sight test's ray length, and means
-     * a group marches as a crowd and fans out only on arrival.
+     * Fraction of its slowest member's speed that a formation's leader travels
+     * at.
+     *
+     * Must be below 1. A leader moving at exactly member speed cannot be caught
+     * up with: a unit knocked off its slot by separation or a corner closes the
+     * gap at zero, so it lags for the rest of the march and the formation
+     * steadily comes apart. The shortfall is the headroom members need to
+     * re-form, and it is why a formation moves slower than a lone unit.
      */
-    readonly formationRange: number;
+    readonly formationLeaderSpeed: number;
     /**
      * Terrain, declared rather than mutated, so the config alone reproduces the
      * map. A replay log carries this and nothing else about the terrain.
@@ -85,8 +99,8 @@ export const DEFAULT_CONFIG: SimConfig = {
     sectorSize: 16,
     segmentBudget: 4,
     segmentCapacity: 64,
-    formationSpacing: 1,
-    formationRange: 8,
+    formationSpacing: 1.2,
+    formationLeaderSpeed: 0.9,
     obstacles: [],
 };
 
@@ -107,6 +121,10 @@ export interface SimScratch {
     readonly steer: Float64Array;
     /** Entity handles of one formation being assembled. */
     readonly formation: Int32Array;
+    /** Slot offsets for one formation, as x,y pairs in formation-local space. */
+    readonly slots: Float64Array;
+    /** Sort keys while ordering a formation's members. */
+    readonly projection: Float64Array;
 }
 
 /** Most neighbours one unit considers when resolving overlap. */
@@ -163,6 +181,8 @@ export function createSimWorld(config: Partial<SimConfig> = {}): SimWorld {
             rawIds: new Int32Array(merged.capacity),
             steer: new Float64Array(2),
             formation: new Int32Array(merged.capacity),
+            slots: new Float64Array(MAX_FORMATION * 2),
+            projection: new Float64Array(MAX_FORMATION),
         },
         entityIndex,
     });
@@ -220,10 +240,9 @@ function applyCommand(world: SimWorld, command: Command): void {
             addComponent(world, command.a, stores.MoveTarget);
             stores.MoveTarget.x[id] = command.b;
             stores.MoveTarget.y[id] = command.c;
-            // A new destination drops any slot held from a previous order; a
-            // grouped order re-sets it immediately after.
-            stores.Formation.offsetX[id] = 0;
-            stores.Formation.offsetY[id] = 0;
+            // A new destination leaves any formation the unit was in; a grouped
+            // order re-joins it immediately after.
+            leaveFormation(world, id);
             // A new destination invalidates the segment in hand; the request
             // system queues a fresh one next tick.
             resetPath(world, id);
@@ -249,12 +268,22 @@ function applyCommand(world: SimWorld, command: Command): void {
         }
         case CommandKind.SetFormationSlot: {
             if (!entityExists(world, command.a)) break;
+            if (!entityExists(world, command.b)) break;
             const id = idOf(world, command.a);
-            stores.Formation.offsetX[id] = command.b;
-            stores.Formation.offsetY[id] = command.c;
+            stores.Formation.leader[id] = command.b;
+            stores.Formation.localX[id] = command.c;
+            stores.Formation.localY[id] = command.d;
             break;
         }
     }
+}
+
+/** Drops a unit out of whatever formation it was in. */
+function leaveFormation(world: SimWorld, id: number): void {
+    const {Formation} = world.stores;
+    Formation.leader[id] = -1;
+    Formation.localX[id] = 0;
+    Formation.localY[id] = 0;
 }
 
 function resetPath(world: SimWorld, id: number): void {
@@ -304,8 +333,9 @@ export function spawnUnit(
     stores.Velocity.x[id] = 0;
     stores.Velocity.y[id] = 0;
     stores.Facing.angle[id] = 0;
-    stores.Formation.offsetX[id] = 0;
-    stores.Formation.offsetY[id] = 0;
+    stores.Formation.leader[id] = -1;
+    stores.Formation.localX[id] = 0;
+    stores.Formation.localY[id] = 0;
     stores.Speed.value[id] = stats.speed;
     stores.Radius.value[id] = stats.radius;
     stores.Health.current[id] = stats.health;
@@ -352,10 +382,8 @@ export function applyOrders(world: SimWorld, orders: readonly Order[]): void {
 /**
  * Turns one player action into a formation, and returns the index just past it.
  *
- * Every unit keeps the *same* destination — so the group still shares one flow
- * segment per sector — and gets an offset from it instead. Slots fill a centred
- * grid, assigned by ascending entity id so the layout is reproducible rather
- * than dependent on selection order.
+ * Every member keeps the *same* destination — so the group still shares one flow
+ * segment per sector — and gets a slot relative to a virtual leader instead.
  */
 function assignFormation(world: SimWorld, orders: readonly Order[], start: number): number {
     const group = orders[start].group;
@@ -371,33 +399,171 @@ function assignFormation(world: SimWorld, orders: readonly Order[], start: numbe
         end++;
     }
 
-    const count = Math.min(end - start, world.scratch.formation.length);
+    const capacity = Math.min(world.scratch.formation.length, MAX_FORMATION);
+    const total = end - start;
+    const count = Math.min(total, capacity);
     const members = world.scratch.formation.subarray(0, count);
     for (let i = 0; i < count; i++) members[i] = orders[start + i].a;
 
-    // Sort by handle, so which unit takes which slot does not depend on the
-    // order the client happened to list them in. Handles are distinct, so the
-    // comparator is a strict total order and the result is unique.
-    members.sort((a, b) => a - b);
+    // A selection larger than a formation can hold still gets its order; the
+    // overflow simply marches as a crowd. Dropping it would lose the order
+    // outright, which is far worse than an untidy tail.
+    for (let i = count; i < total; i++) {
+        world.cmd.setMoveTarget(orders[start + i].a, orders[start].b, orders[start].c);
+    }
 
-    const spacing = world.config.formationSpacing;
-    const columns = Math.ceil(Math.sqrt(count));
-    const rows = Math.ceil(count / columns);
+    createFormation(world, members, count, orders[start].b, orders[start].c, orders[start].d);
+    return end;
+}
+
+/**
+ * Orders members so the ones already at the front of the group take the front
+ * slots.
+ *
+ * Assigning slots by handle instead leaves units having to walk *through* the
+ * formation to reach a slot on its far side, and the units already standing
+ * there block them — a 200-strong block left eleven units stuck eight tiles
+ * short of their places. Sorting both by position along the march axis means
+ * almost nobody has to cross.
+ *
+ * Slots come out of `layoutSlots` rear-first (local +x is forward and rows step
+ * along it), so members are sorted rear-first to match. Ties break on handle, so
+ * the result never depends on selection order.
+ */
+function orderMembersForSlots(
+    world: SimWorld,
+    members: Int32Array,
+    count: number,
+    originX: number,
+    originY: number,
+    goalX: number,
+    goalY: number,
+): void {
+    const {Position} = world.stores;
+    const dx = goalX - originX;
+    const dy = goalY - originY;
+    const distance = length(dx, dy);
+
+    if (distance === 0) {
+        members.sort((a, b) => a - b);
+        return;
+    }
+
+    const dirX = dx / distance;
+    const dirY = dy / distance;
+    const projection = world.scratch.projection;
 
     for (let i = 0; i < count; i++) {
         const eid = members[i];
-        const column = i % columns;
-        const row = (i / columns) | 0;
-
-        world.cmd.setMoveTarget(eid, orders[start].b, orders[start].c);
-        if (count > 1) {
-            world.cmd.setFormationSlot(
-                eid,
-                (column - (columns - 1) / 2) * spacing,
-                (row - (rows - 1) / 2) * spacing,
-            );
+        if (!entityExists(world, eid)) {
+            projection[i] = Number.POSITIVE_INFINITY;
+            continue;
         }
+        const id = idOf(world, eid);
+        projection[i] = (Position.x[id] - originX) * dirX + (Position.y[id] - originY) * dirY;
     }
 
-    return end;
+    // Insertion sort over (projection, handle): the list is short, already
+    // roughly ordered, and this keeps the comparison explicit.
+    for (let i = 1; i < count; i++) {
+        const eid = members[i];
+        const key = projection[i];
+        let j = i - 1;
+        while (j >= 0 && (projection[j] > key || (projection[j] === key && members[j] > eid))) {
+            members[j + 1] = members[j];
+            projection[j + 1] = projection[j];
+            j--;
+        }
+        members[j + 1] = eid;
+        projection[j + 1] = key;
+    }
+}
+
+/**
+ * Spawns a virtual leader for a group and hands each member a slot behind it.
+ *
+ * Created here rather than through the command buffer because the members need
+ * the leader's handle immediately. That is safe: order application runs before
+ * any system, and is followed straight away by a flush. The no-structural-change
+ * rule exists to stop mutation *during* a query iteration, which this is not.
+ *
+ * The leader is a real entity with Position, MoveTarget, Path, Speed and Facing,
+ * so the existing schedule paths and moves it with no special cases. It
+ * deliberately has no Radius — separation ignores it — and no Health, so the
+ * death system does too.
+ */
+export function createFormation(
+    world: SimWorld,
+    members: Int32Array,
+    count: number,
+    goalX: number,
+    goalY: number,
+    shape: number,
+): EntityId | -1 {
+    const {stores} = world;
+    if (count === 0) return -1;
+
+    // Start the leader where the group already is, so nobody has to catch up,
+    // and hold it to the slowest member so nobody is left behind.
+    let sumX = 0;
+    let sumY = 0;
+    let live = 0;
+    let speed = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < count; i++) {
+        const eid = members[i];
+        if (!entityExists(world, eid)) continue;
+        const id = idOf(world, eid);
+        sumX += stores.Position.x[id];
+        sumY += stores.Position.y[id];
+        if (stores.Speed.value[id] < speed) speed = stores.Speed.value[id];
+        live++;
+    }
+    if (live === 0) return -1;
+
+    const leader = addEntity(world);
+    const leaderId = idOf(world, leader);
+
+    addComponent(world, leader, stores.Position);
+    addComponent(world, leader, stores.Velocity);
+    addComponent(world, leader, stores.Facing);
+    addComponent(world, leader, stores.Speed);
+    addComponent(world, leader, stores.Path);
+    addComponent(world, leader, stores.Formation);
+    addComponent(world, leader, stores.FormationLeader);
+    addComponent(world, leader, stores.MoveTarget);
+
+    const originX = sumX / live;
+    const originY = sumY / live;
+    stores.Position.x[leaderId] = originX;
+    stores.Position.y[leaderId] = originY;
+    stores.Velocity.x[leaderId] = 0;
+    stores.Velocity.y[leaderId] = 0;
+    stores.Speed.value[leaderId] = speed * world.config.formationLeaderSpeed;
+    stores.MoveTarget.x[leaderId] = goalX;
+    stores.MoveTarget.y[leaderId] = goalY;
+    // Face the destination from the off, so slots are oriented sensibly on the
+    // very first tick rather than snapping round on the second.
+    stores.Facing.angle[leaderId] = atan2(goalY - originY, goalX - originX);
+    resetPath(world, leaderId);
+    leaveFormation(world, leaderId);
+
+    stores.FormationLeader.shape[leaderId] = shape;
+    stores.FormationLeader.spacing[leaderId] = world.config.formationSpacing;
+    stores.FormationLeader.memberCount[leaderId] = live;
+
+    const slots = world.scratch.slots;
+    layoutSlots(shape, count, world.config.formationSpacing, slots);
+    orderMembersForSlots(world, members, count, originX, originY, goalX, goalY);
+
+    for (let i = 0; i < count; i++) {
+        const eid = members[i];
+        if (!entityExists(world, eid)) continue;
+
+        // Order matters: `setMoveTarget` drops any existing membership, so the
+        // join has to be queued behind it rather than written here.
+        world.cmd.setMoveTarget(eid, goalX, goalY);
+        world.cmd.setFormationSlot(eid, leader, slots[i * 2], slots[i * 2 + 1]);
+    }
+
+    return leader;
 }

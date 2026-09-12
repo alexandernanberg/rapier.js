@@ -23,6 +23,12 @@ export {
     type TypedArray,
     type UnitStats,
 } from "./sim/components";
+export {
+    FormationShape,
+    layoutSlots,
+    MAX_FORMATION,
+    type FormationShapeValue,
+} from "./sim/formation";
 export {AStar, type SearchResult} from "./sim/grid/astar";
 export {TieBrokenHeap} from "./sim/grid/heap";
 export {PortalGraph} from "./sim/grid/portal_graph";
@@ -55,6 +61,8 @@ export {
 } from "./sim/snapshot";
 export {
     deathSystem,
+    formationUpkeepSystem,
+    leaderMovementSystem,
     movementSystem,
     pathRequestSystem,
     pathServiceSystem,
@@ -64,6 +72,7 @@ export {
 export {run, step} from "./sim/tick";
 export {
     applyOrders,
+    createFormation,
     createSimWorld,
     DEFAULT_CONFIG,
     flushCommands,

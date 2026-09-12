@@ -1,5 +1,5 @@
-import {query} from "bitecs";
-import {atan2, length} from "../core/math";
+import {entityExists, hasComponent, Not, query} from "bitecs";
+import {atan2, cos, length, sin} from "../core/math";
 import {PathState} from "./components";
 import {hasLineOfSight} from "./path/flow_segment";
 import {idOf, type SimWorld} from "./world";
@@ -100,73 +100,115 @@ export function pathServiceSystem(world: SimWorld): void {
 }
 
 /**
- * Moves units along their route, or straight at the order position when they
- * have no usable route.
+ * Moves the virtual leaders of formations.
  *
- * Steering straight while a request is still queued is deliberate: a unit that
- * froze for the few ticks until the pathfinder reached it would read as input
- * lag. It walks hopefully in the right direction and corrects once the route
- * lands.
+ * Separate from, and ahead of, `movementSystem` so a member always reads its
+ * leader's position *after* the leader has advanced this tick. Leaving that to
+ * whatever order the query returned would be deterministic but arbitrary, and
+ * would make the formation trail a tick behind at some headings and not others.
  */
-export function movementSystem(world: SimWorld): void {
-    const {stores, cmd} = world;
-    const {Position, Velocity, MoveTarget, Speed, Facing, Path, Formation} = stores;
-    const dt = world.config.dt;
-
-    const entities = query(world, [Position, Velocity, MoveTarget, Speed, Facing, Path, Formation]);
+export function leaderMovementSystem(world: SimWorld): void {
+    const {Position, Velocity, MoveTarget, Speed, Facing, Path, FormationLeader} = world.stores;
+    const entities = query(world, [
+        Position,
+        Velocity,
+        MoveTarget,
+        Speed,
+        Facing,
+        Path,
+        FormationLeader,
+    ]);
 
     for (let i = 0; i < entities.length; i++) {
-        const eid = entities[i];
-        const id = idOf(world, eid);
-
-        const px = Position.x[id];
-        const py = Position.y[id];
-
-        const steer = nextSteeringPoint(world, id, px, py);
-        const towardOrder = steer === TOWARD_ORDER;
-        const targetX = towardOrder
-            ? MoveTarget.x[id] + Formation.offsetX[id]
-            : world.scratch.steer[0];
-        const targetY = towardOrder
-            ? MoveTarget.y[id] + Formation.offsetY[id]
-            : world.scratch.steer[1];
-
-        const dx = targetX - px;
-        const dy = targetY - py;
-        const dist = length(dx, dy);
-
-        if (dist <= ARRIVE_EPSILON) {
-            cmd.clearMoveTarget(eid);
-            continue;
-        }
-
-        Facing.angle[id] = atan2(dy, dx);
-
-        const step = Speed.value[id] * dt;
-        if (step >= dist) {
-            // Snap rather than overshoot, so a unit's resting position is a
-            // function of its order alone and not of the tick it arrived on.
-            moveClamped(world, id, px, py, targetX, targetY);
-            Velocity.x[id] = 0;
-            Velocity.y[id] = 0;
-            if (towardOrder) cmd.clearMoveTarget(eid);
-            continue;
-        }
-
-        const inv = 1 / dist;
-        const vx = dx * inv * Speed.value[id];
-        const vy = dy * inv * Speed.value[id];
-
-        Velocity.x[id] = vx;
-        Velocity.y[id] = vy;
-        moveClamped(world, id, px, py, px + vx * dt, py + vy * dt);
+        moveEntity(world, entities[i]);
     }
 }
 
-/** `nextSteeringPoint` wrote a steering point into `world.scratch.steer`. */
+/**
+ * Moves everything that is not a formation leader: members steering at their
+ * slots, and lone units steering at their order position.
+ */
+export function movementSystem(world: SimWorld): void {
+    const {Position, Velocity, MoveTarget, Speed, Facing, Path, Formation, FormationLeader} =
+        world.stores;
+    const entities = query(world, [
+        Position,
+        Velocity,
+        MoveTarget,
+        Speed,
+        Facing,
+        Path,
+        Formation,
+        Not(FormationLeader),
+    ]);
+
+    for (let i = 0; i < entities.length; i++) {
+        moveEntity(world, entities[i]);
+    }
+}
+
+/**
+ * Advances one entity toward whatever it should be steering at.
+ *
+ * Shared by both movement systems so there is one integration step, one arrival
+ * rule and one terrain clamp rather than two that can drift apart.
+ *
+ * An order is cleared only on arriving at the order position itself. A formation
+ * member keeps its order for as long as it belongs to the formation, because
+ * that is what holds it on station — whether a *group* has finished is asked of
+ * its leader, which drops its own order on arrival like anything else.
+ */
+function moveEntity(world: SimWorld, eid: number): void {
+    const {stores, cmd} = world;
+    const {Position, Velocity, MoveTarget, Speed, Facing} = stores;
+    const dt = world.config.dt;
+    const id = idOf(world, eid);
+
+    const px = Position.x[id];
+    const py = Position.y[id];
+
+    const steer = nextSteeringPoint(world, id, px, py);
+    const towardOrder = steer === TOWARD_ORDER;
+    const targetX = towardOrder ? MoveTarget.x[id] : world.scratch.steer[0];
+    const targetY = towardOrder ? MoveTarget.y[id] : world.scratch.steer[1];
+
+    const dx = targetX - px;
+    const dy = targetY - py;
+    const dist = length(dx, dy);
+
+    if (dist <= ARRIVE_EPSILON) {
+        if (towardOrder) cmd.clearMoveTarget(eid);
+        return;
+    }
+
+    Facing.angle[id] = atan2(dy, dx);
+
+    const step = Speed.value[id] * dt;
+    if (step >= dist) {
+        // Snap rather than overshoot, so a unit's resting position is a
+        // function of its order alone and not of the tick it arrived on.
+        moveClamped(world, id, px, py, targetX, targetY);
+        Velocity.x[id] = 0;
+        Velocity.y[id] = 0;
+        if (towardOrder) cmd.clearMoveTarget(eid);
+        return;
+    }
+
+    const inv = 1 / dist;
+    const vx = dx * inv * Speed.value[id];
+    const vy = dy * inv * Speed.value[id];
+
+    Velocity.x[id] = vx;
+    Velocity.y[id] = vy;
+    moveClamped(world, id, px, py, px + vx * dt, py + vy * dt);
+}
+
+/** `nextSteeringPoint` wrote a flow-derived steering point into `scratch.steer`. */
 const TOWARD_WAYPOINT = 0;
 /** No usable intermediate point; head straight at the order position. */
 const TOWARD_ORDER = 1;
+/** `scratch.steer` holds this unit's formation slot. */
+const TOWARD_SLOT = 2;
 
 /**
  * Picks the point a unit should steer at this tick, writing it into
@@ -181,32 +223,46 @@ const TOWARD_ORDER = 1;
  */
 function nextSteeringPoint(world: SimWorld, id: number, px: number, py: number): number {
     const {stores, map, paths, scratch} = world;
-    const {Path, MoveTarget, Formation} = stores;
+    const {Path, Formation} = stores;
 
-    // A formation member heads for its own slot as soon as it can see it, and
-    // follows the flow until then. One rule covers both marching as a crowd and
-    // squeezing through a gap, which is why Age of Empires IV uses it.
-    const offsetX = Formation.offsetX[id];
-    const offsetY = Formation.offsetY[id];
-    if (offsetX !== 0 || offsetY !== 0) {
-        const spotX = MoveTarget.x[id] + offsetX;
-        const spotY = MoveTarget.y[id] + offsetY;
+    const leader = Formation.leader[id];
+    if (leader !== -1 && entityExists(world, leader)) {
+        const leaderId = idOf(world, leader);
+        // The slot is stored in formation-local space, where +x is the direction
+        // of travel, so it rotates with the leader and one shape works at any
+        // heading.
+        const angle = stores.Facing.angle[leaderId];
+        const c = cos(angle);
+        const sn = sin(angle);
+        const localX = Formation.localX[id];
+        const localY = Formation.localY[id];
+        const spotX = stores.Position.x[leaderId] + localX * c - localY * sn;
+        const spotY = stores.Position.y[leaderId] + localX * sn + localY * c;
 
-        // Measured against the order position and widened by how far out this
-        // unit's slot sits, so the whole group starts fanning out at the same
-        // moment. Gating on distance to the slot alone would strand the outer
-        // ranks of a large formation: they never get close enough to their own
-        // slot to aim for it, and pile onto the centre instead.
-        const range = world.config.formationRange + Math.abs(offsetX) + Math.abs(offsetY);
+        // Once the leader has stopped the slot is static and the group is
+        // already where it was going, so sight lines are settled: hold station
+        // without paying for a raycast. This is also what keeps a standing
+        // formation tidy — a unit nudged by a latecomer's separation gets pulled
+        // back, where a unit that had dropped its order would stay shoved.
+        if (!hasComponent(world, leader, stores.MoveTarget)) {
+            scratch.steer[0] = spotX;
+            scratch.steer[1] = spotY;
+            return TOWARD_SLOT;
+        }
 
-        if (Math.abs(MoveTarget.x[id] - px) <= range && Math.abs(MoveTarget.y[id] - py) <= range) {
-            const fromX = map.worldToTileX(px);
-            const fromY = map.worldToTileY(py);
-            const toX = map.worldToTileX(spotX);
-            const toY = map.worldToTileY(spotY);
-            if (map.inBounds(toX, toY) && hasLineOfSight(map, fromX, fromY, toX, toY)) {
-                return TOWARD_ORDER;
-            }
+        const fromX = map.worldToTileX(px);
+        const fromY = map.worldToTileY(py);
+        const toX = map.worldToTileX(spotX);
+        const toY = map.worldToTileY(spotY);
+
+        // While marching, follow the slot when it is in sight and the flow when
+        // it is not — one rule covering both holding formation and squeezing
+        // through a gap. The ray is bounded by the formation's own size, since a
+        // slot is always near its leader.
+        if (map.inBounds(toX, toY) && hasLineOfSight(map, fromX, fromY, toX, toY)) {
+            scratch.steer[0] = spotX;
+            scratch.steer[1] = spotY;
+            return TOWARD_SLOT;
         }
     }
 
@@ -325,6 +381,44 @@ export function separationSystem(world: SimWorld): void {
     }
 }
 
+/**
+ * Keeps formations consistent: drops members whose leader is gone, recounts each
+ * leader's members, and retires leaders nobody follows.
+ *
+ * A leader is an entity like any other, so it needs something to end its life;
+ * without this a formation's leader would outlive its last member and keep
+ * marching an empty slot grid across the map.
+ */
+export function formationUpkeepSystem(world: SimWorld): void {
+    const {stores, cmd} = world;
+    const {Formation, FormationLeader} = stores;
+
+    const leaders = query(world, [FormationLeader]);
+    for (let i = 0; i < leaders.length; i++) {
+        FormationLeader.memberCount[idOf(world, leaders[i])] = 0;
+    }
+
+    const members = query(world, [Formation, Not(FormationLeader)]);
+    for (let i = 0; i < members.length; i++) {
+        const id = idOf(world, members[i]);
+        const leader = Formation.leader[id];
+        if (leader === -1) continue;
+
+        if (!entityExists(world, leader)) {
+            Formation.leader[id] = -1;
+            Formation.localX[id] = 0;
+            Formation.localY[id] = 0;
+            continue;
+        }
+        FormationLeader.memberCount[idOf(world, leader)]++;
+    }
+
+    for (let i = 0; i < leaders.length; i++) {
+        const eid = leaders[i];
+        if (FormationLeader.memberCount[idOf(world, eid)] === 0) cmd.despawn(eid);
+    }
+}
+
 /** Queues removal of anything that has run out of health. */
 export function deathSystem(world: SimWorld): void {
     const {stores, cmd} = world;
@@ -346,13 +440,17 @@ export function deathSystem(world: SimWorld): void {
  * makes that explicit and reviewable.
  *
  * Requests are queued before they are serviced, so a unit ordered this tick can
- * be pathed this tick if the budget allows. Separation runs after movement so it
- * corrects the positions movement just wrote.
+ * be pathed this tick if the budget allows. Leaders move before their members,
+ * so a slot is read at this tick's leader position rather than last tick's.
+ * Separation runs after movement so it corrects the positions movement just
+ * wrote, and upkeep runs after that so it sees the tick's final state.
  */
 export const SYSTEMS: readonly ((world: SimWorld) => void)[] = [
     pathRequestSystem,
     pathServiceSystem,
+    leaderMovementSystem,
     movementSystem,
     separationSystem,
+    formationUpkeepSystem,
     deathSystem,
 ];

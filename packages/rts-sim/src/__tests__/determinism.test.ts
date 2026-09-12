@@ -29,8 +29,8 @@ const CONFIG: SimConfig = {
     sectorSize: 8,
     segmentBudget: 2,
     segmentCapacity: 64,
-    formationSpacing: 1,
-    formationRange: 8,
+    formationSpacing: 1.2,
+    formationLeaderSpeed: 0.9,
     obstacles: [{x: 30, y: 0, w: 2, h: 50, weight: 0}],
 };
 const TICKS = 240;

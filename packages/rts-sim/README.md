@@ -72,12 +72,15 @@ these. Breaking one does not fail loudly; it desyncs a match an hour in.
 `SYSTEMS` is a literal list, so the order is reviewable:
 
 ```
-pathRequest -> pathService -> movement -> separation -> death
+pathRequest -> pathService -> leaderMovement -> movement
+            -> separation -> formationUpkeep -> death
 ```
 
-Requests are queued before they are serviced, so a unit ordered this tick can
-be pathed this tick if the budget allows. Separation runs after movement so it
-corrects the positions movement just wrote.
+Requests are queued before they are serviced, so a unit ordered this tick can be
+pathed this tick if the budget allows. Leaders move before their members, so a
+slot is read at this tick's leader position rather than last tick's. Separation
+runs after movement so it corrects the positions movement just wrote, and upkeep
+runs after that so it sees the tick's final state.
 
 Reordering any of this changes results and invalidates every recorded replay.
 Bump `SIM_VERSION` when you do.
@@ -107,33 +110,50 @@ One segment integrates a 3x3 block of sectors, so its cost depends on
 That is the entire reason the portal graph exists. A whole-map field grows with
 the map; a segment does not.
 
-### Formations stop the jostling
+### Formations march and settle
 
 A group ordered to one point used to fight over a single tile forever. Units now
-get a slot in a block around the order position and settle into it:
+take a slot relative to a _virtual leader_ — a real entity with Position,
+MoveTarget, Path and Speed, so the existing schedule paths and moves it, but with
+no Radius or Health, which keeps it out of separation and out of the death
+system for free.
 
-| units | individual orders     | one grouped order |
-| ----- | --------------------- | ----------------- |
-| 40    | all settle            | all settle        |
-| 200   | all settle            | all settle        |
-| 2000  | **1194 still moving** | all settle        |
+Settling, measured by letting everyone arrive and then counting who is still
+shuffling and how far anyone sits from its place:
 
-The defect was scale-dependent — with few enough units separation eventually
-finds an equilibrium on its own, which is why it needs measuring at scale rather
-than eyeballing at forty.
+| group | still moving | worst slot error |
+| ----- | ------------ | ---------------- |
+| 16    | 0            | 0                |
+| 64    | 0            | 0                |
+| 200   | 0            | 0                |
+| 500   | 0            | 0                |
 
-Crucially the group keeps **one** flow goal and each unit gets an _offset_ from
-it, so 2000 units still share one segment per sector. Giving each unit its own
-destination tile would have turned one integration into two thousand.
+Marching keeps the shape: a 6x6 block holds a spread of about 2.6 from first
+step to last, where the same units without a formation wander between 1.7 and
+2.4. And a formation tick is _cheaper_ than a crowd one at 2000 units — 0.64 ms
+against 0.83 ms — because units that settle stop generating work.
 
-A unit steers at its slot once it has line of sight to it and is close enough,
-and follows the flow until then — one rule that covers marching as a crowd and
-squeezing through a gap, which is why Age of Empires IV uses it. "Close enough"
-is widened by how far out the unit's own slot sits; gating on distance to the
-slot alone strands the outer ranks of a large formation, which pile onto the
-centre instead.
+Three measured choices behind that:
 
-### Path quality
+- **Slots are offsets from a leader, not destinations.** The group keeps one flow
+  goal, so 2000 units still share one segment per sector. Giving each unit its
+  own goal tile would turn one integration into two thousand.
+- **The leader moves at 0.9x its slowest member.** At equal speed a unit knocked
+  off its slot closes the gap at zero and lags for the rest of the march, so the
+  formation steadily comes apart: spread climbed to 2.84 instead of holding.
+  The shortfall is the headroom stragglers need, and it is why a formation moves
+  slower than a lone unit.
+- **Spacing must clear twice the largest radius with slack.** At radius 0.4,
+  spacing 1.0 left six of two hundred units stuck three tiles short, because
+  separation jitter could not resolve in 0.2 of clearance. 1.1 settled every
+  size tested; the default is 1.2.
+
+Members keep their order while they belong to a formation — that is what holds
+them on station, so a unit nudged by a latecomer gets pulled back. Whether a
+_group_ has finished is asked of its leader, which drops its own order on arrival
+like anything else.
+
+### Path quality### Path quality
 
 Excess distance over a straight line, on open ground, measured end to end:
 
@@ -275,10 +295,11 @@ changes while they walk.
    they are the cells hugging an obstacle. Keyed by (sector, goal), so every
    unit in a sector heading the same way reads one segment and later orders
    across the same ground reuse it.
-3. **Formation slot** — a unit ordered as part of a group steers at its own slot
-   in a block around the order position, once it has line of sight to it. Until
-   then it follows the flow. The slot is an offset, not a separate destination,
-   so the group shares one segment.
+3. **Formation slot** — a unit ordered as part of a group steers at its slot
+   relative to the group's virtual leader, once it has line of sight to it.
+   Until then it follows the flow — one rule covering both holding formation and
+   squeezing through a gap. Slots live in formation-local space and rotate with
+   the leader's facing, so a shape is written once and works at any heading.
 4. **Separate** — symmetric circle push-apart over the spatial grid, each unit
    resolving half of each overlap.
 5. **Terrain collision** — positions are clamped out of walls on write, axis by
@@ -305,20 +326,23 @@ per-client, never feeding a single bit back into the sim.
 
 Not yet taken from that reading: an eikonal/fast-marching integration with an
 8-bit gradient for the shadowed cells, the BFS-and-shadow-lines form of the LOS
-pass (faster than the per-cell raycast here), extended flow for mixed unit
-sizes, and a virtual formation leader for cohesive marching.
+pass (faster than the per-cell raycast here), and extended flow for mixed unit
+sizes.
 
 ## Not yet built
 
 In rough order of how much they matter:
 
-1. **Cohesive marching** — formations settle correctly on arrival but do not
-   hold their shape en route; the crowd travels as a crowd. A virtual leader
-   entity following the route, with slots rotated to its facing, is the shape
-   that adds this, and the leader needs no new systems: give it Position,
-   MoveTarget, Path and Speed but no Radius or Health and the existing schedule
-   moves it.
-2. **Radius-aware terrain collision** — only unit centres are tested, so a
+1. **More shapes, and slot validity.** `sim/formation.ts` holds block and line;
+   wedge, column and a hollow box are the same kind of function and need nothing
+   else to change. What none of them check is whether a slot lands somewhere a
+   unit can stand — a slot inside a building or off the map leaves its unit
+   following the flow instead, which is safe but untidy. Nudging slots to the
+   nearest passable tile is the fix.
+2. **Group sizes above `MAX_FORMATION` (512)** march as a crowd beyond that
+   many. They keep their order, but they do not get slots; splitting one
+   selection into several formations is the answer.
+3. **Radius-aware terrain collision** — only unit centres are tested, so a
    radius can overlap a wall by a fraction of a tile. The real fix is obstacle
    steering, not a bigger clamp.
-3. Combat, vision and fog, the network transport, and the render layer.
+4. Combat, vision and fog, the network transport, and the render layer.

@@ -61,8 +61,9 @@ export class CommandBuffer {
         this.push(CommandKind.Damage, eid, amount);
     }
 
-    setFormationSlot(eid: number, offsetX: number, offsetY: number): void {
-        this.push(CommandKind.SetFormationSlot, eid, offsetX, offsetY);
+    /** Joins `eid` to a formation. Must be queued *after* its `setMoveTarget`, which clears membership. */
+    setFormationSlot(eid: number, leader: number, localX: number, localY: number): void {
+        this.push(CommandKind.SetFormationSlot, eid, leader, localX, localY);
     }
 
     /**
