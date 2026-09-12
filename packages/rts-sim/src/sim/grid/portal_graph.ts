@@ -15,12 +15,15 @@ import {CARDINAL_COST, DIAGONAL_COST, type TileMap} from "./tile_map";
  *
  * A route over this graph is a handful of node hops rather than thousands of
  * tiles, and — the reason it exists — it tells a flow segment which couple of
- * sectors are worth integrating. Without it every field is a whole-map
- * Dijkstra, which is the single biggest cost in a naive implementation.
+ * sectors are worth integrating at all.
  *
- * Rebuilt wholesale when terrain changes. Per-sector incremental rebuild is the
- * obvious refinement and is not done yet — see `buildMs` in the tests for why
- * that is survivable for now.
+ * **Rebuilds are incremental.** A whole-graph rebuild costs 20ms on a 128x128
+ * map and 368ms on 512x512, and in an RTS terrain changes every time a building
+ * completes, so paying that per change is not an option. Node indices are
+ * therefore *stable*: every sector owns a fixed arena, subdivided by which of
+ * its four boundaries a node belongs to, so one boundary can be recomputed
+ * without disturbing anything else. A change relinks only the sectors whose
+ * node sets actually moved.
  */
 
 const NEIGHBOUR_DX = [0, 1, 1, 1, 0, -1, -1, -1];
@@ -37,26 +40,35 @@ export const AXIS_Y = 1;
 /** Entered through a horizontal boundary, so the run goes along x. */
 export const AXIS_X = 2;
 
+const DIR_NORTH = 0;
+const DIR_EAST = 1;
+const DIR_SOUTH = 2;
+const DIR_WEST = 3;
+
 export class PortalGraph {
     readonly map: TileMap;
     readonly layout: SectorLayout;
 
-    /** Tile each node sits on. */
-    private nodeCell = new Int32Array(0);
-    /** Sector each node belongs to. */
-    private nodeSector = new Int32Array(0);
-    private nodeCount = 0;
-    /** Node indices per sector, as a CSR-style index. */
-    private sectorNodeStart = new Int32Array(0);
-    private sectorNodes = new Int32Array(0);
+    /** Node slots per boundary direction, per sector. */
+    private readonly perDir: number;
+    /** Node slots per sector: four boundaries' worth. */
+    private readonly slotsPerSector: number;
+    /** Edge slots per node: its portal twin plus every other node in its sector. */
+    private readonly edgesPerNode: number;
 
-    /** CSR adjacency. */
-    private edgeStart = new Int32Array(0);
-    private edgeTarget = new Int32Array(0);
-    private edgeCost = new Int32Array(0);
+    private readonly alive: Uint8Array;
+    private readonly nodeCell: Int32Array;
+    private readonly nodeSectorOf: Int32Array;
 
-    /** Terrain revision this graph describes. */
+    private readonly edgeCount: Int32Array;
+    private readonly edgeTarget: Int32Array;
+    private readonly edgeCost: Int32Array;
+
+    /** Sectors needing a relink, as flags so iteration order is unambiguous. */
+    private readonly dirtySector: Uint8Array;
+    private dirtyCount = 0;
     private builtRevision = -1;
+    private readonly dirtyRegion = new Int32Array(4);
 
     // Per-sector search scratch, reused across every confined Dijkstra.
     private readonly localCost: Int32Array;
@@ -64,62 +76,387 @@ export class PortalGraph {
     private localGeneration = 0;
     private readonly localHeap: TieBrokenHeap;
 
-    // Route scratch, grown to fit on each build.
-    private routeG = new Int32Array(0);
-    private routeFrom = new Int32Array(0);
-    private routeStamp = new Int32Array(0);
+    // Route scratch.
+    private readonly routeG: Int32Array;
+    private readonly routeFrom: Int32Array;
+    private readonly routeStamp: Int32Array;
     private routeGeneration = 0;
-    private routeHeap = new TieBrokenHeap(0);
-    private routeNodes: Int32Array;
-    private routeCosts: Int32Array;
-    private goalNodes: Int32Array;
-    private goalCosts: Int32Array;
-    private routePath = new Int32Array(0);
+    private readonly routeHeap: TieBrokenHeap;
+    private readonly routeNodes: Int32Array;
+    private readonly routeCosts: Int32Array;
+    private readonly goalNodes: Int32Array;
+    private readonly goalCosts: Int32Array;
+    private readonly routePath: Int32Array;
 
     constructor(map: TileMap, sectorSize: number) {
         this.map = map;
         this.layout = new SectorLayout(map.width, map.height, sectorSize);
 
+        // Runs along a boundary are separated by at least one blocked cell, so
+        // a boundary of `sectorSize` cells holds at most half that many.
+        this.perDir = Math.ceil(sectorSize / 2);
+        this.slotsPerSector = 4 * this.perDir;
+        this.edgesPerNode = this.slotsPerSector;
+
+        const slots = this.layout.count * this.slotsPerSector;
+        this.alive = new Uint8Array(slots);
+        this.nodeCell = new Int32Array(slots);
+        this.nodeSectorOf = new Int32Array(slots);
+        this.edgeCount = new Int32Array(slots);
+        this.edgeTarget = new Int32Array(slots * this.edgesPerNode);
+        this.edgeCost = new Int32Array(slots * this.edgesPerNode);
+
+        this.dirtySector = new Uint8Array(this.layout.count);
+
         this.localCost = new Int32Array(map.tileCount);
         this.localStamp = new Int32Array(map.tileCount);
         this.localHeap = new TieBrokenHeap(sectorSize * sectorSize * 2 + 8);
 
-        // A sector's boundaries hold at most ceil(size/2) portal runs each.
-        const maxSectorNodes = 4 * sectorSize + 8;
-        this.routeNodes = new Int32Array(maxSectorNodes);
-        this.routeCosts = new Int32Array(maxSectorNodes);
-        this.goalNodes = new Int32Array(maxSectorNodes);
-        this.goalCosts = new Int32Array(maxSectorNodes);
+        // Two extra slots for the virtual goal a query splices in.
+        this.routeG = new Int32Array(slots + 2);
+        this.routeFrom = new Int32Array(slots + 2);
+        this.routeStamp = new Int32Array(slots + 2);
+        this.routeHeap = new TieBrokenHeap((slots + 2) * 4);
+        this.routeNodes = new Int32Array(this.slotsPerSector);
+        this.routeCosts = new Int32Array(this.slotsPerSector);
+        this.goalNodes = new Int32Array(this.slotsPerSector);
+        this.goalCosts = new Int32Array(this.slotsPerSector);
+        this.routePath = new Int32Array(slots + 2);
     }
 
+    /** Live node count. O(slots); for tests and diagnostics, not hot paths. */
     get nodes(): number {
-        return this.nodeCount;
+        let count = 0;
+        for (let i = 0; i < this.alive.length; i++) count += this.alive[i];
+        return count;
     }
 
     get isStale(): boolean {
         return this.builtRevision !== this.map.revision;
     }
 
-    /** Rebuilds if terrain has changed since the last build. */
+    /** Rebuilds whatever terrain changes have invalidated. */
     ensureFresh(): void {
-        if (this.isStale) this.build();
+        if (!this.isStale) return;
+
+        if (this.builtRevision === -1 || !this.map.consumeDirtyRegion(this.dirtyRegion)) {
+            this.build();
+            return;
+        }
+
+        const {layout} = this;
+        const minSx = Math.max(0, ((this.dirtyRegion[0] / layout.sectorSize) | 0) - 1);
+        const minSy = Math.max(0, ((this.dirtyRegion[1] / layout.sectorSize) | 0) - 1);
+        const maxSx = Math.min(
+            layout.cols - 1,
+            ((this.dirtyRegion[2] / layout.sectorSize) | 0) + 1,
+        );
+        const maxSy = Math.min(
+            layout.rows - 1,
+            ((this.dirtyRegion[3] / layout.sectorSize) | 0) + 1,
+        );
+
+        // One sector beyond the change on every side: a portal is shared, so
+        // altering a boundary moves nodes in the sector across it too.
+        for (let sy = minSy; sy <= maxSy; sy++) {
+            for (let sx = minSx; sx <= maxSx; sx++) {
+                this.markDirty(layout.sectorIndex(sx, sy));
+            }
+        }
+
+        this.rebuildDirty();
     }
 
+    /** Full rebuild. Marks every sector dirty and runs the same path. */
     build(): void {
-        this.builtRevision = this.map.revision;
-        this.collectPortals();
-        this.linkWithinSectors();
+        this.map.consumeDirtyRegion(this.dirtyRegion);
+        this.alive.fill(0);
+        for (let sector = 0; sector < this.layout.count; sector++) this.markDirty(sector);
+        this.rebuildDirty();
+    }
 
-        // Two extra slots for the virtual start and goal a query splices in.
-        const slots = this.nodeCount + 2;
-        if (this.routeG.length < slots) {
-            this.routeG = new Int32Array(slots);
-            this.routeFrom = new Int32Array(slots);
-            this.routeStamp = new Int32Array(slots);
-            this.routeHeap = new TieBrokenHeap(slots * 4);
-            this.routePath = new Int32Array(slots);
-            this.routeGeneration = 0;
+    private markDirty(sector: number): void {
+        if (this.dirtySector[sector] === 1) return;
+        this.dirtySector[sector] = 1;
+        this.dirtyCount++;
+    }
+
+    /**
+     * Recomputes portals on every boundary touching a dirty sector, then
+     * relinks the sectors whose node sets changed.
+     *
+     * Boundaries are visited in sector-index order so the result never depends
+     * on the order changes arrived in.
+     */
+    private rebuildDirty(): void {
+        this.builtRevision = this.map.revision;
+        if (this.dirtyCount === 0) return;
+
+        const {layout, dirtySector} = this;
+
+        // Every boundary has a canonical owner — its west/north sector — so
+        // each is rebuilt exactly once.
+        for (let sector = 0; sector < layout.count; sector++) {
+            if (dirtySector[sector] === 0) continue;
+
+            const sx = layout.sectorX(sector);
+            const sy = layout.sectorY(sector);
+
+            if (sx + 1 < layout.cols) this.rebuildBoundary(sector, DIR_EAST);
+            if (sy + 1 < layout.rows) this.rebuildBoundary(sector, DIR_SOUTH);
+            // A dirty sector's west and north boundaries are owned by its
+            // neighbours, which may not themselves be dirty.
+            if (sx > 0 && dirtySector[layout.sectorIndex(sx - 1, sy)] === 0) {
+                this.rebuildBoundary(layout.sectorIndex(sx - 1, sy), DIR_EAST);
+            }
+            if (sy > 0 && dirtySector[layout.sectorIndex(sx, sy - 1)] === 0) {
+                this.rebuildBoundary(layout.sectorIndex(sx, sy - 1), DIR_SOUTH);
+            }
         }
+
+        // Relink anything dirty, plus the far side of any boundary it shares.
+        for (let sector = 0; sector < layout.count; sector++) {
+            if (dirtySector[sector] === 0) continue;
+            this.relinkSector(sector);
+
+            const sx = layout.sectorX(sector);
+            const sy = layout.sectorY(sector);
+            for (const neighbour of [
+                sx > 0 ? layout.sectorIndex(sx - 1, sy) : -1,
+                sx + 1 < layout.cols ? layout.sectorIndex(sx + 1, sy) : -1,
+                sy > 0 ? layout.sectorIndex(sx, sy - 1) : -1,
+                sy + 1 < layout.rows ? layout.sectorIndex(sx, sy + 1) : -1,
+            ]) {
+                if (neighbour !== -1 && dirtySector[neighbour] === 0) {
+                    this.relinkSector(neighbour);
+                }
+            }
+        }
+
+        this.dirtySector.fill(0);
+        this.dirtyCount = 0;
+    }
+
+    private slotBase(sector: number, dir: number): number {
+        return sector * this.slotsPerSector + dir * this.perDir;
+    }
+
+    /**
+     * Recomputes the portals on one boundary, writing a node into each side's
+     * slot group for that direction.
+     *
+     * `dir` is `DIR_EAST` or `DIR_SOUTH`; those two cover every boundary once.
+     */
+    private rebuildBoundary(sector: number, dir: number): void {
+        const {map, layout} = this;
+        const east = dir === DIR_EAST;
+        const other = east
+            ? layout.sectorIndex(layout.sectorX(sector) + 1, layout.sectorY(sector))
+            : layout.sectorIndex(layout.sectorX(sector), layout.sectorY(sector) + 1);
+        const oppositeDir = east ? DIR_WEST : DIR_NORTH;
+
+        const nearBase = this.slotBase(sector, dir);
+        const farBase = this.slotBase(other, oppositeDir);
+        for (let i = 0; i < this.perDir; i++) {
+            this.killNode(nearBase + i);
+            this.killNode(farBase + i);
+        }
+
+        const boundary = east ? layout.originX(other) : layout.originY(other);
+        const lo = east ? layout.originY(sector) : layout.originX(sector);
+        const hi = east ? layout.endY(sector) : layout.endX(sector);
+
+        let slot = 0;
+        let runStart = -1;
+        for (let i = lo; i <= hi; i++) {
+            const open =
+                i < hi &&
+                (east
+                    ? map.isPassable(boundary - 1, i) && map.isPassable(boundary, i)
+                    : map.isPassable(i, boundary - 1) && map.isPassable(i, boundary));
+
+            if (open && runStart === -1) {
+                runStart = i;
+            } else if (!open && runStart !== -1) {
+                if (slot < this.perDir) {
+                    const middle = (runStart + i - 1) >> 1;
+                    const nearCell = east
+                        ? map.index(boundary - 1, middle)
+                        : map.index(middle, boundary - 1);
+                    const farCell = east
+                        ? map.index(boundary, middle)
+                        : map.index(middle, boundary);
+                    this.linkPortal(
+                        nearBase + slot,
+                        sector,
+                        nearCell,
+                        farBase + slot,
+                        other,
+                        farCell,
+                    );
+                    slot++;
+                }
+                runStart = -1;
+            }
+        }
+    }
+
+    private killNode(node: number): void {
+        this.alive[node] = 0;
+        this.edgeCount[node] = 0;
+    }
+
+    /** Creates the two nodes of one portal and the edge crossing between them. */
+    private linkPortal(
+        near: number,
+        nearSector: number,
+        nearCell: number,
+        far: number,
+        farSector: number,
+        farCell: number,
+    ): void {
+        const {map} = this;
+
+        this.alive[near] = 1;
+        this.nodeCell[near] = nearCell;
+        this.nodeSectorOf[near] = nearSector;
+        this.alive[far] = 1;
+        this.nodeCell[far] = farCell;
+        this.nodeSectorOf[far] = farSector;
+
+        // Slot 0 of each node is always its twin, so a relink can reset to one
+        // edge and keep the crossing.
+        this.edgeCount[near] = 1;
+        this.edgeTarget[near * this.edgesPerNode] = far;
+        this.edgeCost[near * this.edgesPerNode] = CARDINAL_COST * map.weight[farCell];
+
+        this.edgeCount[far] = 1;
+        this.edgeTarget[far * this.edgesPerNode] = near;
+        this.edgeCost[far * this.edgesPerNode] = CARDINAL_COST * map.weight[nearCell];
+    }
+
+    /**
+     * Recomputes portal-to-portal edges inside one sector.
+     *
+     * One confined Dijkstra per node gives exact costs to every other node in
+     * the sector. Confined is what makes it cheap: the search cannot leave, so
+     * it touches at most `sectorSize^2` cells however large the map.
+     */
+    private relinkSector(sector: number): void {
+        const base = sector * this.slotsPerSector;
+
+        for (let i = 0; i < this.slotsPerSector; i++) {
+            const node = base + i;
+            // Drop intra-sector edges, keep the portal crossing in slot 0.
+            if (this.alive[node] === 1) this.edgeCount[node] = 1;
+        }
+
+        for (let i = 0; i < this.slotsPerSector; i++) {
+            const source = base + i;
+            if (this.alive[source] === 0) continue;
+            this.searchWithinSector(sector, this.nodeCell[source]);
+
+            for (let j = 0; j < this.slotsPerSector; j++) {
+                if (i === j) continue;
+                const target = base + j;
+                if (this.alive[target] === 0) continue;
+                const reached = this.localCostOf(this.nodeCell[target]);
+                if (reached === IMPOSSIBLE) continue;
+
+                const slot = this.edgeCount[source];
+                if (slot >= this.edgesPerNode) break;
+                this.edgeTarget[source * this.edgesPerNode + slot] = target;
+                this.edgeCost[source * this.edgesPerNode + slot] = reached;
+                this.edgeCount[source] = slot + 1;
+            }
+        }
+    }
+
+    /**
+     * Dijkstra from `origin`, confined to `sector`. Results are read back with
+     * `localCostOf` until the next call.
+     */
+    private searchWithinSector(sector: number, origin: number): void {
+        const {map, layout, localCost, localStamp, localHeap} = this;
+        this.localGeneration++;
+        const gen = this.localGeneration;
+        localHeap.clear();
+
+        if (!map.isPassableIndex(origin)) return;
+
+        localCost[origin] = 0;
+        localStamp[origin] = gen;
+        localHeap.push(origin, 0, 0);
+
+        while (localHeap.length > 0) {
+            const current = localHeap.pop();
+            const currentCost = localCost[current];
+            const cx = map.tileX(current);
+            const cy = map.tileY(current);
+
+            for (let n = 0; n < 8; n++) {
+                const nx = cx + NEIGHBOUR_DX[n];
+                const ny = cy + NEIGHBOUR_DY[n];
+                if (!layout.inSector(sector, nx, ny)) continue;
+                if (!map.isPassable(nx, ny)) continue;
+                if (NEIGHBOUR_DIAGONAL[n] && (!map.isPassable(cx, ny) || !map.isPassable(nx, cy))) {
+                    continue;
+                }
+
+                const neighbour = map.index(nx, ny);
+                const step = NEIGHBOUR_DIAGONAL[n] ? DIAGONAL_COST : CARDINAL_COST;
+                const candidate = currentCost + step * map.weight[neighbour];
+
+                if (localStamp[neighbour] === gen && candidate >= localCost[neighbour]) continue;
+                localStamp[neighbour] = gen;
+                localCost[neighbour] = candidate;
+                localHeap.push(neighbour, candidate, 0);
+            }
+        }
+    }
+
+    private localCostOf(cell: number): number {
+        return this.localStamp[cell] === this.localGeneration ? this.localCost[cell] : IMPOSSIBLE;
+    }
+
+    /** Node indices belonging to a sector. */
+    nodesInSector(sector: number, out: Int32Array): number {
+        const base = sector * this.slotsPerSector;
+        let count = 0;
+        for (let i = 0; i < this.slotsPerSector && count < out.length; i++) {
+            if (this.alive[base + i] === 1) out[count++] = base + i;
+        }
+        return count;
+    }
+
+    cellOfNode(node: number): number {
+        return this.nodeCell[node];
+    }
+
+    sectorOfNode(node: number): number {
+        return this.nodeSectorOf[node];
+    }
+
+    /** Cost from `cell` to every node in its own sector, via a confined search. */
+    costsToSectorNodes(sector: number, cell: number, nodes: Int32Array, out: Int32Array): number {
+        const count = this.nodesInSector(sector, nodes);
+        this.searchWithinSector(sector, cell);
+        for (let i = 0; i < count; i++) {
+            out[i] = this.localCostOf(this.nodeCell[nodes[i]]);
+        }
+        return count;
+    }
+
+    /** Cost from each node in `sector` to `cell`, via a confined search. */
+    costsFromSectorNodes(sector: number, cell: number, nodes: Int32Array, out: Int32Array): number {
+        // Weights make the grid directed, so this is not simply the transpose
+        // of `costsToSectorNodes`; search from each node instead.
+        const count = this.nodesInSector(sector, nodes);
+        for (let i = 0; i < count; i++) {
+            this.searchWithinSector(sector, this.nodeCell[nodes[i]]);
+            out[i] = this.localCostOf(cell);
+        }
+        return count;
     }
 
     /**
@@ -127,11 +464,12 @@ export class PortalGraph {
      *
      * Writes the *entry cell of each sector the route passes through*, in
      * order, ending with `goalCell`, and returns how many. That is precisely
-     * what a flow segment needs: pick the entry cell a sector or two ahead and
-     * integrate toward it.
+     * what a flow segment needs: pick the entry a sector or two ahead and
+     * integrate toward it. When `outAxis` is given it receives which way each
+     * crossed boundary runs, so a caller can slide the entry along it.
      *
-     * Returns 0 when no route exists. The search runs over portal nodes, so it
-     * expands tens of nodes where a grid A* would expand thousands of tiles.
+     * Returns 0 when no route exists. The search expands tens of portal nodes
+     * where a grid A* would expand thousands of tiles.
      */
     route(startCell: number, goalCell: number, out: Int32Array, outAxis?: Uint8Array): number {
         this.ensureFresh();
@@ -174,19 +512,18 @@ export class PortalGraph {
         );
         if (startCount === 0 || goalCount === 0) return 0;
 
-        const path = this.searchGraph(startSector, goalSector, goalCell, startCount, goalCount);
+        const path = this.searchGraph(goalSector, goalCell, startCount, goalCount);
         if (path === 0) return 0;
 
         return this.emitSectorEntries(startSector, goalCell, path, out, outAxis);
     }
 
     /**
-     * A* over portal nodes, with virtual start and goal nodes spliced in.
+     * A* over portal nodes, with a virtual goal spliced in.
      *
      * Returns the number of real nodes written to `routePath`, start-first.
      */
     private searchGraph(
-        startSector: number,
         goalSector: number,
         goalCell: number,
         startCount: number,
@@ -197,7 +534,7 @@ export class PortalGraph {
         const gen = this.routeGeneration;
         routeHeap.clear();
 
-        const virtualGoal = this.nodeCount + 1;
+        const virtualGoal = this.routeG.length - 1;
         const goalX = map.tileX(goalCell);
         const goalY = map.tileY(goalCell);
 
@@ -209,6 +546,7 @@ export class PortalGraph {
             routeStamp[node] = gen;
             routeHeap.push(node, this.routeCosts[i] + this.nodeHeuristic(node, goalX, goalY), 0);
         }
+
         let reached = false;
         while (routeHeap.length > 0) {
             const current = routeHeap.pop();
@@ -216,12 +554,10 @@ export class PortalGraph {
                 reached = true;
                 break;
             }
-
-            const currentG = routeG[current];
-            // Stale heap entry: a cheaper path to this node was found later.
             if (routeStamp[current] !== gen) continue;
+            const currentG = routeG[current];
 
-            if (this.sectorOfNode(current) === goalSector) {
+            if (this.nodeSectorOf[current] === goalSector) {
                 const exit = this.goalCostFor(current, goalCount);
                 if (exit !== IMPOSSIBLE) {
                     const candidate = currentG + exit;
@@ -234,10 +570,11 @@ export class PortalGraph {
                 }
             }
 
-            const end = this.edgeStart[current + 1];
-            for (let e = this.edgeStart[current]; e < end; e++) {
-                const next = this.edgeTarget[e];
-                const candidate = currentG + this.edgeCost[e];
+            const edges = this.edgeCount[current];
+            const base = current * this.edgesPerNode;
+            for (let e = 0; e < edges; e++) {
+                const next = this.edgeTarget[base + e];
+                const candidate = currentG + this.edgeCost[base + e];
                 if (routeStamp[next] === gen && candidate >= routeG[next]) continue;
                 routeG[next] = candidate;
                 routeFrom[next] = current;
@@ -295,12 +632,12 @@ export class PortalGraph {
 
         for (let i = 0; i < pathLength && count < out.length - 1; i++) {
             const node = this.routePath[i];
-            const sector = this.nodeSector[node];
+            const sector = this.nodeSectorOf[node];
             if (sector === lastSector) continue;
 
             if (outAxis !== undefined) {
-                // Which way the crossed boundary runs, so a caller can slide
-                // the entry along it. Sectors differ on exactly one axis.
+                // Which way the crossed boundary runs. Sectors differ on
+                // exactly one axis, so this is unambiguous.
                 outAxis[count] =
                     this.layout.sectorX(sector) !== this.layout.sectorX(lastSector)
                         ? AXIS_Y
@@ -313,270 +650,5 @@ export class PortalGraph {
         if (outAxis !== undefined) outAxis[count] = AXIS_NONE;
         out[count++] = goalCell;
         return count;
-    }
-
-    /**
-     * Finds portals on every shared sector edge and creates the two nodes and
-     * crossing edge for each.
-     *
-     * One node per side of a run's middle, rather than one per cell: a 16-cell
-     * wide opening does not need 16 graph nodes, and the flow segment inside
-     * the sector is what actually decides where a unit crosses.
-     */
-    private collectPortals(): void {
-        const {map, layout} = this;
-        const cells: number[] = [];
-        const sectors: number[] = [];
-        // Crossing edges, as (from, to, cost) triples.
-        const crossFrom: number[] = [];
-        const crossTo: number[] = [];
-        const crossCost: number[] = [];
-
-        const addNode = (cell: number, sector: number): number => {
-            cells.push(cell);
-            sectors.push(sector);
-            return cells.length - 1;
-        };
-
-        const addPortal = (ax: number, ay: number, bx: number, by: number): void => {
-            const aCell = map.index(ax, ay);
-            const bCell = map.index(bx, by);
-            const a = addNode(aCell, layout.sectorOfTile(ax, ay));
-            const b = addNode(bCell, layout.sectorOfTile(bx, by));
-            crossFrom.push(a, b);
-            crossTo.push(b, a);
-            crossCost.push(CARDINAL_COST * map.weight[bCell], CARDINAL_COST * map.weight[aCell]);
-        };
-
-        // Vertical edges: sector (sx, sy) against (sx + 1, sy).
-        for (let sy = 0; sy < layout.rows; sy++) {
-            for (let sx = 0; sx + 1 < layout.cols; sx++) {
-                const boundary = layout.originX(layout.sectorIndex(sx + 1, sy));
-                const sector = layout.sectorIndex(sx, sy);
-                const y0 = layout.originY(sector);
-                const y1 = layout.endY(sector);
-                scanRuns(
-                    y0,
-                    y1,
-                    (y) => map.isPassable(boundary - 1, y) && map.isPassable(boundary, y),
-                    (mid) => {
-                        addPortal(boundary - 1, mid, boundary, mid);
-                    },
-                );
-            }
-        }
-
-        // Horizontal edges: sector (sx, sy) against (sx, sy + 1).
-        for (let sy = 0; sy + 1 < layout.rows; sy++) {
-            for (let sx = 0; sx < layout.cols; sx++) {
-                const boundary = layout.originY(layout.sectorIndex(sx, sy + 1));
-                const sector = layout.sectorIndex(sx, sy);
-                const x0 = layout.originX(sector);
-                const x1 = layout.endX(sector);
-                scanRuns(
-                    x0,
-                    x1,
-                    (x) => map.isPassable(x, boundary - 1) && map.isPassable(x, boundary),
-                    (mid) => {
-                        addPortal(mid, boundary - 1, mid, boundary);
-                    },
-                );
-            }
-        }
-
-        this.nodeCount = cells.length;
-        this.nodeCell = new Int32Array(cells);
-        this.nodeSector = new Int32Array(sectors);
-        this.indexSectorNodes();
-        this.pendingCross = {crossFrom, crossTo, crossCost};
-    }
-
-    private pendingCross: {crossFrom: number[]; crossTo: number[]; crossCost: number[]} = {
-        crossFrom: [],
-        crossTo: [],
-        crossCost: [],
-    };
-
-    private indexSectorNodes(): void {
-        const {layout} = this;
-        const counts = new Int32Array(layout.count + 1);
-        for (let n = 0; n < this.nodeCount; n++) counts[this.nodeSector[n] + 1]++;
-        for (let s = 0; s < layout.count; s++) counts[s + 1] += counts[s];
-
-        const fill = new Int32Array(layout.count);
-        const nodes = new Int32Array(this.nodeCount);
-        for (let n = 0; n < this.nodeCount; n++) {
-            const sector = this.nodeSector[n];
-            nodes[counts[sector] + fill[sector]++] = n;
-        }
-
-        this.sectorNodeStart = counts;
-        this.sectorNodes = nodes;
-    }
-
-    /**
-     * Adds portal-to-portal edges inside each sector.
-     *
-     * One confined Dijkstra per node gives exact costs to every other node in
-     * its sector. Confined is what makes it cheap: the search cannot leave a
-     * sector, so it touches at most `sectorSize^2` cells however large the map.
-     */
-    private linkWithinSectors(): void {
-        const {crossFrom, crossTo, crossCost} = this.pendingCross;
-        const from: number[] = crossFrom.slice();
-        const to: number[] = crossTo.slice();
-        const cost: number[] = crossCost.slice();
-
-        for (let sector = 0; sector < this.layout.count; sector++) {
-            const start = this.sectorNodeStart[sector];
-            const end = this.sectorNodeStart[sector + 1];
-            if (end - start < 2) continue;
-
-            for (let i = start; i < end; i++) {
-                const source = this.sectorNodes[i];
-                this.searchWithinSector(sector, this.nodeCell[source]);
-
-                for (let j = start; j < end; j++) {
-                    if (i === j) continue;
-                    const target = this.sectorNodes[j];
-                    const reached = this.localCostOf(this.nodeCell[target]);
-                    if (reached === IMPOSSIBLE) continue;
-                    from.push(source);
-                    to.push(target);
-                    cost.push(reached);
-                }
-            }
-        }
-
-        this.buildCsr(from, to, cost);
-        this.pendingCross = {crossFrom: [], crossTo: [], crossCost: []};
-    }
-
-    private buildCsr(from: number[], to: number[], cost: number[]): void {
-        const counts = new Int32Array(this.nodeCount + 1);
-        for (const f of from) counts[f + 1]++;
-        for (let n = 0; n < this.nodeCount; n++) counts[n + 1] += counts[n];
-
-        const fill = new Int32Array(this.nodeCount);
-        const target = new Int32Array(from.length);
-        const edgeCost = new Int32Array(from.length);
-        for (let e = 0; e < from.length; e++) {
-            const slot = counts[from[e]] + fill[from[e]]++;
-            target[slot] = to[e];
-            edgeCost[slot] = cost[e];
-        }
-
-        this.edgeStart = counts;
-        this.edgeTarget = target;
-        this.edgeCost = edgeCost;
-    }
-
-    /**
-     * Dijkstra from `origin`, confined to `sector`. Results are read back with
-     * `localCostOf` until the next call.
-     */
-    private searchWithinSector(sector: number, origin: number): void {
-        const {map, layout, localCost, localStamp, localHeap} = this;
-        this.localGeneration++;
-        const gen = this.localGeneration;
-        localHeap.clear();
-
-        if (!map.isPassableIndex(origin)) return;
-
-        localCost[origin] = 0;
-        localStamp[origin] = gen;
-        localHeap.push(origin, 0, 0);
-
-        // A tile finalised once; a stale re-push is skipped by cost check.
-        while (localHeap.length > 0) {
-            const current = localHeap.pop();
-            const currentCost = localCost[current];
-            const cx = map.tileX(current);
-            const cy = map.tileY(current);
-
-            for (let n = 0; n < 8; n++) {
-                const nx = cx + NEIGHBOUR_DX[n];
-                const ny = cy + NEIGHBOUR_DY[n];
-                if (!layout.inSector(sector, nx, ny)) continue;
-                if (!map.isPassable(nx, ny)) continue;
-                if (NEIGHBOUR_DIAGONAL[n] && (!map.isPassable(cx, ny) || !map.isPassable(nx, cy))) {
-                    continue;
-                }
-
-                const neighbour = map.index(nx, ny);
-                const step = NEIGHBOUR_DIAGONAL[n] ? DIAGONAL_COST : CARDINAL_COST;
-                const candidate = currentCost + step * map.weight[neighbour];
-
-                if (localStamp[neighbour] === gen && candidate >= localCost[neighbour]) continue;
-                localStamp[neighbour] = gen;
-                localCost[neighbour] = candidate;
-                localHeap.push(neighbour, candidate, 0);
-            }
-        }
-    }
-
-    private localCostOf(cell: number): number {
-        return this.localStamp[cell] === this.localGeneration ? this.localCost[cell] : IMPOSSIBLE;
-    }
-
-    /** Node indices belonging to a sector. */
-    nodesInSector(sector: number, out: Int32Array): number {
-        const start = this.sectorNodeStart[sector];
-        const end = this.sectorNodeStart[sector + 1];
-        const count = Math.min(end - start, out.length);
-        for (let i = 0; i < count; i++) out[i] = this.sectorNodes[start + i];
-        return count;
-    }
-
-    cellOfNode(node: number): number {
-        return this.nodeCell[node];
-    }
-
-    sectorOfNode(node: number): number {
-        return this.nodeSector[node];
-    }
-
-    /** Cost from `cell` to every node in its own sector, via a confined search. */
-    costsToSectorNodes(sector: number, cell: number, nodes: Int32Array, out: Int32Array): number {
-        const count = this.nodesInSector(sector, nodes);
-        this.searchWithinSector(sector, cell);
-        for (let i = 0; i < count; i++) {
-            out[i] = this.localCostOf(this.nodeCell[nodes[i]]);
-        }
-        return count;
-    }
-
-    /** Cost from each node in `sector` to `cell`, via a confined search. */
-    costsFromSectorNodes(sector: number, cell: number, nodes: Int32Array, out: Int32Array): number {
-        // Weights make the grid directed, so this is not simply the transpose
-        // of `costsToSectorNodes`; search from each node instead.
-        const count = this.nodesInSector(sector, nodes);
-        for (let i = 0; i < count; i++) {
-            this.searchWithinSector(sector, this.nodeCell[nodes[i]]);
-            out[i] = this.localCostOf(cell);
-        }
-        return count;
-    }
-}
-
-/**
- * Calls `onRun` with the middle index of each contiguous run in [lo, hi) where
- * `passable` holds.
- */
-function scanRuns(
-    lo: number,
-    hi: number,
-    passable: (i: number) => boolean,
-    onRun: (middle: number) => void,
-): void {
-    let runStart = -1;
-    for (let i = lo; i <= hi; i++) {
-        const open = i < hi && passable(i);
-        if (open && runStart === -1) {
-            runStart = i;
-        } else if (!open && runStart !== -1) {
-            onRun((runStart + i - 1) >> 1);
-            runStart = -1;
-        }
     }
 }

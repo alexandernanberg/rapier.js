@@ -43,6 +43,13 @@ export class TileMap {
     private cachedRevision = -1;
     private cachedHash = 0;
 
+    // Bounding box of tiles changed since `consumeDirtyRegion`. Inclusive;
+    // empty when minX > maxX.
+    private dirtyMinX = 0;
+    private dirtyMinY = 0;
+    private dirtyMaxX = -1;
+    private dirtyMaxY = -1;
+
     constructor(options: TileMapOptions) {
         this.width = options.width;
         this.height = options.height;
@@ -84,6 +91,40 @@ export class TileMap {
         if (this.weight[index] === weight) return;
         this.weight[index] = weight;
         this.revision++;
+
+        if (this.dirtyMaxX < this.dirtyMinX) {
+            this.dirtyMinX = tx;
+            this.dirtyMaxX = tx;
+            this.dirtyMinY = ty;
+            this.dirtyMaxY = ty;
+            return;
+        }
+        if (tx < this.dirtyMinX) this.dirtyMinX = tx;
+        if (tx > this.dirtyMaxX) this.dirtyMaxX = tx;
+        if (ty < this.dirtyMinY) this.dirtyMinY = ty;
+        if (ty > this.dirtyMaxY) this.dirtyMaxY = ty;
+    }
+
+    /**
+     * Region changed since this was last called, as `[minX, minY, maxX, maxY]`
+     * written into `out`. Returns false when nothing changed, and resets.
+     *
+     * Owned by `PortalGraph`, which is the only thing that needs to know *where*
+     * terrain moved rather than merely that it did. Everything else compares
+     * `revision`. Separate changes in one tick merge into one box, which
+     * over-approximates but never misses.
+     */
+    consumeDirtyRegion(out: Int32Array): boolean {
+        if (this.dirtyMaxX < this.dirtyMinX) return false;
+        out[0] = this.dirtyMinX;
+        out[1] = this.dirtyMinY;
+        out[2] = this.dirtyMaxX;
+        out[3] = this.dirtyMaxY;
+        this.dirtyMaxX = -1;
+        this.dirtyMaxY = -1;
+        this.dirtyMinX = 0;
+        this.dirtyMinY = 0;
+        return true;
     }
 
     /** Marks a rectangle — a building footprint, a cliff, water, rough ground. */

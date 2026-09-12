@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
 import {AStar} from "../sim/grid/astar";
 import {PortalGraph} from "../sim/grid/portal_graph";
-import {IMPASSABLE, TileMap} from "../sim/grid/tile_map";
+import {IMPASSABLE, NORMAL, TileMap} from "../sim/grid/tile_map";
 
 function graph(map: TileMap, sectorSize = 8): PortalGraph {
     const g = new PortalGraph(map, sectorSize);
@@ -152,5 +152,149 @@ describe("PortalGraph", () => {
         expect(g.isStale).toBe(false);
         // That wall sealed the whole left/right boundary of the top sectors.
         expect(g.nodes).toBeLessThan(before);
+    });
+});
+
+describe("PortalGraph incremental rebuild", () => {
+    /** Routes for a fixed set of pairs, as the graph's observable behaviour. */
+    function routeFingerprint(g: PortalGraph, map: TileMap): string {
+        const out = new Int32Array(256);
+        const axis = new Uint8Array(256);
+        const parts: string[] = [];
+
+        for (let i = 0; i < 300; i++) {
+            const start = (i * 7919) % map.tileCount;
+            const goal = (i * 6271 + 13) % map.tileCount;
+            if (!map.isPassableIndex(start) || !map.isPassableIndex(goal)) continue;
+            const count = g.route(start, goal, out, axis);
+            parts.push(
+                `${start}>${goal}:${count}:${Array.from(out.subarray(0, count)).join(",")}` +
+                    `:${Array.from(axis.subarray(0, count)).join(",")}`,
+            );
+        }
+        return parts.join("|");
+    }
+
+    function mazeMap(): TileMap {
+        const map = new TileMap({width: 48, height: 48});
+        for (let i = 0; i < 8; i++) {
+            const x = 4 + i * 5;
+            if (i % 2 === 0) map.fillRect(x, 0, 1, 36, IMPASSABLE);
+            else map.fillRect(x, 10, 1, 38, IMPASSABLE);
+        }
+        return map;
+    }
+
+    /**
+     * The test that makes incremental rebuild trustworthy. An incremental graph
+     * that differs from a full one sends units on different routes depending on
+     * the order buildings happened to be placed — a desync in multiplayer and a
+     * mystery in single player.
+     */
+    it("matches a full rebuild after a building goes up", () => {
+        const incremental = mazeMap();
+        const full = mazeMap();
+        const a = graph(incremental, 8);
+        const b = graph(full, 8);
+        expect(routeFingerprint(a, incremental)).toBe(routeFingerprint(b, full));
+
+        // Same change to both: one rebuilt incrementally, one from scratch.
+        for (const map of [incremental, full]) map.fillRect(20, 20, 3, 3, IMPASSABLE);
+        a.ensureFresh();
+        b.build();
+
+        expect(a.nodes).toBe(b.nodes);
+        expect(routeFingerprint(a, incremental)).toBe(routeFingerprint(b, full));
+    });
+
+    it("matches a full rebuild after a wall is demolished", () => {
+        const incremental = mazeMap();
+        const full = mazeMap();
+        const a = graph(incremental, 8);
+        const b = graph(full, 8);
+
+        // Punch a hole through one of the long walls.
+        for (const map of [incremental, full]) map.fillRect(9, 14, 1, 6, NORMAL);
+        a.ensureFresh();
+        b.build();
+
+        expect(a.nodes).toBe(b.nodes);
+        expect(routeFingerprint(a, incremental)).toBe(routeFingerprint(b, full));
+    });
+
+    it("matches a full rebuild after many scattered changes", () => {
+        const incremental = mazeMap();
+        const full = mazeMap();
+        const a = graph(incremental, 8);
+        const b = graph(full, 8);
+
+        // Changes landing in separate sectors on separate updates, which is
+        // where a dirty set that under-approximates would show up.
+        const edits: [number, number, number][] = [
+            [6, 6, IMPASSABLE],
+            [30, 2, IMPASSABLE],
+            [15, 40, IMPASSABLE],
+            [44, 44, IMPASSABLE],
+            [9, 25, NORMAL],
+            [24, 33, IMPASSABLE],
+        ];
+        for (const [x, y, weight] of edits) {
+            for (const map of [incremental, full]) map.fillRect(x, y, 2, 2, weight);
+            a.ensureFresh();
+        }
+        b.build();
+
+        expect(a.nodes).toBe(b.nodes);
+        expect(routeFingerprint(a, incremental)).toBe(routeFingerprint(b, full));
+    });
+
+    it("matches a full rebuild when a change seals a sector boundary", () => {
+        const incremental = new TileMap({width: 32, height: 32});
+        const full = new TileMap({width: 32, height: 32});
+        const a = graph(incremental, 8);
+        const b = graph(full, 8);
+
+        // A whole boundary closed off, which removes nodes on both sides.
+        for (const map of [incremental, full]) map.fillRect(8, 8, 1, 8, IMPASSABLE);
+        a.ensureFresh();
+        b.build();
+
+        expect(a.nodes).toBe(b.nodes);
+        expect(routeFingerprint(a, incremental)).toBe(routeFingerprint(b, full));
+    });
+
+    it("still agrees with grid A* on reachability after changes", () => {
+        const map = mazeMap();
+        const g = graph(map, 8);
+        map.fillRect(20, 20, 4, 4, IMPASSABLE);
+        map.fillRect(9, 14, 1, 6, NORMAL);
+        g.ensureFresh();
+
+        const astar = new AStar(map);
+        const gridOut = new Int32Array(map.tileCount);
+        const graphOut = new Int32Array(256);
+
+        let checked = 0;
+        for (let i = 0; i < 400; i++) {
+            const start = (i * 7919) % map.tileCount;
+            const goal = (i * 6271 + 13) % map.tileCount;
+            if (!map.isPassableIndex(start) || !map.isPassableIndex(goal)) continue;
+            if (start === goal) continue;
+            checked++;
+            expect(g.route(start, goal, graphOut) > 0, `start ${start} goal ${goal}`).toBe(
+                astar.search(start, goal, gridOut).length > 0,
+            );
+        }
+        expect(checked).toBeGreaterThan(200);
+    });
+
+    it("does nothing when terrain is set to the value it already had", () => {
+        const map = mazeMap();
+        const g = graph(map, 8);
+        const before = g.nodes;
+
+        map.setWeight(3, 3, NORMAL);
+        expect(g.isStale).toBe(false);
+        expect(g.nodes).toBe(before);
     });
 });

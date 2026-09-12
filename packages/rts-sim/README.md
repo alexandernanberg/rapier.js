@@ -126,23 +126,30 @@ aim at somewhere on its window's edge, so a route that wants to cut a corner
 the window does not contain still bends. (60, 44) is a case where it bends
 worse than the old whole-map field did — the honest shape of the trade.
 
-### What is still a wall
+### Terrain changes are incremental
 
-**The portal graph rebuild.** It is whole-graph and it fires on every terrain
-change, which in an RTS means every completed building:
+A whole-graph rebuild is not affordable when every completed building invalidates
+the graph, so node indices are stable — each sector owns a fixed arena,
+subdivided by which of its four boundaries a node belongs to — and a change
+relinks only the sectors whose node sets moved.
 
-| map     | rebuild | portal nodes |
-| ------- | ------- | ------------ |
-| 64x64   | 4.9 ms  | 54           |
-| 128x128 | 20.4 ms | 236          |
-| 256x256 | 85.5 ms | 984          |
-| 512x512 | 368 ms  | 4018         |
+Cost of a 3x3 building going up, against rebuilding from scratch:
 
-Raising `sectorSize` does not help — fewer sectors each cost proportionally
-more to link. The fix is per-sector incremental rebuild: only the sectors a
-change touches, plus their boundary neighbours, need relinking, which is about
-1/64th of the work at 128x128. Until that exists, treat terrain changes as
-expensive.
+| map     | full rebuild | incremental | speedup |
+| ------- | ------------ | ----------- | ------- |
+| 64x64   | 3.5 ms       | 0.43 ms     | 8x      |
+| 128x128 | 14.8 ms      | 1.46 ms     | 10x     |
+| 256x256 | 90 ms        | 2.77 ms     | 33x     |
+| 512x512 | 272 ms       | 3.12 ms     | 87x     |
+
+The incremental figure is nearly flat in map size where the full rebuild grows
+fourfold per doubling. It is not perfectly flat because the confined searches
+index arrays sized to the whole map, so a larger map means colder memory.
+
+`TileMap` tracks the bounding box of changed tiles for this, and `PortalGraph`
+is its only consumer — everything else just compares `revision`. Separate
+changes within one update merge into one box, which over-approximates the dirty
+set but never misses it.
 
 ## Layout
 
@@ -275,13 +282,11 @@ sizes, and formations via a virtual leader.
 
 In rough order of how much they matter:
 
-1. **Per-sector incremental portal graph rebuild** — see Cost. The one number
-   in here that is genuinely too slow.
-2. **Formations** — 40 units ordered at one point jostle around it, because
+1. **Formations** — 40 units ordered at one point jostle around it, because
    they cannot all stand there. A virtual leader following the route with units
    holding spots around it, falling back to the flow when they have no line of
    sight to their spot, is the shape that works.
-3. **Radius-aware terrain collision** — only unit centres are tested, so a
+2. **Radius-aware terrain collision** — only unit centres are tested, so a
    radius can overlap a wall by a fraction of a tile. The real fix is obstacle
    steering, not a bigger clamp.
-4. Combat, vision and fog, the network transport, and the render layer.
+3. Combat, vision and fog, the network transport, and the render layer.
