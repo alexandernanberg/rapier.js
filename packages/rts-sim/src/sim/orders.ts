@@ -32,6 +32,15 @@ export interface Order {
     readonly player: number;
     /** Per-player monotonic counter. Breaks ties within a tick. */
     readonly seq: number;
+    /**
+     * Orders issued by one player action share a group id; 0 means ungrouped.
+     *
+     * A real lockstep RTS sends one command carrying a unit list. This flat
+     * model approximates that with one order per unit and a shared id, which
+     * keeps an order a fixed-size record while still letting the simulation see
+     * that forty units were selected together.
+     */
+    readonly group: number;
     readonly type: OrderTypeValue;
     readonly a: number;
     readonly b: number;
@@ -48,8 +57,9 @@ export function makeOrder(
     b = 0,
     c = 0,
     d = 0,
+    group = 0,
 ): Order {
-    return {tick, player, seq, type, a, b, c, d};
+    return {tick, player, seq, group, type, a, b, c, d};
 }
 
 /** Total order over orders inside one execution tick. */

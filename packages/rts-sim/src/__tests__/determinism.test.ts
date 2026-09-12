@@ -29,6 +29,8 @@ const CONFIG: SimConfig = {
     sectorSize: 8,
     segmentBudget: 2,
     segmentCapacity: 64,
+    formationSpacing: 1,
+    formationRange: 8,
     obstacles: [{x: 30, y: 0, w: 2, h: 50, weight: 0}],
 };
 const TICKS = 240;
@@ -54,12 +56,10 @@ function issueScriptedOrders(world: SimWorld, recorder: Recorder, spawned: numbe
     }
     if (world.tick === 10) {
         for (const eid of liveEntities(world)) spawned.push(eid);
-        // One destination across the wall for all six, so the replay covers
-        // the flow-field tier: every unit has to route around the wall's open
-        // end, and one field serves them all.
-        spawned.forEach((eid, index) => {
-            recorder.issue(world, index % 2, OrderType.Move, eid, 50, 12);
-        });
+        // One grouped order across the wall for all six, so the replay covers
+        // formations as well as flow: they route around the wall's open end
+        // sharing segments, then fan into slots on arrival.
+        recorder.issueGroup(world, 0, OrderType.Move, spawned, 50, 12);
     }
     if (world.tick === 80 && spawned.length > 0) {
         recorder.issue(world, 0, OrderType.Damage, spawned[0], 999);
@@ -107,6 +107,9 @@ describe("determinism", () => {
 
         // A crossing of the wall spans many sectors, each needing its own.
         expect(log.segmentsBuilt).toBeGreaterThan(3);
+        // And the scripted match really does form up, so formation state is
+        // part of what replay has to reproduce.
+        expect(log.orders.some((order) => order.group !== 0)).toBe(true);
     });
 
     it("produces an identical checksum sequence for two independent worlds", () => {

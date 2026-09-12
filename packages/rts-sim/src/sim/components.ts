@@ -105,6 +105,23 @@ export const COMPONENT_SPECS = [
         fields: [{name: "angle", kind: "f64"}],
     },
     {
+        /**
+         * Offset from the order position this unit should end up at, so a group
+         * ordered to one point arrives as a block instead of fighting over a
+         * single tile. Zero means no formation.
+         *
+         * Deliberately an offset rather than its own destination: the whole
+         * group keeps one flow goal, so they still share one segment per sector.
+         * Giving each unit its own goal tile would turn one integration into
+         * forty.
+         */
+        name: "Formation",
+        fields: [
+            {name: "offsetX", kind: "f64"},
+            {name: "offsetY", kind: "f64"},
+        ],
+    },
+    {
         name: "Speed",
         fields: [{name: "value", kind: "f64"}],
     },
@@ -145,6 +162,7 @@ export interface Stores {
     MoveTarget: {x: Float64Array; y: Float64Array};
     Path: {state: Uint8Array; goal: Int32Array; sector: Int32Array};
     Facing: {angle: Float64Array};
+    Formation: {offsetX: Float64Array; offsetY: Float64Array};
     Speed: {value: Float64Array};
     Radius: {value: Float64Array};
     Health: {current: Int32Array; max: Int32Array};

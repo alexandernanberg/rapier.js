@@ -21,6 +21,7 @@ export const CommandKind = {
     SetMoveTarget: 2,
     ClearMoveTarget: 3,
     Damage: 4,
+    SetFormationSlot: 5,
 } as const;
 
 export type CommandKindValue = (typeof CommandKind)[keyof typeof CommandKind];
@@ -58,6 +59,10 @@ export class CommandBuffer {
 
     damage(eid: number, amount: number): void {
         this.push(CommandKind.Damage, eid, amount);
+    }
+
+    setFormationSlot(eid: number, offsetX: number, offsetY: number): void {
+        this.push(CommandKind.SetFormationSlot, eid, offsetX, offsetY);
     }
 
     /**

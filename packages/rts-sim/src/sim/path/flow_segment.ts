@@ -240,7 +240,7 @@ export class FlowSegment {
         for (let y = y0; y < y1; y++) {
             for (let x = x0; x < x1; x++) {
                 if (!uniformOpen(map, x, y)) continue;
-                if (!lineClear(map, x, y, tx, ty)) continue;
+                if (!hasLineOfSight(map, x, y, tx, ty)) continue;
 
                 const dx = tx - x;
                 const dy = ty - y;
@@ -404,7 +404,13 @@ function uniformOpen(map: TileMap, tx: number, ty: number): boolean {
  * a whole number of cells, so crossing times compare exactly and the walk is
  * bit-identical everywhere.
  */
-function lineClear(map: TileMap, x0: number, y0: number, x1: number, y1: number): boolean {
+export function hasLineOfSight(
+    map: TileMap,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+): boolean {
     const dx = x1 - x0;
     const dy = y1 - y0;
     const ax = Math.abs(dx);

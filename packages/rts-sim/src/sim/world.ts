@@ -56,6 +56,14 @@ export interface SimConfig {
     readonly segmentBudget: number;
     /** Segments kept cached. A miss re-requests, which is harmless. */
     readonly segmentCapacity: number;
+    /** World units between formation slots. Roughly two unit diameters. */
+    readonly formationSpacing: number;
+    /**
+     * Distance at which a unit starts steering at its formation slot instead of
+     * following the flow. Bounds the line-of-sight test's ray length, and means
+     * a group marches as a crowd and fans out only on arrival.
+     */
+    readonly formationRange: number;
     /**
      * Terrain, declared rather than mutated, so the config alone reproduces the
      * map. A replay log carries this and nothing else about the terrain.
@@ -77,6 +85,8 @@ export const DEFAULT_CONFIG: SimConfig = {
     sectorSize: 16,
     segmentBudget: 4,
     segmentCapacity: 64,
+    formationSpacing: 1,
+    formationRange: 8,
     obstacles: [],
 };
 
@@ -95,6 +105,8 @@ export interface SimScratch {
     readonly rawIds: Int32Array;
     /** Out-param for the point a unit steers at this tick: [x, y]. */
     readonly steer: Float64Array;
+    /** Entity handles of one formation being assembled. */
+    readonly formation: Int32Array;
 }
 
 /** Most neighbours one unit considers when resolving overlap. */
@@ -150,6 +162,7 @@ export function createSimWorld(config: Partial<SimConfig> = {}): SimWorld {
             neighbours: new Int32Array(MAX_NEIGHBOURS),
             rawIds: new Int32Array(merged.capacity),
             steer: new Float64Array(2),
+            formation: new Int32Array(merged.capacity),
         },
         entityIndex,
     });
@@ -207,6 +220,10 @@ function applyCommand(world: SimWorld, command: Command): void {
             addComponent(world, command.a, stores.MoveTarget);
             stores.MoveTarget.x[id] = command.b;
             stores.MoveTarget.y[id] = command.c;
+            // A new destination drops any slot held from a previous order; a
+            // grouped order re-sets it immediately after.
+            stores.Formation.offsetX[id] = 0;
+            stores.Formation.offsetY[id] = 0;
             // A new destination invalidates the segment in hand; the request
             // system queues a fresh one next tick.
             resetPath(world, id);
@@ -228,6 +245,13 @@ function applyCommand(world: SimWorld, command: Command): void {
             if (!entityExists(world, command.a)) break;
             const id = idOf(world, command.a);
             stores.Health.current[id] -= command.b | 0;
+            break;
+        }
+        case CommandKind.SetFormationSlot: {
+            if (!entityExists(world, command.a)) break;
+            const id = idOf(world, command.a);
+            stores.Formation.offsetX[id] = command.b;
+            stores.Formation.offsetY[id] = command.c;
             break;
         }
     }
@@ -255,6 +279,7 @@ export function spawnUnit(
     addComponent(world, eid, stores.Position);
     addComponent(world, eid, stores.Velocity);
     addComponent(world, eid, stores.Facing);
+    addComponent(world, eid, stores.Formation);
     addComponent(world, eid, stores.Speed);
     addComponent(world, eid, stores.Radius);
     addComponent(world, eid, stores.Health);
@@ -279,6 +304,8 @@ export function spawnUnit(
     stores.Velocity.x[id] = 0;
     stores.Velocity.y[id] = 0;
     stores.Facing.angle[id] = 0;
+    stores.Formation.offsetX[id] = 0;
+    stores.Formation.offsetY[id] = 0;
     stores.Speed.value[id] = stats.speed;
     stores.Radius.value[id] = stats.radius;
     stores.Health.current[id] = stats.health;
@@ -304,7 +331,13 @@ export function applyOrders(world: SimWorld, orders: readonly Order[]): void {
                 world.cmd.spawn(order.a, order.player, order.b, order.c);
                 break;
             case OrderType.Move:
-                world.cmd.setMoveTarget(order.a, order.b, order.c);
+                if (order.group !== 0) {
+                    // Grouped orders are issued consecutively, so a group's
+                    // orders are contiguous once sorted by (player, seq).
+                    i = assignFormation(world, orders, i) - 1;
+                } else {
+                    world.cmd.setMoveTarget(order.a, order.b, order.c);
+                }
                 break;
             case OrderType.Stop:
                 world.cmd.clearMoveTarget(order.a);
@@ -314,4 +347,57 @@ export function applyOrders(world: SimWorld, orders: readonly Order[]): void {
                 break;
         }
     }
+}
+
+/**
+ * Turns one player action into a formation, and returns the index just past it.
+ *
+ * Every unit keeps the *same* destination — so the group still shares one flow
+ * segment per sector — and gets an offset from it instead. Slots fill a centred
+ * grid, assigned by ascending entity id so the layout is reproducible rather
+ * than dependent on selection order.
+ */
+function assignFormation(world: SimWorld, orders: readonly Order[], start: number): number {
+    const group = orders[start].group;
+    const player = orders[start].player;
+
+    let end = start;
+    while (
+        end < orders.length &&
+        orders[end].group === group &&
+        orders[end].player === player &&
+        orders[end].type === OrderType.Move
+    ) {
+        end++;
+    }
+
+    const count = Math.min(end - start, world.scratch.formation.length);
+    const members = world.scratch.formation.subarray(0, count);
+    for (let i = 0; i < count; i++) members[i] = orders[start + i].a;
+
+    // Sort by handle, so which unit takes which slot does not depend on the
+    // order the client happened to list them in. Handles are distinct, so the
+    // comparator is a strict total order and the result is unique.
+    members.sort((a, b) => a - b);
+
+    const spacing = world.config.formationSpacing;
+    const columns = Math.ceil(Math.sqrt(count));
+    const rows = Math.ceil(count / columns);
+
+    for (let i = 0; i < count; i++) {
+        const eid = members[i];
+        const column = i % columns;
+        const row = (i / columns) | 0;
+
+        world.cmd.setMoveTarget(eid, orders[start].b, orders[start].c);
+        if (count > 1) {
+            world.cmd.setFormationSlot(
+                eid,
+                (column - (columns - 1) / 2) * spacing,
+                (row - (rows - 1) / 2) * spacing,
+            );
+        }
+    }
+
+    return end;
 }

@@ -107,6 +107,32 @@ One segment integrates a 3x3 block of sectors, so its cost depends on
 That is the entire reason the portal graph exists. A whole-map field grows with
 the map; a segment does not.
 
+### Formations stop the jostling
+
+A group ordered to one point used to fight over a single tile forever. Units now
+get a slot in a block around the order position and settle into it:
+
+| units | individual orders     | one grouped order |
+| ----- | --------------------- | ----------------- |
+| 40    | all settle            | all settle        |
+| 200   | all settle            | all settle        |
+| 2000  | **1194 still moving** | all settle        |
+
+The defect was scale-dependent — with few enough units separation eventually
+finds an equilibrium on its own, which is why it needs measuring at scale rather
+than eyeballing at forty.
+
+Crucially the group keeps **one** flow goal and each unit gets an _offset_ from
+it, so 2000 units still share one segment per sector. Giving each unit its own
+destination tile would have turned one integration into two thousand.
+
+A unit steers at its slot once it has line of sight to it and is close enough,
+and follows the flow until then — one rule that covers marching as a crowd and
+squeezing through a gap, which is why Age of Empires IV uses it. "Close enough"
+is widened by how far out the unit's own slot sits; gating on distance to the
+slot alone strands the outer ranks of a large formation, which pile onto the
+centre instead.
+
 ### Path quality
 
 Excess distance over a straight line, on open ground, measured end to end:
@@ -160,7 +186,7 @@ set but never misses it.
 | `core/hash.ts`             | 64-bit FNV-1a over typed arrays                       |
 | `sim/components.ts`        | Component stores and the spec that drives hashing     |
 | `sim/command_buffer.ts`    | Deferred structural changes                           |
-| `sim/orders.ts`            | Player orders and canonical per-tick ordering         |
+| `sim/orders.ts`            | Player orders, group ids, canonical per-tick ordering |
 | `sim/world.ts`             | World construction, command application               |
 | `sim/systems.ts`           | Systems and the explicit schedule                     |
 | `sim/tick.ts`              | The fixed timestep                                    |
@@ -232,7 +258,7 @@ every system's inner loop stay put.
 
 ## Movement, and why there is no physics
 
-Four layers, none of which is a solver. The design follows the one Age of
+Five layers, none of which is a solver. The design follows the one Age of
 Empires IV describes — portal graph, segmented flow, steering — because its
 requirements are the same ones: hundreds of units, a grid, and terrain that
 changes while they walk.
@@ -249,9 +275,13 @@ changes while they walk.
    they are the cells hugging an obstacle. Keyed by (sector, goal), so every
    unit in a sector heading the same way reads one segment and later orders
    across the same ground reuse it.
-3. **Separate** — symmetric circle push-apart over the spatial grid, each unit
+3. **Formation slot** — a unit ordered as part of a group steers at its own slot
+   in a block around the order position, once it has line of sight to it. Until
+   then it follows the flow. The slot is an offset, not a separate destination,
+   so the group shares one segment.
+4. **Separate** — symmetric circle push-apart over the spatial grid, each unit
    resolving half of each overlap.
-4. **Terrain collision** — positions are clamped out of walls on write, axis by
+5. **Terrain collision** — positions are clamped out of walls on write, axis by
    axis so a blocked diagonal still slides. Pathfinding cannot cover this and is
    not meant to: separation pushes units with no idea where the walls are.
 
@@ -276,16 +306,18 @@ per-client, never feeding a single bit back into the sim.
 Not yet taken from that reading: an eikonal/fast-marching integration with an
 8-bit gradient for the shadowed cells, the BFS-and-shadow-lines form of the LOS
 pass (faster than the per-cell raycast here), extended flow for mixed unit
-sizes, and formations via a virtual leader.
+sizes, and a virtual formation leader for cohesive marching.
 
 ## Not yet built
 
 In rough order of how much they matter:
 
-1. **Formations** — 40 units ordered at one point jostle around it, because
-   they cannot all stand there. A virtual leader following the route with units
-   holding spots around it, falling back to the flow when they have no line of
-   sight to their spot, is the shape that works.
+1. **Cohesive marching** — formations settle correctly on arrival but do not
+   hold their shape en route; the crowd travels as a crowd. A virtual leader
+   entity following the route, with slots rotated to its facing, is the shape
+   that adds this, and the leader needs no new systems: give it Position,
+   MoveTarget, Path and Speed but no Radius or Health and the existing schedule
+   moves it.
 2. **Radius-aware terrain collision** — only unit centres are tested, so a
    radius can overlap a wall by a fraction of a tile. The real fix is obstacle
    steering, not a bigger clamp.

@@ -12,6 +12,7 @@ import {createSimWorld, type SimConfig, type SimWorld} from "./sim/world";
  */
 export class Recorder {
     private readonly seqs = new Map<number, number>();
+    private readonly groups = new Map<number, number>();
     readonly orders: Order[] = [];
 
     /**
@@ -44,6 +45,49 @@ export class Recorder {
         this.orders.push(order);
         return order;
     }
+
+    /**
+     * Issues one order per unit, all sharing a group id — the equivalent of a
+     * player boxing a selection and right-clicking once.
+     *
+     * The simulation uses the shared id to lay the units out in a formation
+     * around the destination while keeping their flow goal identical, so the
+     * group still shares one segment per sector.
+     */
+    issueGroup(
+        world: SimWorld,
+        player: number,
+        type: OrderTypeValue,
+        units: readonly number[],
+        b = 0,
+        c = 0,
+        d = 0,
+    ): Order[] {
+        const group = (this.groups.get(player) ?? 0) + 1;
+        this.groups.set(player, group);
+
+        const issued: Order[] = [];
+        for (const eid of units) {
+            const seq = (this.seqs.get(player) ?? 0) + 1;
+            this.seqs.set(player, seq);
+
+            const order = makeOrder(
+                world.tick + world.config.orderDelay,
+                player,
+                seq,
+                type,
+                eid,
+                b,
+                c,
+                d,
+                group,
+            );
+            world.orders.schedule(order);
+            this.orders.push(order);
+            issued.push(order);
+        }
+        return issued;
+    }
 }
 
 export interface Checksum {
@@ -60,7 +104,7 @@ export interface ReplayLog {
     readonly checksums: readonly Checksum[];
 }
 
-export const SIM_VERSION = 5;
+export const SIM_VERSION = 6;
 
 export interface ReplayOptions {
     /** Hash every Nth tick. 1 in tests; higher in a real match. */

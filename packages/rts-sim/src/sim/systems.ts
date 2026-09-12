@@ -1,6 +1,7 @@
 import {query} from "bitecs";
 import {atan2, length} from "../core/math";
 import {PathState} from "./components";
+import {hasLineOfSight} from "./path/flow_segment";
 import {idOf, type SimWorld} from "./world";
 
 /** Distance at which a unit is considered to have reached its order position. */
@@ -109,10 +110,10 @@ export function pathServiceSystem(world: SimWorld): void {
  */
 export function movementSystem(world: SimWorld): void {
     const {stores, cmd} = world;
-    const {Position, Velocity, MoveTarget, Speed, Facing, Path} = stores;
+    const {Position, Velocity, MoveTarget, Speed, Facing, Path, Formation} = stores;
     const dt = world.config.dt;
 
-    const entities = query(world, [Position, Velocity, MoveTarget, Speed, Facing, Path]);
+    const entities = query(world, [Position, Velocity, MoveTarget, Speed, Facing, Path, Formation]);
 
     for (let i = 0; i < entities.length; i++) {
         const eid = entities[i];
@@ -123,8 +124,12 @@ export function movementSystem(world: SimWorld): void {
 
         const steer = nextSteeringPoint(world, id, px, py);
         const towardOrder = steer === TOWARD_ORDER;
-        const targetX = towardOrder ? MoveTarget.x[id] : world.scratch.steer[0];
-        const targetY = towardOrder ? MoveTarget.y[id] : world.scratch.steer[1];
+        const targetX = towardOrder
+            ? MoveTarget.x[id] + Formation.offsetX[id]
+            : world.scratch.steer[0];
+        const targetY = towardOrder
+            ? MoveTarget.y[id] + Formation.offsetY[id]
+            : world.scratch.steer[1];
 
         const dx = targetX - px;
         const dy = targetY - py;
@@ -176,7 +181,34 @@ const TOWARD_ORDER = 1;
  */
 function nextSteeringPoint(world: SimWorld, id: number, px: number, py: number): number {
     const {stores, map, paths, scratch} = world;
-    const {Path} = stores;
+    const {Path, MoveTarget, Formation} = stores;
+
+    // A formation member heads for its own slot as soon as it can see it, and
+    // follows the flow until then. One rule covers both marching as a crowd and
+    // squeezing through a gap, which is why Age of Empires IV uses it.
+    const offsetX = Formation.offsetX[id];
+    const offsetY = Formation.offsetY[id];
+    if (offsetX !== 0 || offsetY !== 0) {
+        const spotX = MoveTarget.x[id] + offsetX;
+        const spotY = MoveTarget.y[id] + offsetY;
+
+        // Measured against the order position and widened by how far out this
+        // unit's slot sits, so the whole group starts fanning out at the same
+        // moment. Gating on distance to the slot alone would strand the outer
+        // ranks of a large formation: they never get close enough to their own
+        // slot to aim for it, and pile onto the centre instead.
+        const range = world.config.formationRange + Math.abs(offsetX) + Math.abs(offsetY);
+
+        if (Math.abs(MoveTarget.x[id] - px) <= range && Math.abs(MoveTarget.y[id] - py) <= range) {
+            const fromX = map.worldToTileX(px);
+            const fromY = map.worldToTileY(py);
+            const toX = map.worldToTileX(spotX);
+            const toY = map.worldToTileY(spotY);
+            if (map.inBounds(toX, toY) && hasLineOfSight(map, fromX, fromY, toX, toY)) {
+                return TOWARD_ORDER;
+            }
+        }
+    }
 
     if (Path.state[id] !== PathState.Flow) return TOWARD_ORDER;
 
